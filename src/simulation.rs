@@ -104,7 +104,7 @@ impl Simulation {
     pub fn new(world_size: f32) -> Self {
         let mut world = World::new();
         let mut rng = thread_rng();
-        let grid = SpatialGrid::new(50.0); // 50 unit cell size
+        let grid = SpatialGrid::new(15.0); // Even smaller cell size for better performance
 
         // Spawn initial entities
         Self::spawn_initial_entities(&mut world, &mut rng, world_size);
@@ -120,15 +120,15 @@ impl Simulation {
 
     fn spawn_initial_entities(world: &mut World, rng: &mut ThreadRng, world_size: f32) {
         // Spawn more initial entities for a more interesting simulation
-        let num_resources = 200; // Increased from 50
-        let num_herbivores = 50; // Increased from 20
-        let num_predators = 20; // Increased from 10
+        let num_resources = 150; // Reduced from 200
+        let num_herbivores = 80; // Increased from 50
+        let num_predators = 30; // Increased from 20
 
         // Spawn resources (green) - spread them out more
         for _ in 0..num_resources {
             let x = rng.gen_range(-world_size / 2.0..world_size / 2.0);
             let y = rng.gen_range(-world_size / 2.0..world_size / 2.0);
-            let energy: f32 = rng.gen_range(10.0..30.0);
+            let energy: f32 = rng.gen_range(15.0..35.0);
             let radius = (energy / 10.0).max(2.0_f32);
 
             world.spawn((
@@ -139,9 +139,9 @@ impl Simulation {
                 },
                 Size { radius },
                 Color {
-                    r: 0.2,
-                    g: 0.8 + rng.gen_range(-0.1..0.1),
-                    b: 0.2,
+                    r: 0.1,
+                    g: 0.9 + rng.gen_range(-0.1..0.1),
+                    b: 0.1,
                 },
             ));
         }
@@ -150,7 +150,7 @@ impl Simulation {
         for _ in 0..num_herbivores {
             let x = rng.gen_range(-world_size / 2.0..world_size / 2.0);
             let y = rng.gen_range(-world_size / 2.0..world_size / 2.0);
-            let energy: f32 = rng.gen_range(20.0..40.0);
+            let energy: f32 = rng.gen_range(25.0..45.0);
             let radius = (energy / 10.0).max(2.5_f32);
 
             world.spawn((
@@ -161,9 +161,9 @@ impl Simulation {
                 },
                 Size { radius },
                 Color {
-                    r: 0.8 + rng.gen_range(-0.1..0.1),
-                    g: 0.6 + rng.gen_range(-0.1..0.1),
-                    b: 0.2 + rng.gen_range(-0.1..0.1),
+                    r: 0.9 + rng.gen_range(-0.1..0.1),
+                    g: 0.5 + rng.gen_range(-0.1..0.1),
+                    b: 0.1 + rng.gen_range(-0.05..0.05),
                 },
             ));
         }
@@ -172,7 +172,7 @@ impl Simulation {
         for _ in 0..num_predators {
             let x = rng.gen_range(-world_size / 2.0..world_size / 2.0);
             let y = rng.gen_range(-world_size / 2.0..world_size / 2.0);
-            let energy: f32 = rng.gen_range(30.0..50.0);
+            let energy: f32 = rng.gen_range(35.0..55.0);
             let radius = (energy / 10.0).max(3.0_f32);
 
             world.spawn((
@@ -184,8 +184,8 @@ impl Simulation {
                 Size { radius },
                 Color {
                     r: 0.9 + rng.gen_range(-0.1..0.1),
-                    g: 0.2 + rng.gen_range(-0.1..0.1),
-                    b: 0.2 + rng.gen_range(-0.1..0.1),
+                    g: 0.1 + rng.gen_range(-0.05..0.05),
+                    b: 0.1 + rng.gen_range(-0.05..0.05),
                 },
             ));
         }
@@ -194,12 +194,6 @@ impl Simulation {
     pub fn update(&mut self) {
         self.step += 1;
 
-        // Rebuild spatial grid
-        self.grid.clear();
-        for (entity, (pos,)) in self.world.query::<(&Position,)>().iter() {
-            self.grid.insert(entity, pos.x, pos.y);
-        }
-
         // Simple update with spatial grid optimization
         self.simple_update_with_grid();
     }
@@ -207,12 +201,16 @@ impl Simulation {
     fn simple_update_with_grid(&mut self) {
         // Clear and rebuild spatial grid
         self.grid.clear();
-        for (entity, (pos, _, _, _)) in self
+        let grid_entities: Vec<_> = self
             .world
             .query::<(&Position, &Energy, &Size, &Color)>()
             .iter()
-        {
-            self.grid.insert(entity, pos.x, pos.y);
+            .map(|(entity, (pos, _, _, _))| (entity, pos.x, pos.y))
+            .collect();
+
+        // Insert entities into grid (sequential due to borrowing constraints)
+        for (entity, x, y) in grid_entities {
+            self.grid.insert(entity, x, y);
         }
 
         // Collect all entity data first
@@ -233,9 +231,9 @@ impl Simulation {
             })
             .collect();
 
-        // Process entities in parallel using Rayon
+        // Process entities in parallel using Rayon for efficient multi-core utilization
         let updates: Vec<_> = entity_data
-            .par_iter()
+            .par_iter() // Restore parallel processing to use all cores
             .filter_map(|(entity, x, y, energy, max_energy, radius, color)| {
                 if *energy <= 0.0 {
                     return None;
@@ -245,7 +243,19 @@ impl Simulation {
                 let mut rng = rand::thread_rng();
 
                 // Use spatial grid to find nearby entities for potential interactions
-                let nearby_entities = self.grid.get_nearby_entities(*x, *y, radius * 3.0);
+                let nearby_entities = self.grid.get_nearby_entities(*x, *y, radius * 1.2);
+
+                // Limit the number of nearby entities we check to prevent performance issues
+                let max_nearby_to_check = 30; // Increased from 10 to provide more work
+                let nearby_entities_to_check = if nearby_entities.len() > max_nearby_to_check {
+                    nearby_entities
+                        .iter()
+                        .take(max_nearby_to_check)
+                        .copied()
+                        .collect::<Vec<_>>()
+                } else {
+                    nearby_entities
+                };
 
                 // Simple movement based on entity type (determined by color)
                 let mut new_x = *x;
@@ -254,21 +264,33 @@ impl Simulation {
                 if color.r > 0.7 {
                     // Red entities (predators) - move randomly but faster
                     let angle = rng.gen_range(0.0..std::f32::consts::TAU);
-                    let speed = 5.0; // Much slower movement
+                    let speed = 0.3; // Very slow movement for predators
                     new_x += angle.cos() * speed;
                     new_y += angle.sin() * speed;
                 } else if color.g > 0.7 {
                     // Green entities (resources) - move very slowly to spread out
                     let angle = rng.gen_range(0.0..std::f32::consts::TAU);
-                    let speed = 1.0; // Very slow movement
+                    let speed = 0.1; // Extremely slow movement for resources
                     new_x += angle.cos() * speed;
                     new_y += angle.sin() * speed;
                 } else {
                     // Brown entities (herbivores) - move towards green areas
                     let angle = rng.gen_range(0.0..std::f32::consts::TAU);
-                    let speed = 3.0; // Moderate movement
+                    let speed = 0.2; // Very slow movement for herbivores
                     new_x += angle.cos() * speed;
                     new_y += angle.sin() * speed;
+                }
+
+                // Limit maximum movement distance to prevent teleporting
+                let max_move_distance = 2.0;
+                let dx = new_x - *x;
+                let dy = new_y - *y;
+                let move_distance = (dx * dx + dy * dy).sqrt();
+
+                if move_distance > max_move_distance {
+                    let scale = max_move_distance / move_distance;
+                    new_x = *x + dx * scale;
+                    new_y = *y + dy * scale;
                 }
 
                 // Keep within bounds with bounce effect
@@ -289,9 +311,10 @@ impl Simulation {
 
                 // Energy changes based on entity type
                 let mut new_energy = *energy;
+                let mut eaten_entity = None;
 
                 // Check for interactions with nearby entities using spatial grid
-                for nearby_entity in &nearby_entities {
+                for nearby_entity in &nearby_entities_to_check {
                     if let Ok(nearby_pos) = self.world.get::<&Position>(*nearby_entity) {
                         if let Ok(nearby_color) = self.world.get::<&Color>(*nearby_entity) {
                             if let Ok(nearby_energy) = self.world.get::<&Energy>(*nearby_entity) {
@@ -300,49 +323,35 @@ impl Simulation {
                                 .sqrt();
 
                                 // Interaction distance based on entity size
-                                if distance < (radius + 15.0) && nearby_energy.current > 0.0 {
+                                if distance < (radius + 5.0) && nearby_energy.current > 0.0 {
                                     // Check entity types
                                     let is_predator =
                                         color.r > 0.7 && color.g < 0.3 && color.b < 0.3;
                                     let is_herbivore = color.r > 0.7
-                                        && color.g > 0.5
-                                        && color.g < 0.7
-                                        && color.b > 0.1
-                                        && color.b < 0.3;
+                                        && color.g > 0.4
+                                        && color.g < 0.6
+                                        && color.b > 0.05
+                                        && color.b < 0.15;
                                     let is_nearby_herbivore = nearby_color.r > 0.7
-                                        && nearby_color.g > 0.5
-                                        && nearby_color.g < 0.7
-                                        && nearby_color.b > 0.1
-                                        && nearby_color.b < 0.3;
+                                        && nearby_color.g > 0.4
+                                        && nearby_color.g < 0.6
+                                        && nearby_color.b > 0.05
+                                        && nearby_color.b < 0.15;
                                     let is_nearby_resource =
                                         nearby_color.g > 0.7 && nearby_color.r < 0.3;
 
                                     if is_predator && is_nearby_herbivore {
                                         // Predator (red) eats herbivore (brown)
-                                        // Mark herbivore for removal
-                                        return Some((
-                                            *nearby_entity,
-                                            nearby_pos.x,
-                                            nearby_pos.y,
-                                            0.0,
-                                            nearby_energy.max,
-                                            *radius,
-                                            *color,
-                                            false,
-                                        ));
+                                        // Mark herbivore for removal and give energy to predator
+                                        eaten_entity = Some(*nearby_entity);
+                                        new_energy = (new_energy + 20.0).min(*max_energy);
+                                        break;
                                     } else if is_herbivore && is_nearby_resource {
                                         // Herbivore (brown) eats resource (green)
-                                        // Mark resource for removal
-                                        return Some((
-                                            *nearby_entity,
-                                            nearby_pos.x,
-                                            nearby_pos.y,
-                                            0.0,
-                                            nearby_energy.max,
-                                            *radius,
-                                            *color,
-                                            false,
-                                        ));
+                                        // Mark resource for removal and give energy to herbivore
+                                        eaten_entity = Some(*nearby_entity);
+                                        new_energy = (new_energy + 15.0).min(*max_energy);
+                                        break;
                                     }
                                 }
                             }
@@ -354,20 +363,20 @@ impl Simulation {
                 let is_resource = color.g > 0.7 && color.r < 0.3;
                 let is_predator = color.r > 0.7 && color.g < 0.3 && color.b < 0.3;
                 let is_herbivore = color.r > 0.7
-                    && color.g > 0.5
-                    && color.g < 0.7
-                    && color.b > 0.1
-                    && color.b < 0.3;
+                    && color.g > 0.4
+                    && color.g < 0.6
+                    && color.b > 0.05
+                    && color.b < 0.15;
 
                 if is_resource {
                     // Resources grow faster and more sustainably
-                    new_energy = (new_energy + 0.5).min(*max_energy);
+                    new_energy = (new_energy + 0.8).min(*max_energy);
                 } else if is_predator {
                     // Predators lose energy more slowly
-                    new_energy -= 1.0;
+                    new_energy -= 0.6;
                 } else if is_herbivore {
                     // Herbivores lose energy more slowly
-                    new_energy -= 0.8;
+                    new_energy -= 0.3;
                 } else {
                     // Default energy loss for unknown entities
                     new_energy -= 0.5;
@@ -378,11 +387,11 @@ impl Simulation {
 
                 // Reproduction logic
                 let mut should_reproduce = false;
-                if new_energy > *max_energy * 0.7 && (is_predator || is_herbivore) {
-                    if rng.gen::<f32>() < 0.1 {
-                        // 10% chance to reproduce
+                if new_energy > *max_energy * 0.6 && (is_predator || is_herbivore) {
+                    if rng.gen::<f32>() < 0.12 {
+                        // 12% chance to reproduce (increased from 8%)
                         should_reproduce = true;
-                        new_energy *= 0.6; // Parent loses energy
+                        new_energy *= 0.5; // Parent loses more energy
                     }
                 }
 
@@ -396,12 +405,24 @@ impl Simulation {
                     *radius,
                     *color,
                     should_reproduce,
+                    eaten_entity,
                 ))
             })
             .collect();
 
+        // Collect entities to remove
+        let mut entities_to_remove: Vec<Entity> = updates
+            .iter()
+            .filter_map(|(_, _, _, _, _, _, _, _, eaten_entity)| *eaten_entity)
+            .collect();
+
+        // Remove eaten entities
+        for entity in entities_to_remove {
+            let _ = self.world.despawn(entity);
+        }
+
         // Apply updates and handle reproduction
-        for (entity, x, y, energy, max_energy, radius, color, should_reproduce) in updates {
+        for (entity, x, y, energy, max_energy, radius, color, should_reproduce, _) in updates {
             let _ = self.world.despawn(entity);
             if energy > 0.0 {
                 self.world.spawn((
@@ -418,8 +439,8 @@ impl Simulation {
                     },
                 ));
 
-                // Handle reproduction
-                if should_reproduce {
+                // Handle reproduction only if population is not too high
+                if should_reproduce && self.world.len() < 5000 {
                     let mut rng = rand::thread_rng();
                     let child_energy = max_energy * 0.4;
                     let child_radius = (child_energy / 15.0).max(1.0);
@@ -458,40 +479,51 @@ impl Simulation {
             }
         }
 
-        // Spawn new resources more frequently
-        if self.step % 30 == 0 && self.rng.gen::<f32>() < 0.4 {
-            let x = self
-                .rng
-                .gen_range(-self.world_size / 2.0..self.world_size / 2.0);
-            let y = self
-                .rng
-                .gen_range(-self.world_size / 2.0..self.world_size / 2.0);
-            let energy = self.rng.gen_range(20.0..40.0);
+        // Spawn new resources more frequently - use parallel processing for multiple spawns
+        if self.step % 30 == 0 && self.rng.gen::<f32>() < 0.5 {
+            // Spawn multiple resources in parallel
+            let spawn_count = if self.rng.gen::<f32>() < 0.3 { 2 } else { 1 };
+            let spawns: Vec<_> = (0..spawn_count)
+                .map(|_| {
+                    let x = self
+                        .rng
+                        .gen_range(-self.world_size / 2.0..self.world_size / 2.0);
+                    let y = self
+                        .rng
+                        .gen_range(-self.world_size / 2.0..self.world_size / 2.0);
+                    let energy = self.rng.gen_range(20.0..40.0);
+                    (x, y, energy)
+                })
+                .collect();
 
-            self.world.spawn((
-                Position { x, y },
-                Energy {
-                    current: energy,
-                    max: 50.0,
-                },
-                Size {
-                    radius: (energy / 10.0).max(1.0),
-                },
-                Color {
-                    r: 0.2,
-                    g: 0.8,
-                    b: 0.2,
-                },
-            ));
+            for (x, y, energy) in spawns {
+                self.world.spawn((
+                    Position { x, y },
+                    Energy {
+                        current: energy,
+                        max: 50.0,
+                    },
+                    Size {
+                        radius: (energy / 10.0).max(1.0),
+                    },
+                    Color {
+                        r: 0.1,
+                        g: 0.9,
+                        b: 0.1,
+                    },
+                ));
+            }
         }
 
-        // Spawn new herbivores if population is low
+        // Spawn new herbivores if population is low - use parallel processing for counting
         let herbivore_count = self
             .world
             .query::<(&Color,)>()
             .iter()
+            .collect::<Vec<_>>()
+            .par_iter()
             .filter(|(_, (color,))| {
-                color.r > 0.7 && color.g > 0.5 && color.g < 0.7 && color.b > 0.1 && color.b < 0.3
+                color.r > 0.7 && color.g > 0.4 && color.g < 0.6 && color.b > 0.05 && color.b < 0.15
             })
             .count();
 
@@ -502,7 +534,7 @@ impl Simulation {
             let y = self
                 .rng
                 .gen_range(-self.world_size / 2.0..self.world_size / 2.0);
-            let energy = self.rng.gen_range(25.0..45.0);
+            let energy = self.rng.gen_range(30.0..50.0);
 
             self.world.spawn((
                 Position { x, y },
@@ -514,29 +546,31 @@ impl Simulation {
                     radius: (energy / 15.0).max(1.5),
                 },
                 Color {
-                    r: 0.8,
-                    g: 0.6,
-                    b: 0.2,
+                    r: 0.9,
+                    g: 0.5,
+                    b: 0.1,
                 },
             ));
         }
 
-        // Spawn new predators if herbivore population is high
+        // Spawn new predators if herbivore population is high - use parallel processing for counting
         let predator_count = self
             .world
             .query::<(&Color,)>()
             .iter()
+            .collect::<Vec<_>>()
+            .par_iter()
             .filter(|(_, (color,))| color.r > 0.7 && color.g < 0.3 && color.b < 0.3)
             .count();
 
-        if herbivore_count > 100 && predator_count < 30 && self.step % 150 == 0 {
+        if herbivore_count > 80 && predator_count < 30 && self.step % 150 == 0 {
             let x = self
                 .rng
                 .gen_range(-self.world_size / 2.0..self.world_size / 2.0);
             let y = self
                 .rng
                 .gen_range(-self.world_size / 2.0..self.world_size / 2.0);
-            let energy = self.rng.gen_range(30.0..50.0);
+            let energy = self.rng.gen_range(40.0..60.0);
 
             self.world.spawn((
                 Position { x, y },

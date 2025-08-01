@@ -1,6 +1,6 @@
 mod simulation;
-mod ui;
 mod test_graphics;
+mod ui;
 
 use clap::Parser;
 
@@ -46,12 +46,14 @@ fn main() {
                     .count();
                 let predators = entities
                     .iter()
-                    .filter(|(_, _, _, r, _, _)| *r > 0.7)
+                    .filter(|(_, _, _, r, g, b)| *r > 0.7 && *g < 0.3 && *b < 0.3)
                     .count();
                 let herbivores = entities
-                    .len()
-                    .saturating_sub(resources)
-                    .saturating_sub(predators);
+                    .iter()
+                    .filter(|(_, _, _, r, g, b)| {
+                        *r > 0.7 && *g > 0.4 && *g < 0.6 && *b > 0.05 && *b < 0.15
+                    })
+                    .count();
 
                 let current_stats = (resources, herbivores, predators);
                 let population_change = if step > 0 {
