@@ -29,9 +29,9 @@ pub struct SimulationConfig {
 impl Default for SimulationConfig {
     fn default() -> Self {
         Self {
-            entity_scale: 0.5,
-            max_population: 2000,
-            initial_entities: 500,
+            entity_scale: 1.0,
+            max_population: 8000,
+            initial_entities: 4000,
             max_velocity: 2.0,
             max_entity_radius: 20.0,
             min_entity_radius: 1.0,

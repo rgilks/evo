@@ -142,7 +142,7 @@ impl State {
             multiview: None,
         });
 
-        // Create initial vertex buffer with reasonable size
+        // Create initial vertex buffer with large size for massive simulations
         let initial_vertices = vec![
             Vertex {
                 position: [0.0, 0.0],
@@ -150,8 +150,8 @@ impl State {
                 center: [0.0, 0.0],
                 radius: 0.0,
             };
-            2000
-        ]; // Pre-allocate space for 1000 entities (6 vertices per entity for quads)
+            60000
+        ]; // Pre-allocate space for 10,000 entities (6 vertices per entity for quads)
 
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
@@ -201,10 +201,20 @@ impl State {
         world_size: f32,
     ) {
         // Convert entities to vertices (triangles for circles)
-        let mut vertices = Vec::new();
+        let mut vertices = Vec::with_capacity(entities.len() * 6); // Pre-allocate for efficiency
 
-        // Draw all entities without sampling to prevent flickering
-        for (x, y, radius, r, g, b) in entities {
+        // For very large simulations, we might need to sample entities for rendering
+        let max_entities_to_render = 15000; // Limit rendering to prevent GPU overload
+        let entities_to_render = if entities.len() > max_entities_to_render {
+            // Sample entities evenly across the population
+            let step = entities.len() / max_entities_to_render;
+            entities.iter().step_by(step).take(max_entities_to_render).cloned().collect::<Vec<_>>()
+        } else {
+            entities.clone()
+        };
+
+        // Draw entities (sampled if necessary)
+        for (x, y, radius, r, g, b) in entities_to_render {
             // Convert world coordinates to normalized device coordinates (-1 to 1)
             // Ensure proper centering and scaling
             let screen_x = (x + world_size / 2.0) / world_size * 2.0 - 1.0;
