@@ -1,186 +1,343 @@
 use crate::simulation::Simulation;
-use minifb::{Key, Window, WindowOptions};
-use std::time::Instant;
+use bytemuck::{Pod, Zeroable};
+use std::time::{Duration, Instant};
+
+use std::sync::Arc;
+use wgpu::util::DeviceExt;
+use winit::{
+    event::{Event, WindowEvent},
+    event_loop::{ControlFlow, EventLoop},
+    window::WindowBuilder,
+};
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug, Pod, Zeroable)]
+struct Vertex {
+    position: [f32; 2],
+    color: [f32; 3],
+}
+
+struct State {
+    device: wgpu::Device,
+    queue: wgpu::Queue,
+    config: wgpu::SurfaceConfiguration,
+    size: winit::dpi::PhysicalSize<u32>,
+    render_pipeline: wgpu::RenderPipeline,
+    vertex_buffer: wgpu::Buffer,
+    num_vertices: u32,
+}
+
+impl State {
+    async fn new(
+        surface: &wgpu::Surface<'_>,
+        adapter: &wgpu::Adapter,
+        size: winit::dpi::PhysicalSize<u32>,
+    ) -> Self {
+        let (device, queue) = adapter
+            .request_device(
+                &wgpu::DeviceDescriptor {
+                    required_features: wgpu::Features::empty(),
+                    required_limits: wgpu::Limits::default(),
+                    label: None,
+                },
+                None,
+            )
+            .await
+            .unwrap();
+
+        let surface_caps = surface.get_capabilities(adapter);
+        let surface_format = surface_caps
+            .formats
+            .iter()
+            .copied()
+            .find(|f| f.is_srgb())
+            .unwrap_or(surface_caps.formats[0]);
+
+        let config = wgpu::SurfaceConfiguration {
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            format: surface_format,
+            width: size.width,
+            height: size.height,
+            present_mode: wgpu::PresentMode::Fifo,
+            alpha_mode: surface_caps.alpha_modes[0],
+            view_formats: vec![],
+            desired_maximum_frame_latency: 2,
+        };
+        surface.configure(&device, &config);
+
+        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("Shader"),
+            source: wgpu::ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
+        });
+
+        let render_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("Render Pipeline Layout"),
+                bind_group_layouts: &[],
+                push_constant_ranges: &[],
+            });
+
+        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Render Pipeline"),
+            layout: Some(&render_pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: "vs_main",
+                buffers: &[wgpu::VertexBufferLayout {
+                    array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
+                    step_mode: wgpu::VertexStepMode::Vertex,
+                    attributes: &[
+                        wgpu::VertexAttribute {
+                            offset: 0,
+                            shader_location: 0,
+                            format: wgpu::VertexFormat::Float32x2,
+                        },
+                        wgpu::VertexAttribute {
+                            offset: std::mem::size_of::<[f32; 2]>() as wgpu::BufferAddress,
+                            shader_location: 1,
+                            format: wgpu::VertexFormat::Float32x3,
+                        },
+                    ],
+                }],
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: "fs_main",
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: config.format,
+                    blend: Some(wgpu::BlendState::REPLACE),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: Some(wgpu::Face::Back),
+                polygon_mode: wgpu::PolygonMode::Fill,
+                unclipped_depth: false,
+                conservative: false,
+            },
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState {
+                count: 1,
+                mask: !0,
+                alpha_to_coverage_enabled: false,
+            },
+            multiview: None,
+        });
+
+        // Create initial empty vertex buffer
+        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Vertex Buffer"),
+            contents: &[],
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+
+        Self {
+            device,
+            queue,
+            config,
+            size,
+            render_pipeline,
+            vertex_buffer,
+            num_vertices: 0,
+        }
+    }
+
+    fn resize(&mut self, surface: &wgpu::Surface<'_>, new_size: winit::dpi::PhysicalSize<u32>) {
+        if new_size.width > 0 && new_size.height > 0 {
+            self.size = new_size;
+            self.config.width = new_size.width;
+            self.config.height = new_size.height;
+            surface.configure(&self.device, &self.config);
+        }
+    }
+
+    fn update(&mut self, simulation: &Simulation, world_size: f32) {
+        let entities = simulation.get_entities();
+
+        // Convert entities to vertices (triangles for circles)
+        let mut vertices = Vec::new();
+        let max_entities_to_draw = 1000;
+        let entities_to_draw = if entities.len() > max_entities_to_draw {
+            let step = entities.len() / max_entities_to_draw;
+            entities
+                .iter()
+                .step_by(step)
+                .take(max_entities_to_draw)
+                .collect::<Vec<_>>()
+        } else {
+            entities.iter().collect::<Vec<_>>()
+        };
+
+        for (x, y, radius, r, g, b) in entities_to_draw {
+            // Convert world coordinates to normalized device coordinates (-1 to 1)
+            let screen_x = (*x + world_size / 2.0) / world_size * 2.0 - 1.0;
+            let screen_y = -((*y + world_size / 2.0) / world_size * 2.0 - 1.0); // Flip Y
+            let screen_radius = (*radius / world_size * 2.0).min(0.1); // Scale radius
+
+            // Create a simple triangle for each entity (simplified circle representation)
+            let color = [*r, *g, *b];
+
+            // Triangle 1
+            vertices.push(Vertex {
+                position: [screen_x, screen_y + screen_radius],
+                color,
+            });
+            vertices.push(Vertex {
+                position: [screen_x - screen_radius, screen_y - screen_radius],
+                color,
+            });
+            vertices.push(Vertex {
+                position: [screen_x + screen_radius, screen_y - screen_radius],
+                color,
+            });
+        }
+
+        self.num_vertices = vertices.len() as u32;
+
+        // Update vertex buffer
+        self.vertex_buffer = self
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Vertex Buffer"),
+                contents: bytemuck::cast_slice(&vertices),
+                usage: wgpu::BufferUsages::VERTEX,
+            });
+    }
+
+    fn render(&mut self, surface: &wgpu::Surface<'_>) -> Result<(), wgpu::SurfaceError> {
+        let output = surface.get_current_texture()?;
+        let view = output
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("Render Encoder"),
+            });
+        {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Render Pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color {
+                            r: 0.1,
+                            g: 0.1,
+                            b: 0.1,
+                            a: 1.0,
+                        }),
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                occlusion_query_set: None,
+                timestamp_writes: None,
+            });
+            render_pass.set_pipeline(&self.render_pipeline);
+            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+            render_pass.draw(0..self.num_vertices, 0..1);
+        }
+        self.queue.submit(std::iter::once(encoder.finish()));
+        output.present();
+
+        Ok(())
+    }
+}
 
 pub fn run(world_size: f32) {
-    let mut window = Window::new(
-        "Evolution Simulation - Press ESC to exit",
-        800,
-        600,
-        WindowOptions::default(),
-    )
-    .unwrap_or_else(|e| {
-        panic!("{}", e);
+    let event_loop = EventLoop::new().unwrap();
+    let window = WindowBuilder::new()
+        .with_title("Evolution Simulation - Press ESC to exit")
+        .with_inner_size(winit::dpi::LogicalSize::new(800.0, 600.0))
+        .build(&event_loop)
+        .unwrap();
+
+    let window = Arc::new(window);
+    let window_for_event = window.clone();
+
+    // Request the first redraw to start the animation loop
+    window_for_event.request_redraw();
+
+    let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+        backends: wgpu::Backends::all(),
+        dx12_shader_compiler: Default::default(),
+        flags: wgpu::InstanceFlags::default(),
+        gles_minor_version: wgpu::Gles3MinorVersion::Automatic,
     });
 
-    // Set to 60 fps for smooth animation and maximum CPU utilization
-    window.set_target_fps(60);
+    let surface = instance.create_surface(&window).unwrap();
+    let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+        power_preference: wgpu::PowerPreference::default(),
+        compatible_surface: Some(&surface),
+        force_fallback_adapter: false,
+    }))
+    .unwrap();
 
+    let mut state = pollster::block_on(State::new(&surface, &adapter, window.inner_size()));
     let mut simulation = Simulation::new(world_size);
     let mut frame_count = 0;
-    let mut last_redraw = Instant::now();
+    let window_id = window.id();
 
-    println!("Evolution simulation window created! You should see colored circles representing entities.");
+    println!("Evolution simulation window created! You should see colored triangles representing entities.");
 
-    // Create a buffer for the window
-    let mut buffer: Vec<u32> = vec![0; 800 * 600];
+    event_loop
+        .run(move |event, elwt| {
+            match event {
+                Event::WindowEvent {
+                    ref event,
+                    window_id: event_window_id,
+                } if event_window_id == window_for_event.id() => {
+                    match event {
+                        WindowEvent::CloseRequested => elwt.exit(),
+                        WindowEvent::Resized(physical_size) => {
+                            state.resize(&surface, *physical_size);
+                        }
+                        WindowEvent::RedrawRequested => {
+                            // Update simulation
+                            simulation.update();
+                            frame_count += 1;
 
-    while window.is_open() && !window.is_key_down(Key::Escape) {
-        // Update simulation every frame to maximize CPU utilization
-        simulation.update();
-        frame_count += 1;
+                            // Update rendering every frame for smooth animation
+                            state.update(&simulation, world_size);
 
-        // Redraw every frame at 60 FPS
-        let now = Instant::now();
-        if now.duration_since(last_redraw).as_millis() >= 16 {
-            last_redraw = now;
+                            // Debug: Print frame info
+                            if frame_count % 60 == 0 {
+                                let entities = simulation.get_entities();
+                                println!("Frame {}: {} entities", frame_count, entities.len());
+                            }
 
-            let entities = simulation.get_entities();
+                            // Debug: Print first few entity positions
+                            if frame_count % 120 == 0 {
+                                let entities = simulation.get_entities();
+                                if !entities.is_empty() {
+                                    let (x, y, _, _, _, _) = entities[0];
+                                    println!("First entity position: ({:.2}, {:.2})", x, y);
+                                }
+                            }
 
-            // Debug: Print frame info
-            if frame_count % 60 == 0 {
-                println!("Frame {}: {} entities", frame_count, entities.len());
-            }
-
-            // Clear the buffer with dark background
-            for pixel in &mut buffer {
-                *pixel = 0x1a1a1a; // Dark gray
-            }
-
-            // Draw more entities to show the work being done
-            let max_entities_to_draw = 1000; // Increased to show more work
-            let entities_to_draw = if entities.len() > max_entities_to_draw {
-                // Sample entities evenly across the population
-                let step = entities.len() / max_entities_to_draw;
-                entities
-                    .iter()
-                    .step_by(step)
-                    .take(max_entities_to_draw)
-                    .collect::<Vec<_>>()
-            } else {
-                entities.iter().collect::<Vec<_>>()
-            };
-
-            // Draw entities as circles
-            for (x, y, radius, r, g, b) in entities_to_draw {
-                // Convert world coordinates to screen coordinates
-                let screen_x = ((*x + world_size / 2.0) / world_size * 800.0) as i32;
-                let screen_y = ((*y + world_size / 2.0) / world_size * 600.0) as i32;
-                let screen_radius = (*radius / world_size * 800.0_f32.min(600.0)) as i32;
-
-                // Cull entities that are off-screen
-                if screen_x < -screen_radius
-                    || screen_x > 800 + screen_radius
-                    || screen_y < -screen_radius
-                    || screen_y > 600 + screen_radius
-                {
-                    continue;
+                            match state.render(&surface) {
+                                Ok(_) => {
+                                    // Request next frame for continuous animation
+                                    // This will be handled by the AboutToWait event
+                                }
+                                Err(wgpu::SurfaceError::Lost) => state.resize(&surface, state.size),
+                                Err(wgpu::SurfaceError::OutOfMemory) => elwt.exit(),
+                                Err(e) => eprintln!("{:?}", e),
+                            }
+                        }
+                        _ => {}
+                    }
                 }
-
-                // Convert colors from 0-1 to 0-255
-                let color_r = (*r * 255.0) as u8;
-                let color_g = (*g * 255.0) as u8;
-                let color_b = (*b * 255.0) as u8;
-
-                // Create color in RGB format
-                let color = (color_r as u32) << 16 | (color_g as u32) << 8 | color_b as u32;
-
-                // Draw circle using optimized algorithm
-                draw_circle_optimized(
-                    &mut buffer,
-                    800,
-                    600,
-                    screen_x,
-                    screen_y,
-                    screen_radius.max(1),
-                    color,
-                );
-            }
-
-            // Update the window with the buffer
-            window.update_with_buffer(&buffer, 800, 600).unwrap();
-        }
-    }
-
-    println!("Simulation window closed");
-}
-
-fn draw_circle_optimized(
-    buffer: &mut [u32],
-    width: u32,
-    height: u32,
-    center_x: i32,
-    center_y: i32,
-    radius: i32,
-    color: u32,
-) {
-    let width = width as i32;
-    let height = height as i32;
-    let radius_squared = radius * radius;
-
-    // Use Bresenham's circle algorithm for better performance
-    let mut x = radius;
-    let mut y = 0;
-    let mut err = 0;
-
-    while x >= y {
-        // Draw 8 octants of the circle
-        let points = [
-            (center_x + x, center_y + y),
-            (center_x + y, center_y + x),
-            (center_x - y, center_y + x),
-            (center_x - x, center_y + y),
-            (center_x - x, center_y - y),
-            (center_x - y, center_y - x),
-            (center_x + y, center_y - x),
-            (center_x + x, center_y - y),
-        ];
-
-        for (px, py) in points {
-            if px >= 0 && px < width && py >= 0 && py < height {
-                let index = (py * width + px) as usize;
-                if index < buffer.len() {
-                    buffer[index] = color;
+                Event::AboutToWait => {
+                    window_for_event.request_redraw();
+                    elwt.set_control_flow(ControlFlow::Poll);
                 }
+                _ => {}
             }
-        }
-
-        if err <= 0 {
-            y += 1;
-            err += 2 * y + 1;
-        }
-        if err > 0 {
-            x -= 1;
-            err -= 2 * x + 1;
-        }
-    }
-}
-
-fn draw_circle(
-    buffer: &mut [u32],
-    width: u32,
-    height: u32,
-    center_x: i32,
-    center_y: i32,
-    radius: i32,
-    color: u32,
-) {
-    let width = width as i32;
-    let height = height as i32;
-
-    // Simple circle drawing algorithm
-    for y in (center_y - radius).max(0)..(center_y + radius).min(height) {
-        for x in (center_x - radius).max(0)..(center_x + radius).min(width) {
-            let dx = x - center_x;
-            let dy = y - center_y;
-            let distance_squared = dx * dx + dy * dy;
-
-            if distance_squared <= radius * radius {
-                let index = (y * width + x) as usize;
-                if index < buffer.len() {
-                    buffer[index] = color;
-                }
-            }
-        }
-    }
+        })
+        .unwrap();
 }
