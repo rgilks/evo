@@ -1,3 +1,4 @@
+use crate::config::SimulationConfig;
 use crate::simulation::Simulation;
 use bytemuck::{Pod, Zeroable};
 
@@ -178,6 +179,7 @@ impl State {
         }
     }
 
+    #[allow(dead_code)]
     fn update(&mut self, simulation: &Simulation, world_size: f32) {
         let entities = simulation.get_entities();
         self.update_with_entities(entities, world_size);
@@ -324,7 +326,7 @@ impl State {
     }
 }
 
-pub fn run(world_size: f32) {
+pub fn run(world_size: f32, config: SimulationConfig) {
     let event_loop = EventLoop::new().unwrap();
     let window = WindowBuilder::new()
         .with_title("Evolution Simulation - Press ESC to exit")
@@ -354,7 +356,7 @@ pub fn run(world_size: f32) {
     .unwrap();
 
     let mut state = pollster::block_on(State::new(&surface, &adapter, window.inner_size()));
-    let mut simulation = Simulation::new(world_size);
+    let mut simulation = Simulation::new_with_config(world_size, config);
     let mut frame_count = 0;
     let mut last_frame_time = std::time::Instant::now();
     let mut fps_counter = 0;

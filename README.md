@@ -54,6 +54,8 @@ cargo run -- --headless --steps 1000 --world-size 1000
 - `--headless`: Run without graphics (faster for testing)
 - `--steps <number>`: Number of simulation steps in headless mode (default: 1000)
 - `--world-size <number>`: Size of the simulation world (default: 1000)
+- `--config <path>`: Load simulation configuration from JSON file
+- `--create-config <path>`: Create a default configuration file at the specified path
 
 ## Performance Optimizations
 
@@ -119,42 +121,49 @@ cargo build --release
 cargo run --release
 ```
 
-## Recent Improvements
+## Configuration
 
-### 🎯 **Simplified Architecture**
+The simulation supports configuration files for easy experimentation. Create a default configuration:
 
-- Removed artificial entity types in favor of gene-based behaviors
-- Streamlined gene system from 15 to 10 core traits
-- Eliminated redundant mutation logic
+```bash
+cargo run -- --create-config my_config.json
+```
 
-### 🚀 **Enhanced Parallelism**
+Modify the configuration file to adjust simulation parameters, then run with your custom settings:
 
-- Optimized Rayon usage throughout the codebase
-- Parallel entity processing and data collection
-- Efficient spatial grid operations
+```bash
+cargo run -- --config my_config.json
+```
 
-### ⚖️ **Population Balance**
+### Configuration Parameters
 
-- Implemented strict predation rules
-- Added size constraints and energy limits
-- Introduced density-based population control
-- Reduced initial population and maximum caps
+- **entity_scale**: Global scaling factor for entity counts
+- **max_population**: Maximum number of entities allowed
+- **initial_entities**: Number of entities at simulation start
+- **max_velocity**: Maximum movement speed
+- **max_entity_radius**: Largest possible entity size
+- **min_entity_radius**: Smallest possible entity size
+- **spawn_radius_factor**: Initial spawn area size (relative to world size)
+- **grid_cell_size**: Spatial grid cell size for optimization
+- **boundary_margin**: Distance from world edge for boundary handling
+- **interaction_radius_offset**: Extra radius for entity interactions
+- **reproduction_energy_threshold**: Energy level required for reproduction
+- **reproduction_energy_cost**: Energy cost of reproduction
+- **child_energy_factor**: Initial energy of offspring
+- **child_spawn_radius**: Distance from parent for child spawning
+- **size_energy_cost_factor**: Energy cost multiplier for large entities
+- **movement_energy_cost**: Energy cost of movement
+- **population_density_factor**: Population pressure on reproduction
+- **min_reproduction_chance**: Minimum reproduction probability
+- **death_chance_factor**: Population density death rate multiplier
+- **drift_compensation_x/y**: Compensation for systematic position drift
+- **velocity_bounce_factor**: Velocity reduction on boundary collision
 
-### 🎯 **Drift Correction**
+```
 
-- **Fixed spawn distribution bias**: Implemented proper uniform distribution in circles using square root sampling
-- **Improved random movement**: Enhanced random direction generation with uniform circular distribution
-- **Enhanced boundary handling**: Reduced centering forces and added velocity capping
-- **Optimized child positioning**: Applied uniform distribution to reproduction positioning
-- **Eliminated coordinate bias**: Fixed subtle biases in movement and positioning calculations
 
-### ✨ **Visual Improvements**
 
-- **Circular rendering**: Fixed rectangular glow constraint by extending quad sizes
-- **Enhanced glow effects**: Multi-layered glow with 5 distinct layers for depth
-- **Better transparency**: Improved alpha blending for more natural appearance
-- **Extended glow radius**: Glow effects now properly extend beyond entity boundaries
-- **Smooth falloff**: Enhanced smoothstep functions for more natural circular shapes
+
 
 ## Future Enhancements
 
@@ -164,3 +173,4 @@ cargo run --release
 - Data export and analysis tools
 - WebAssembly support for browser deployment
 - More complex gene interactions and epigenetics
+```

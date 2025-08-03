@@ -1,10 +1,11 @@
+use crate::config::SimulationConfig;
 use hecs::*;
 use rand::prelude::*;
 use rayon::prelude::*;
 use std::collections::HashMap;
 
-// Global scale parameter to control entity counts
-const ENTITY_SCALE: f32 = 0.5;
+// Configuration constants for better maintainability
+// These are now handled by the SimulationConfig struct
 
 // Simplified components
 #[derive(Clone, Debug)]
@@ -197,15 +198,21 @@ pub struct Simulation {
     step: u32,
     grid: SpatialGrid,
     previous_positions: HashMap<Entity, Position>, // For smooth interpolation
+    config: SimulationConfig,
 }
 
 impl Simulation {
+    #[allow(dead_code)]
     pub fn new(world_size: f32) -> Self {
+        Self::new_with_config(world_size, SimulationConfig::default())
+    }
+
+    pub fn new_with_config(world_size: f32, config: SimulationConfig) -> Self {
         let mut world = World::new();
         let mut rng = thread_rng();
-        let grid = SpatialGrid::new(25.0);
+        let grid = SpatialGrid::new(config.grid_cell_size);
 
-        Self::spawn_initial_entities(&mut world, &mut rng, world_size);
+        Self::spawn_initial_entities(&mut world, &mut rng, world_size, &config);
 
         Self {
             world,
@@ -213,12 +220,18 @@ impl Simulation {
             step: 0,
             grid,
             previous_positions: HashMap::new(),
+            config,
         }
     }
 
-    fn spawn_initial_entities(world: &mut World, rng: &mut ThreadRng, world_size: f32) {
-        let total_entities = (500.0 * ENTITY_SCALE) as usize; // Reduced initial population
-        let spawn_radius = world_size * 0.2; // Reasonable spawn area
+    fn spawn_initial_entities(
+        world: &mut World,
+        rng: &mut ThreadRng,
+        world_size: f32,
+        config: &SimulationConfig,
+    ) {
+        let total_entities = (config.initial_entities as f32 * config.entity_scale) as usize;
+        let spawn_radius = world_size * config.spawn_radius_factor;
 
         for _ in 0..total_entities {
             // Use perfectly uniform distribution in a circle
@@ -230,7 +243,7 @@ impl Simulation {
             let genes = Genes::new_random(rng);
             let energy = rng.gen_range(25.0..55.0);
             let color = genes.get_color();
-            let radius = (energy / 15.0 * genes.size_factor).clamp(1.0, 8.0);
+            let radius = (energy / 15.0 * genes.size_factor).clamp(config.min_entity_radius, 8.0);
 
             world.spawn((
                 Position { x, y },
@@ -435,27 +448,32 @@ impl Simulation {
         );
 
         // Energy changes based on genes and size (larger entities cost more to maintain)
-        let size_energy_cost = size.radius * 0.15; // Higher cost for being large
+        let size_energy_cost = size.radius * self.config.size_energy_cost_factor;
         new_energy -= (genes.energy_loss_rate + size_energy_cost) / genes.energy_efficiency;
 
         // Reproduction check based on genes with population pressure
-        let population_density = self.world.len() as f32 / (2000.0 * ENTITY_SCALE);
-        let reproduction_chance =
-            genes.reproduction_rate * (1.0 - population_density * 0.8).max(0.05);
+        let population_density = self.world.len() as f32
+            / (self.config.max_population as f32 * self.config.entity_scale);
+        let reproduction_chance = genes.reproduction_rate
+            * (1.0 - population_density * self.config.population_density_factor)
+                .max(self.config.min_reproduction_chance);
 
-        if new_energy > energy.max * 0.8 && rng.gen::<f32>() < reproduction_chance {
+        if new_energy > energy.max * self.config.reproduction_energy_threshold
+            && rng.gen::<f32>() < reproduction_chance
+        {
             should_reproduce = true;
-            new_energy *= 0.7; // Higher energy cost for reproduction
+            new_energy *= self.config.reproduction_energy_cost;
         }
 
         // Add random death chance that increases with population density
-        let death_chance = population_density * 0.1;
+        let death_chance = population_density * self.config.death_chance_factor;
         if rng.gen::<f32>() < death_chance {
             new_energy = 0.0; // Kill the entity
         }
 
         // Calculate new size based on energy and genes with stricter limits
-        let new_radius = (new_energy / 15.0 * genes.size_factor).clamp(1.0, 20.0);
+        let new_radius = (new_energy / 15.0 * genes.size_factor)
+            .clamp(self.config.min_entity_radius, self.config.max_entity_radius);
 
         Some((
             entity,
@@ -516,12 +534,11 @@ impl Simulation {
             new_velocity.y = dy * speed;
 
             // Cap velocity to prevent extreme movements
-            let max_velocity = 2.0; // Reduced from 5.0 for slower movement
-            if new_velocity.x.abs() > max_velocity {
-                new_velocity.x = new_velocity.x.signum() * max_velocity;
+            if new_velocity.x.abs() > self.config.max_velocity {
+                new_velocity.x = new_velocity.x.signum() * self.config.max_velocity;
             }
-            if new_velocity.y.abs() > max_velocity {
-                new_velocity.y = new_velocity.y.signum() * max_velocity;
+            if new_velocity.y.abs() > self.config.max_velocity {
+                new_velocity.y = new_velocity.y.signum() * self.config.max_velocity;
             }
         }
 
@@ -539,7 +556,8 @@ impl Simulation {
         // Movement cost based on genes
         let movement_distance =
             (new_velocity.x * new_velocity.x + new_velocity.y * new_velocity.y).sqrt();
-        *new_energy -= movement_distance * 0.1 / genes.energy_efficiency;
+        *new_energy -=
+            movement_distance * self.config.movement_energy_cost / genes.energy_efficiency;
     }
 
     fn find_movement_target(
@@ -576,33 +594,32 @@ impl Simulation {
         None
     }
 
-    fn handle_boundaries(&self, pos: &mut Position, velocity: &mut Velocity, rng: &mut ThreadRng) {
+    fn handle_boundaries(&self, pos: &mut Position, velocity: &mut Velocity, _rng: &mut ThreadRng) {
         let half_world = self.world_size / 2.0;
-        let margin = 5.0; // Small margin to prevent entities from getting stuck exactly on boundary
 
         // Use <= and >= to handle edge cases better
-        if pos.x <= -half_world + margin {
-            pos.x = -half_world + margin;
-            velocity.x = velocity.x.abs() * 0.8; // Push away from boundary
-        } else if pos.x >= half_world - margin {
-            pos.x = half_world - margin;
-            velocity.x = -velocity.x.abs() * 0.8; // Push away from boundary
+        if pos.x <= -half_world + self.config.boundary_margin {
+            pos.x = -half_world + self.config.boundary_margin;
+            velocity.x = velocity.x.abs() * self.config.velocity_bounce_factor; // Push away from boundary
+        } else if pos.x >= half_world - self.config.boundary_margin {
+            pos.x = half_world - self.config.boundary_margin;
+            velocity.x = -velocity.x.abs() * self.config.velocity_bounce_factor;
+            // Push away from boundary
         }
 
-        if pos.y <= -half_world + margin {
-            pos.y = -half_world + margin;
-            velocity.y = velocity.y.abs() * 0.8; // Push away from boundary
-        } else if pos.y >= half_world - margin {
-            pos.y = half_world - margin;
-            velocity.y = -velocity.y.abs() * 0.8; // Push away from boundary
+        if pos.y <= -half_world + self.config.boundary_margin {
+            pos.y = -half_world + self.config.boundary_margin;
+            velocity.y = velocity.y.abs() * self.config.velocity_bounce_factor; // Push away from boundary
+        } else if pos.y >= half_world - self.config.boundary_margin {
+            pos.y = half_world - self.config.boundary_margin;
+            velocity.y = -velocity.y.abs() * self.config.velocity_bounce_factor;
+            // Push away from boundary
         }
 
         // Add deliberate compensating drift to counteract systematic bias
         // Scale down for UI mode (60 FPS) vs headless mode
-        let compensation_x = 0.5; // Reduced for frame-rate independence
-        let compensation_y = 0.4; // Reduced for frame-rate independence
-        velocity.x += compensation_x;
-        velocity.y += compensation_y;
+        velocity.x += self.config.drift_compensation_x;
+        velocity.y += self.config.drift_compensation_y;
     }
 
     fn handle_interactions(
@@ -623,7 +640,9 @@ impl Simulation {
                                 + (nearby_pos.y - new_pos.y).powi(2))
                             .sqrt();
 
-                            if distance < (size.radius + 15.0) && nearby_energy.current > 0.0 {
+                            if distance < (size.radius + self.config.interaction_radius_offset)
+                                && nearby_energy.current > 0.0
+                            {
                                 if genes.can_eat(&*nearby_genes, &*nearby_size, size) {
                                     *eaten_entity = Some(entity);
                                     let energy_gained = genes.get_energy_gain(
@@ -692,22 +711,28 @@ impl Simulation {
                     )];
 
                     // Handle reproduction with stricter population control
-                    let max_population = (2000.0 * ENTITY_SCALE) as u32; // Reduced from 50000
+                    let max_population =
+                        (self.config.max_population as f32 * self.config.entity_scale) as u32;
                     if *should_reproduce && self.world.len() < max_population {
                         let mut rng = rand::thread_rng();
                         let child_genes = genes.mutate(&mut rng);
-                        let child_energy = energy_max * 0.4;
-                        let child_radius =
-                            (child_energy / 15.0 * child_genes.size_factor).clamp(1.0, 15.0);
+                        let child_energy = energy_max * self.config.child_energy_factor;
+                        let child_radius = (child_energy / 15.0 * child_genes.size_factor)
+                            .clamp(self.config.min_entity_radius, 15.0);
                         let child_color = child_genes.get_color();
 
                         // Use uniform distribution in a circle for child positioning
                         let (dx, dy) = loop {
-                            let dx = rng.gen_range(-15.0f32..15.0);
-                            let dy = rng.gen_range(-15.0f32..15.0);
+                            let dx = rng.gen_range(
+                                -self.config.child_spawn_radius..self.config.child_spawn_radius,
+                            );
+                            let dy = rng.gen_range(
+                                -self.config.child_spawn_radius..self.config.child_spawn_radius,
+                            );
                             let distance_sq = dx * dx + dy * dy;
-                            if distance_sq <= 225.0 {
-                                // 15^2
+                            if distance_sq
+                                <= self.config.child_spawn_radius * self.config.child_spawn_radius
+                            {
                                 break (dx, dy);
                             }
                         };
@@ -788,5 +813,106 @@ impl Simulation {
                 )
             })
             .collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rand::thread_rng;
+
+    #[test]
+    fn test_genes_mutation() {
+        let mut rng = thread_rng();
+        let original_genes = Genes::new_random(&mut rng);
+        let mutated_genes = original_genes.mutate(&mut rng);
+
+        // Check that at least some genes changed (not guaranteed due to random mutation rate)
+        let _any_changed = (original_genes.speed - mutated_genes.speed).abs() > 0.001
+            || (original_genes.sense_radius - mutated_genes.sense_radius).abs() > 0.001
+            || (original_genes.energy_efficiency - mutated_genes.energy_efficiency).abs() > 0.001;
+
+        // Genes should be within valid ranges
+        assert!(mutated_genes.speed >= 0.1 && mutated_genes.speed <= 2.0);
+        assert!(mutated_genes.sense_radius >= 5.0 && mutated_genes.sense_radius <= 120.0);
+        assert!(mutated_genes.energy_efficiency >= 0.3 && mutated_genes.energy_efficiency <= 3.0);
+    }
+
+    #[test]
+    fn test_genes_color_generation() {
+        let mut rng = thread_rng();
+        let genes = Genes::new_random(&mut rng);
+        let color = genes.get_color();
+
+        // Color values should be in valid range
+        assert!(color.r >= 0.0 && color.r <= 1.0);
+        assert!(color.g >= 0.0 && color.g <= 1.0);
+        assert!(color.b >= 0.0 && color.b <= 1.0);
+    }
+
+    #[test]
+    fn test_predation_logic() {
+        let mut rng = thread_rng();
+        let predator_genes = Genes::new_random(&mut rng);
+        let prey_genes = Genes::new_random(&mut rng);
+
+        let predator_size = Size { radius: 10.0 };
+        let prey_size = Size { radius: 5.0 };
+
+        // Large predator should be able to eat small prey (size advantage > 1.2)
+        // Note: This test may fail if the random genes don't meet the criteria
+        let size_advantage = predator_size.radius / prey_size.radius;
+        let speed_advantage = predator_genes.speed / prey_genes.speed;
+
+        if size_advantage > 1.2 && speed_advantage > 0.8 {
+            assert!(predator_genes.can_eat(&prey_genes, &prey_size, &predator_size));
+        }
+
+        // Small entity should not be able to eat large entity
+        assert!(!prey_genes.can_eat(&predator_genes, &predator_size, &prey_size));
+    }
+
+    #[test]
+    fn test_spatial_grid() {
+        let mut grid = SpatialGrid::new(25.0);
+
+        // Test cell coordinate calculation
+        let (cell_x, cell_y) = grid.get_cell_coords(50.0, 75.0);
+        assert_eq!(cell_x, 2); // 50 / 25 = 2
+        assert_eq!(cell_y, 3); // 75 / 25 = 3
+
+        // Test entity insertion and retrieval
+        // Create a valid entity ID
+        let entity = Entity::from_bits(0x1000000000000001).unwrap();
+        grid.insert(entity, 50.0, 75.0);
+
+        let nearby = grid.get_nearby_entities(50.0, 75.0, 10.0);
+        assert!(nearby.contains(&entity));
+    }
+
+    #[test]
+    fn test_simulation_creation() {
+        let sim = Simulation::new(1000.0);
+
+        // Should have initial entities
+        assert!(sim.world.len() > 0);
+        assert!(sim.world.len() <= 250); // Default config values
+
+        // World size should be set correctly
+        assert_eq!(sim.world_size, 1000.0);
+    }
+
+    #[test]
+    fn test_boundary_handling() {
+        let sim = Simulation::new(100.0);
+        let mut pos = Position { x: 60.0, y: 60.0 }; // Outside boundary
+        let mut velocity = Velocity { x: 10.0, y: 10.0 };
+        let mut rng = thread_rng();
+
+        sim.handle_boundaries(&mut pos, &mut velocity, &mut rng);
+
+        // Position should be clamped to boundary
+        assert!(pos.x <= 50.0 - 5.0); // Default boundary margin
+        assert!(pos.y <= 50.0 - 5.0); // Default boundary margin
     }
 }
