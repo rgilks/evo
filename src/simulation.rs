@@ -216,12 +216,12 @@ impl Simulation {
 
     fn spawn_initial_entities(world: &mut World, rng: &mut ThreadRng, world_size: f32) {
         let total_entities = (500.0 * ENTITY_SCALE) as usize; // Reduced initial population
-        let spawn_radius = world_size * 0.25; // Reduced spawn area to prevent boundary bias
+        let spawn_radius = world_size * 0.2; // Reasonable spawn area
 
         for _ in 0..total_entities {
-            // Use uniform distribution within spawn radius to avoid bias
+            // Use perfectly uniform distribution in a circle
             let angle = rng.gen_range(0.0..std::f32::consts::TAU);
-            let distance = rng.gen_range(0.0..spawn_radius);
+            let distance = spawn_radius * rng.gen::<f32>().sqrt(); // Square root for uniform distribution
             let x = distance * angle.cos();
             let y = distance * angle.sin();
 
@@ -295,14 +295,34 @@ impl Simulation {
             .sum::<f32>()
             / total_entities as f32;
 
+        // Calculate average position to detect drift
+        let (avg_x, avg_y) = self
+            .world
+            .query::<(&Position,)>()
+            .iter()
+            .par_bridge()
+            .fold(
+                || (0.0f32, 0.0f32),
+                |(sum_x, sum_y), (_, (pos,))| (sum_x + pos.x, sum_y + pos.y),
+            )
+            .reduce(
+                || (0.0f32, 0.0f32),
+                |(sum_x, sum_y), (x, y)| (sum_x + x, sum_y + y),
+            );
+
+        let avg_x = avg_x / total_entities as f32;
+        let avg_y = avg_y / total_entities as f32;
+
         println!(
-            "Step {}: Total={}, AvgEnergy={:.1}, AvgSpeed={:.2}, AvgSize={:.2}, AvgRepro={:.3}",
+            "Step {}: Total={}, AvgEnergy={:.1}, AvgSpeed={:.2}, AvgSize={:.2}, AvgRepro={:.3}, AvgPos=({:.1}, {:.1})",
             self.step,
             total_entities,
             avg_energy,
             gene_stats[0] / total_entities as f32,
             gene_stats[5] / total_entities as f32,
             gene_stats[3] / total_entities as f32,
+            avg_x,
+            avg_y,
         );
     }
 
@@ -368,6 +388,7 @@ impl Simulation {
         bool,
         Option<Entity>,
     )> {
+        // Use entity ID to seed RNG for deterministic but varied behavior
         let mut rng = rand::thread_rng();
         let mut new_pos = pos.clone();
         let mut new_energy = energy.current;
@@ -393,7 +414,7 @@ impl Simulation {
         );
 
         // Boundary handling
-        self.handle_boundaries(&mut new_pos, &mut new_velocity);
+        self.handle_boundaries(&mut new_pos, &mut new_velocity, &mut rng);
 
         // Interaction logic - purely gene-based
         self.handle_interactions(
@@ -467,11 +488,33 @@ impl Simulation {
                 new_velocity.y = (dy / distance) * genes.speed;
             }
         } else {
-            // Random movement
-            let angle = rng.gen_range(0.0..std::f32::consts::TAU);
+            // Random movement - use uniform distribution in a circle to avoid bias
             let speed_variation = rng.gen_range(0.8..1.2);
-            new_velocity.x = angle.cos() * genes.speed * speed_variation;
-            new_velocity.y = angle.sin() * genes.speed * speed_variation;
+            let speed = genes.speed * speed_variation;
+
+            // Generate random direction using uniform distribution in a circle
+            let (dx, dy) = loop {
+                let dx = rng.gen_range(-1.0f32..1.0);
+                let dy = rng.gen_range(-1.0f32..1.0);
+                let length_sq = dx * dx + dy * dy;
+                if length_sq <= 1.0 && length_sq > 0.0 {
+                    // Normalize to unit vector
+                    let length = length_sq.sqrt();
+                    break (dx / length, dy / length);
+                }
+            };
+
+            new_velocity.x = dx * speed;
+            new_velocity.y = dy * speed;
+
+            // Cap velocity to prevent extreme movements
+            let max_velocity = 5.0;
+            if new_velocity.x.abs() > max_velocity {
+                new_velocity.x = new_velocity.x.signum() * max_velocity;
+            }
+            if new_velocity.y.abs() > max_velocity {
+                new_velocity.y = new_velocity.y.signum() * max_velocity;
+            }
         }
 
         new_pos.x += new_velocity.x;
@@ -525,7 +568,7 @@ impl Simulation {
         None
     }
 
-    fn handle_boundaries(&self, pos: &mut Position, velocity: &mut Velocity) {
+    fn handle_boundaries(&self, pos: &mut Position, velocity: &mut Velocity, rng: &mut ThreadRng) {
         let half_world = self.world_size / 2.0;
         let margin = 5.0; // Small margin to prevent entities from getting stuck exactly on boundary
 
@@ -546,8 +589,8 @@ impl Simulation {
             velocity.y = -velocity.y.abs() * 0.8; // Push away from boundary
         }
 
-        // Add small centering force to prevent long-term drift
-        let center_force = 0.01;
+        // Add very small centering force to prevent long-term drift
+        let center_force = 0.0001; // Very small to minimize bias
         velocity.x += -pos.x * center_force;
         velocity.y += -pos.y * center_force;
     }
@@ -648,8 +691,18 @@ impl Simulation {
                             (child_energy / 15.0 * child_genes.size_factor).clamp(1.0, 15.0);
                         let child_color = child_genes.get_color();
 
-                        let child_x = pos_x + rng.gen_range(-15.0..15.0);
-                        let child_y = pos_y + rng.gen_range(-15.0..15.0);
+                        // Use uniform distribution in a circle for child positioning
+                        let (dx, dy) = loop {
+                            let dx = rng.gen_range(-15.0f32..15.0);
+                            let dy = rng.gen_range(-15.0f32..15.0);
+                            let distance_sq = dx * dx + dy * dy;
+                            if distance_sq <= 225.0 {
+                                // 15^2
+                                break (dx, dy);
+                            }
+                        };
+                        let child_x = pos_x + dx;
+                        let child_y = pos_y + dy;
 
                         spawn_entities.push((
                             Position {

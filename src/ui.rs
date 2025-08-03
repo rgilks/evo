@@ -187,9 +187,15 @@ impl State {
         // Draw all entities without sampling to prevent flickering
         for (x, y, radius, r, g, b) in entities {
             // Convert world coordinates to normalized device coordinates (-1 to 1)
+            // Ensure proper centering and scaling
             let screen_x = (x + world_size / 2.0) / world_size * 2.0 - 1.0;
-            let screen_y = -((y + world_size / 2.0) / world_size * 2.0 - 1.0); // Flip Y
+            let screen_y = -((y + world_size / 2.0) / world_size * 2.0 - 1.0); // Flip Y for screen coordinates
             let screen_radius = (radius / world_size * 2.0).min(0.15); // Scale radius - increased for better visibility
+
+            // Create a larger quad to accommodate the glow effect
+            // The glow extends beyond the actual radius, so we need extra space
+            let glow_extension = screen_radius * 0.5; // Extra space for glow
+            let quad_size = screen_radius + glow_extension;
 
             // Create a quad for each entity (will be rendered as a glowing ball)
             let color = [r, g, b];
@@ -197,19 +203,19 @@ impl State {
             // Quad vertices (two triangles to form a square)
             // Triangle 1
             vertices.push(Vertex {
-                position: [screen_x - screen_radius, screen_y - screen_radius],
+                position: [screen_x - quad_size, screen_y - quad_size],
                 color,
                 center: [screen_x, screen_y],
                 radius: screen_radius,
             });
             vertices.push(Vertex {
-                position: [screen_x + screen_radius, screen_y - screen_radius],
+                position: [screen_x + quad_size, screen_y - quad_size],
                 color,
                 center: [screen_x, screen_y],
                 radius: screen_radius,
             });
             vertices.push(Vertex {
-                position: [screen_x - screen_radius, screen_y + screen_radius],
+                position: [screen_x - quad_size, screen_y + quad_size],
                 color,
                 center: [screen_x, screen_y],
                 radius: screen_radius,
@@ -217,19 +223,19 @@ impl State {
 
             // Triangle 2
             vertices.push(Vertex {
-                position: [screen_x + screen_radius, screen_y - screen_radius],
+                position: [screen_x + quad_size, screen_y - quad_size],
                 color,
                 center: [screen_x, screen_y],
                 radius: screen_radius,
             });
             vertices.push(Vertex {
-                position: [screen_x + screen_radius, screen_y + screen_radius],
+                position: [screen_x + quad_size, screen_y + quad_size],
                 color,
                 center: [screen_x, screen_y],
                 radius: screen_radius,
             });
             vertices.push(Vertex {
-                position: [screen_x - screen_radius, screen_y + screen_radius],
+                position: [screen_x - quad_size, screen_y + quad_size],
                 color,
                 center: [screen_x, screen_y],
                 radius: screen_radius,

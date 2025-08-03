@@ -15,6 +15,7 @@ A beautiful and performant evolution simulation written in Rust, featuring an En
 ## Evolution Mechanics
 
 ### Gene-Based Behaviors
+
 Instead of predefined entity types, all behaviors emerge from genes:
 
 - **Speed**: Movement velocity and hunting effectiveness
@@ -28,6 +29,7 @@ Instead of predefined entity types, all behaviors emerge from genes:
 - **Color**: Visual representation of genetic traits (HSV-based)
 
 ### Emergent Interactions
+
 - **Predation**: Based on relative speed and size advantages
 - **Energy Transfer**: Efficient energy gain with diminishing returns
 - **Population Control**: Density-based reproduction and death rates
@@ -57,7 +59,7 @@ cargo run -- --headless --steps 1000 --world-size 1000
 
 The simulation is heavily optimized for performance:
 
-- **Rayon Parallelization**: 
+- **Rayon Parallelization**:
   - Entity updates processed in parallel
   - Spatial grid data extraction parallelized
   - Metrics collection parallelized
@@ -69,6 +71,7 @@ The simulation is heavily optimized for performance:
 ## Simulation Rules
 
 ### Core Mechanics
+
 1. **Energy System**: All entities consume energy over time based on size and activity
 2. **Movement**: Entities move toward targets within their sense radius
 3. **Predation**: Larger/faster entities can consume smaller/slower ones
@@ -77,6 +80,7 @@ The simulation is heavily optimized for performance:
 6. **Size Constraints**: Entities are limited to reasonable size ranges
 
 ### Advanced Features
+
 - **Boundary Handling**: Smart boundary detection with centering forces
 - **Drift Prevention**: Position validation and correction mechanisms
 - **Stable Spawning**: Uniform distribution prevents initial bias
@@ -85,6 +89,7 @@ The simulation is heavily optimized for performance:
 ## Technical Architecture
 
 ### ECS Components
+
 - **Position**: 2D coordinates with boundary validation
 - **Energy**: Current and maximum energy levels
 - **Size**: Radius-based size with constraints
@@ -93,6 +98,7 @@ The simulation is heavily optimized for performance:
 - **Genes**: Inheritable traits that define behavior
 
 ### Key Systems
+
 - **Spatial Grid**: Efficient neighbor finding and collision detection
 - **Parallel Processing**: Rayon-based parallel entity updates
 - **Boundary Management**: Advanced boundary handling with drift correction
@@ -116,26 +122,39 @@ cargo run --release
 ## Recent Improvements
 
 ### 🎯 **Simplified Architecture**
+
 - Removed artificial entity types in favor of gene-based behaviors
 - Streamlined gene system from 15 to 10 core traits
 - Eliminated redundant mutation logic
 
 ### 🚀 **Enhanced Parallelism**
+
 - Optimized Rayon usage throughout the codebase
 - Parallel entity processing and data collection
 - Efficient spatial grid operations
 
 ### ⚖️ **Population Balance**
+
 - Implemented strict predation rules
 - Added size constraints and energy limits
 - Introduced density-based population control
 - Reduced initial population and maximum caps
 
 ### 🎯 **Drift Correction**
-- Fixed boundary handling with better comparisons
-- Added centering forces to prevent accumulation
-- Implemented position validation
-- Eliminated initial spawning bias
+
+- **Fixed spawn distribution bias**: Implemented proper uniform distribution in circles using square root sampling
+- **Improved random movement**: Enhanced random direction generation with uniform circular distribution
+- **Enhanced boundary handling**: Reduced centering forces and added velocity capping
+- **Optimized child positioning**: Applied uniform distribution to reproduction positioning
+- **Eliminated coordinate bias**: Fixed subtle biases in movement and positioning calculations
+
+### ✨ **Visual Improvements**
+
+- **Circular rendering**: Fixed rectangular glow constraint by extending quad sizes
+- **Enhanced glow effects**: Multi-layered glow with 5 distinct layers for depth
+- **Better transparency**: Improved alpha blending for more natural appearance
+- **Extended glow radius**: Glow effects now properly extend beyond entity boundaries
+- **Smooth falloff**: Enhanced smoothstep functions for more natural circular shapes
 
 ## Future Enhancements
 
