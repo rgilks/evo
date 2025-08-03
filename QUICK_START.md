@@ -48,12 +48,21 @@
 ```
 evo/
 ├── src/                    # Rust source code
-├── web/                    # Web assets (HTML, CSS, JS)
+├── web/                    # Web application
+│   ├── index.html         # Main HTML page
+│   ├── css/style.css      # Stylesheets
+│   ├── js/app.js          # JavaScript application
+│   ├── assets/            # Static assets (images, etc.)
+│   └── server.py          # Development server
+├── scripts/                # Build and utility scripts
+│   ├── run.sh             # Main run script
+│   ├── setup.sh           # First-time setup
+│   ├── build-desktop.sh   # Desktop build script
+│   ├── build-web.sh       # Web build script
+│   └── fix-worker-imports.sh # WASM worker fixes
 ├── pkg/                    # Generated WebAssembly files
-├── run.sh                  # Main run script
-├── setup.sh                # First-time setup
-├── build-desktop.sh        # Desktop build script
-├── build-web.sh           # Web build script
+├── run.sh                  # Main run script (delegates to scripts/)
+├── setup.sh                # Main setup script (delegates to scripts/)
 └── README.md              # Detailed documentation
 ```
 

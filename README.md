@@ -105,7 +105,7 @@ The web version runs in any modern browser with parallel processing support.
 ./run.sh web
 
 # Or use the dedicated script:
-./build-web.sh
+./scripts/build-web.sh
 ```
 
 #### Manual Commands
@@ -184,6 +184,47 @@ Then open your browser to `http://localhost:8000`
 - **Desktop**: Use `--release` flag for optimal performance
 - **Web**: Ensure browser supports SharedArrayBuffer for parallel processing
 - **Headless**: Use for batch processing or testing without graphics overhead
+
+## Project Structure
+
+The project is organized with a clean, modular structure:
+
+```
+evo/
+├── src/                    # Rust source code
+│   ├── components.rs       # ECS components
+│   ├── genes.rs           # Genetic system
+│   ├── systems.rs         # Simulation systems
+│   ├── spatial_grid.rs    # Spatial optimization
+│   ├── stats.rs           # Analytics and statistics
+│   ├── simulation.rs      # Main simulation orchestration
+│   ├── config.rs          # Configuration management
+│   ├── ui.rs              # GPU-accelerated rendering (desktop)
+│   ├── web/               # Web-specific modules
+│   └── main.rs            # Application entry point
+├── web/                    # Web application
+│   ├── index.html         # Main HTML page
+│   ├── css/style.css      # Stylesheets
+│   ├── js/app.js          # JavaScript application
+│   ├── assets/            # Static assets (images, etc.)
+│   └── server.py          # Development server with CORS headers
+├── scripts/                # Build and utility scripts
+│   ├── run.sh             # Main run script with all commands
+│   ├── setup.sh           # First-time environment setup
+│   ├── build-desktop.sh   # Desktop build with platform detection
+│   ├── build-web.sh       # Web build and serve
+│   ├── build-and-fix.sh   # WASM build with worker fixes
+│   └── fix-worker-imports.sh # WASM worker import fixes
+├── pkg/                    # Generated WebAssembly files
+├── run.sh                  # Main run script (delegates to scripts/)
+├── setup.sh                # Main setup script (delegates to scripts/)
+├── config.json             # Default configuration
+├── example_config.json     # Example configuration
+├── Cargo.toml              # Rust dependencies
+├── package.json            # Node.js dependencies (web)
+├── rust-toolchain.toml     # Rust toolchain configuration
+└── README.md              # This documentation
+```
 
 ## Architecture
 
@@ -423,29 +464,61 @@ const config = {
 
 ## Web Implementation Details
 
-### Project Structure
+### Web Application Structure
+
+The web application is organized for clarity and maintainability:
 
 ```
-evo/
-├── src/
-│   ├── lib.rs                    # WASM library entry point
-│   ├── web/                      # Web-specific modules
-│   │   ├── mod.rs                # Web renderer and controls
-│   │   ├── renderer.rs           # Canvas rendering utilities
-│   │   ├── controls.rs           # UI control handlers
-│   │   └── wasm_bridge.rs        # WASM-JS bridge utilities
-│   └── [other simulation modules]
-├── web/                          # Web assets
-│   ├── index.html                # Main HTML page
-│   ├── style.css                 # Styling
-│   ├── app.js                    # Main JavaScript application
-│   └── server.py                 # Development server
-├── pkg/                          # Generated WASM package
-├── Cargo.toml                    # Rust dependencies
-├── package.json                  # Node.js dependencies
-├── rust-toolchain.toml           # Rust toolchain configuration
-└── .cargo/config.toml            # Cargo configuration
+web/
+├── index.html              # Main HTML page with canvas and UI
+├── css/
+│   └── style.css           # Modern, responsive styling
+├── js/
+│   └── app.js              # Main JavaScript application
+├── assets/                 # Static assets (images, icons, etc.)
+└── server.py               # Development server with CORS headers
 ```
+
+### Web Assets Organization
+
+- **HTML (`index.html`)**: Clean, semantic structure with canvas and UI controls
+- **CSS (`css/style.css`)**: Modern, responsive design with CSS Grid and Flexbox
+- **JavaScript (`js/app.js`)**: Modular application with WASM integration
+- **Assets (`assets/`)**: Static files like images, icons, and other resources
+- **Server (`server.py`)**: Python development server with proper CORS headers
+
+### Rust Web Modules
+
+```
+src/web/
+├── mod.rs                   # Web-specific module exports
+├── renderer.rs              # Canvas rendering utilities
+├── controls.rs              # UI control handlers
+└── wasm_bridge.rs           # WASM-JS bridge utilities
+```
+
+### Scripts Organization
+
+The project includes a comprehensive set of scripts for building, running, and managing the application:
+
+```
+scripts/
+├── run.sh                   # Main run script with all commands
+├── setup.sh                 # First-time environment setup
+├── build-desktop.sh         # Desktop build with platform detection
+├── build-web.sh            # Web build and serve
+├── build-and-fix.sh        # WASM build with worker fixes
+└── fix-worker-imports.sh   # WASM worker import fixes
+```
+
+#### Script Functions
+
+- **`run.sh`**: Unified interface for all common tasks (desktop, web, headless, test, build, clean)
+- **`setup.sh`**: Automated environment setup for new users
+- **`build-desktop.sh`**: Platform-aware desktop builds with automatic target detection
+- **`build-web.sh`**: Complete web build and serve workflow
+- **`build-and-fix.sh`**: WASM build with automatic worker import fixes
+- **`fix-worker-imports.sh`**: Utility for fixing WASM worker import paths
 
 ### Dependencies
 

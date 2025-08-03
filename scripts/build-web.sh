@@ -31,7 +31,7 @@ else
 fi
 
 # Fix worker import paths
-./fix-worker-imports.sh
+./scripts/fix-worker-imports.sh
 
 # Check if pkg directory exists and has files
 if [ ! -d "pkg" ] || [ -z "$(ls -A pkg)" ]; then

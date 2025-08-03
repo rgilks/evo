@@ -14,6 +14,6 @@ else
 fi
 
 # Fix worker import paths
-./fix-worker-imports.sh
+./scripts/fix-worker-imports.sh
 
 echo "🎉 Build complete! Run 'python3 web/server.py' to start the server." 
