@@ -289,6 +289,7 @@ impl Simulation {
             nearby_entities,
             &self.world,
             &self.config,
+            self.world_size,
         );
     }
 

@@ -18,6 +18,7 @@ impl MovementSystem {
         nearby_entities: &[Entity],
         world: &World,
         config: &SimulationConfig,
+        world_size: f32,
     ) {
         // Find target for movement based on genes
         let target = self.find_movement_target(pos, genes, nearby_entities, world);
@@ -29,7 +30,7 @@ impl MovementSystem {
         }
 
         self.update_position(new_pos, new_velocity);
-        self.apply_center_pressure(new_pos, new_velocity, config);
+        self.apply_center_pressure(new_pos, new_velocity, config, world_size);
         self.validate_position(new_pos);
         self.apply_movement_cost(new_velocity, new_energy, genes, config);
     }
@@ -105,18 +106,38 @@ impl MovementSystem {
         pos: &Position,
         velocity: &mut Velocity,
         config: &SimulationConfig,
+        world_size: f32,
     ) {
+        let half_world = world_size / 2.0;
+
         // Calculate distance from center
         let distance_from_center = (pos.x * pos.x + pos.y * pos.y).sqrt();
-        
+
+        // Calculate distance from edge (how close to boundary)
+        let distance_from_edge_x = half_world - pos.x.abs();
+        let distance_from_edge_y = half_world - pos.y.abs();
+        let distance_from_edge = distance_from_edge_x.min(distance_from_edge_y);
+
         // Only apply pressure if entity is away from center
         if distance_from_center > 10.0 {
             // Calculate direction towards center
             let center_dx = -pos.x / distance_from_center;
             let center_dy = -pos.y / distance_from_center;
-            
-            // Apply subtle pressure towards center
-            let pressure_strength = config.physics.center_pressure_strength;
+
+            // Base pressure strength
+            let base_pressure = config.physics.center_pressure_strength;
+
+            // Increase pressure strength when closer to edges
+            // Pressure is strongest at edges (distance_from_edge = 0) and weakest in center
+            let edge_multiplier = if distance_from_edge < 50.0 {
+                // Exponential increase as we get closer to edges
+                let edge_factor = (50.0 - distance_from_edge) / 50.0;
+                1.0 + edge_factor * edge_factor * 4.0 // Up to 5x stronger at edges
+            } else {
+                1.0
+            };
+
+            let pressure_strength = base_pressure * edge_multiplier;
             velocity.x += center_dx * pressure_strength;
             velocity.y += center_dy * pressure_strength;
         }
@@ -408,6 +429,7 @@ mod tests {
             &nearby_entities,
             &world,
             &config,
+            100.0, // world_size for test
         );
 
         // Position should have changed
@@ -609,6 +631,7 @@ mod tests {
             &nearby_entities,
             &world,
             &config,
+            100.0, // world_size for test
         );
 
         // Should have moved (position changed) and used energy
@@ -687,6 +710,7 @@ mod tests {
             &[],
             &world,
             &config,
+            100.0, // world_size for test
         );
 
         // Check if there's any systematic bias in velocity generation
@@ -789,6 +813,7 @@ mod tests {
                 &[],
                 &world,
                 &config,
+                100.0, // world_size for test
             );
 
             x_velocities.push(velocity.x);
@@ -888,6 +913,7 @@ mod tests {
             &target_entities,
             &world,
             &config,
+            100.0, // world_size for test
         );
 
         println!(
@@ -957,6 +983,7 @@ mod tests {
                 &[],
                 &world,
                 &config,
+                100.0, // world_size for test
             );
 
             // Handle boundaries
