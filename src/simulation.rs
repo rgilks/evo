@@ -84,9 +84,10 @@ impl Simulation {
                     max: energy * 1.3,
                 },
                 Size { radius },
-                genes,
+                genes.clone(),
                 color,
                 Velocity { x: 0.0, y: 0.0 },
+                genes.behavior.movement_style.clone(),
             ));
         }
     }
@@ -151,20 +152,40 @@ impl Simulation {
         Genes,
         Color,
         Velocity,
+        crate::components::MovementStyle,
         bool,
         Option<Entity>,
     )> {
         self.world
-            .query::<(&Position, &Energy, &Size, &Genes, &Color, &Velocity)>()
+            .query::<(
+                &Position,
+                &Energy,
+                &Size,
+                &Genes,
+                &Color,
+                &Velocity,
+                &crate::components::MovementStyle,
+            )>()
             .iter()
             .par_bridge()
-            .filter_map(|(entity, (pos, energy, size, genes, color, velocity))| {
-                if energy.current <= 0.0 {
-                    return None;
-                }
+            .filter_map(
+                |(entity, (pos, energy, size, genes, color, velocity, movement_style))| {
+                    if energy.current <= 0.0 {
+                        return None;
+                    }
 
-                self.process_entity(entity, pos, energy, size, genes, color, velocity)
-            })
+                    self.process_entity(
+                        entity,
+                        pos,
+                        energy,
+                        size,
+                        genes,
+                        color,
+                        velocity,
+                        movement_style,
+                    )
+                },
+            )
             .collect()
     }
 
@@ -177,6 +198,7 @@ impl Simulation {
         genes: &Genes,
         color: &Color,
         velocity: &Velocity,
+        movement_style: &crate::components::MovementStyle,
     ) -> Option<(
         Entity,
         Position,
@@ -185,6 +207,7 @@ impl Simulation {
         Genes,
         Color,
         Velocity,
+        crate::components::MovementStyle,
         bool,
         Option<Entity>,
     )> {
@@ -240,13 +263,14 @@ impl Simulation {
         }
 
         if should_reproduce {
+            // Don't spawn child here - we'll handle it in apply_entity_updates
+            // Reduce parent energy
             new_energy *= self.config.reproduction.reproduction_energy_cost;
         }
 
-        // Calculate new size
-        let new_radius = self
-            .energy_system
-            .calculate_new_size(new_energy, genes, &self.config);
+        let new_size_radius =
+            self.energy_system
+                .calculate_new_size(new_energy, genes, &self.config);
 
         Some((
             entity,
@@ -255,10 +279,13 @@ impl Simulation {
                 current: new_energy,
                 max: energy.max,
             },
-            Size { radius: new_radius },
+            Size {
+                radius: new_size_radius,
+            },
             genes.clone(),
             color.clone(),
             new_velocity,
+            movement_style.clone(),
             should_reproduce,
             eaten_entity,
         ))
@@ -345,6 +372,7 @@ impl Simulation {
             Genes,
             Color,
             Velocity,
+            crate::components::MovementStyle,
             bool,
             Option<Entity>,
         )>,
@@ -352,7 +380,7 @@ impl Simulation {
         // Remove eaten entities in parallel
         let entities_to_remove: Vec<_> = updates
             .par_iter()
-            .filter_map(|(_, _, _, _, _, _, _, _, eaten_entity)| *eaten_entity)
+            .filter_map(|(_, _, _, _, _, _, _, _, _, eaten_entity)| *eaten_entity)
             .collect();
 
         // Despawn entities (this needs to be sequential due to Hecs limitations)
@@ -364,7 +392,18 @@ impl Simulation {
         let spawn_data: Vec<_> = updates
             .par_iter()
             .filter_map(
-                |(_entity, position, energy, size, genes, color, velocity, should_reproduce, _)| {
+                |(
+                    _entity,
+                    position,
+                    energy,
+                    size,
+                    genes,
+                    color,
+                    velocity,
+                    movement_style,
+                    should_reproduce,
+                    _,
+                )| {
                     if energy.current <= 0.0 {
                         return None;
                     }
@@ -379,6 +418,7 @@ impl Simulation {
                         genes.clone(),
                         color.clone(),
                         velocity.clone(),
+                        movement_style.clone(),
                     )];
 
                     // Handle reproduction with stricter population control
@@ -393,6 +433,7 @@ impl Simulation {
                             child_genes,
                             child_color,
                             child_velocity,
+                            child_movement_style,
                         ) = self.reproduction_system.create_offspring(
                             genes,
                             energy_max,
@@ -407,6 +448,7 @@ impl Simulation {
                             child_genes,
                             child_color,
                             child_velocity,
+                            child_movement_style,
                         ));
                     }
 
@@ -417,14 +459,21 @@ impl Simulation {
             .collect();
 
         // Despawn old entities
-        for (entity, _, _, _, _, _, _, _, _) in updates {
+        for (entity, _, _, _, _, _, _, _, _, _) in updates {
             let _ = self.world.despawn(entity);
         }
 
         // Spawn new entities (this needs to be sequential due to Hecs limitations)
-        for (position, energy, size, genes, color, velocity) in spawn_data {
-            self.world
-                .spawn((position, energy, size, genes, color, velocity));
+        for (position, energy, size, genes, color, velocity, movement_style) in spawn_data {
+            self.world.spawn((
+                position,
+                energy,
+                size,
+                genes,
+                color,
+                velocity,
+                movement_style,
+            ));
         }
     }
 
@@ -667,6 +716,13 @@ mod tests {
                 b: 0.0,
             },
             Velocity { x: 0.0, y: 0.0 },
+            crate::components::MovementStyle {
+                style: crate::components::MovementType::Random,
+                flocking_strength: 0.5,
+                separation_distance: 10.0,
+                alignment_strength: 0.5,
+                cohesion_strength: 0.5,
+            },
         ));
 
         // Test processing a single entity
@@ -691,6 +747,13 @@ mod tests {
                 b: 0.0,
             },
             Velocity { x: 0.0, y: 0.0 },
+            crate::components::MovementStyle {
+                style: crate::components::MovementType::Flocking,
+                flocking_strength: 0.7,
+                separation_distance: 12.0,
+                alignment_strength: 0.6,
+                cohesion_strength: 0.6,
+            },
         ));
 
         let updates = vec![(
@@ -708,6 +771,13 @@ mod tests {
                 b: 0.0,
             },
             Velocity { x: 1.0, y: 1.0 },
+            crate::components::MovementStyle {
+                style: crate::components::MovementType::Flocking,
+                flocking_strength: 0.7,
+                separation_distance: 12.0,
+                alignment_strength: 0.6,
+                cohesion_strength: 0.6,
+            },
             false,
             None,
         )];
