@@ -14,6 +14,8 @@ use winit::{
 struct Vertex {
     position: [f32; 2],
     color: [f32; 3],
+    center: [f32; 2], // Center position of the ball
+    radius: f32,
 }
 
 struct State {
@@ -96,6 +98,19 @@ impl State {
                             shader_location: 1,
                             format: wgpu::VertexFormat::Float32x3,
                         },
+                        wgpu::VertexAttribute {
+                            offset: std::mem::size_of::<[f32; 2]>() as wgpu::BufferAddress
+                                + std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
+                            shader_location: 2,
+                            format: wgpu::VertexFormat::Float32x2, // Changed to Float32x2 for center
+                        },
+                        wgpu::VertexAttribute {
+                            offset: std::mem::size_of::<[f32; 2]>() as wgpu::BufferAddress
+                                + std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress
+                                + std::mem::size_of::<[f32; 2]>() as wgpu::BufferAddress,
+                            shader_location: 3,
+                            format: wgpu::VertexFormat::Float32,
+                        },
                     ],
                 }],
             },
@@ -104,7 +119,7 @@ impl State {
                 entry_point: "fs_main",
                 targets: &[Some(wgpu::ColorTargetState {
                     format: config.format,
-                    blend: Some(wgpu::BlendState::REPLACE),
+                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
             }),
@@ -112,7 +127,7 @@ impl State {
                 topology: wgpu::PrimitiveTopology::TriangleList,
                 strip_index_format: None,
                 front_face: wgpu::FrontFace::Ccw,
-                cull_mode: Some(wgpu::Face::Back),
+                cull_mode: None, // Disable culling for transparent objects
                 polygon_mode: wgpu::PolygonMode::Fill,
                 unclipped_depth: false,
                 conservative: false,
@@ -131,9 +146,11 @@ impl State {
             Vertex {
                 position: [0.0, 0.0],
                 color: [0.0, 0.0, 0.0],
+                center: [0.0, 0.0],
+                radius: 0.0,
             };
-            1000
-        ]; // Pre-allocate space for 1000 entities
+            2000
+        ]; // Pre-allocate space for 1000 entities (6 vertices per entity for quads)
 
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
@@ -172,23 +189,50 @@ impl State {
             // Convert world coordinates to normalized device coordinates (-1 to 1)
             let screen_x = (x + world_size / 2.0) / world_size * 2.0 - 1.0;
             let screen_y = -((y + world_size / 2.0) / world_size * 2.0 - 1.0); // Flip Y
-            let screen_radius = (radius / world_size * 2.0).min(0.1); // Scale radius
+            let screen_radius = (radius / world_size * 2.0).min(0.15); // Scale radius - increased for better visibility
 
-            // Create a simple triangle for each entity (simplified circle representation)
+            // Create a quad for each entity (will be rendered as a glowing ball)
             let color = [r, g, b];
 
+            // Quad vertices (two triangles to form a square)
             // Triangle 1
-            vertices.push(Vertex {
-                position: [screen_x, screen_y + screen_radius],
-                color,
-            });
             vertices.push(Vertex {
                 position: [screen_x - screen_radius, screen_y - screen_radius],
                 color,
+                center: [screen_x, screen_y],
+                radius: screen_radius,
             });
             vertices.push(Vertex {
                 position: [screen_x + screen_radius, screen_y - screen_radius],
                 color,
+                center: [screen_x, screen_y],
+                radius: screen_radius,
+            });
+            vertices.push(Vertex {
+                position: [screen_x - screen_radius, screen_y + screen_radius],
+                color,
+                center: [screen_x, screen_y],
+                radius: screen_radius,
+            });
+
+            // Triangle 2
+            vertices.push(Vertex {
+                position: [screen_x + screen_radius, screen_y - screen_radius],
+                color,
+                center: [screen_x, screen_y],
+                radius: screen_radius,
+            });
+            vertices.push(Vertex {
+                position: [screen_x + screen_radius, screen_y + screen_radius],
+                color,
+                center: [screen_x, screen_y],
+                radius: screen_radius,
+            });
+            vertices.push(Vertex {
+                position: [screen_x - screen_radius, screen_y + screen_radius],
+                color,
+                center: [screen_x, screen_y],
+                radius: screen_radius,
             });
         }
 
@@ -197,7 +241,7 @@ impl State {
         // Only recreate vertex buffer if size changed significantly or if it's empty
         if vertices.len() > 0 {
             // Use a larger buffer size to avoid frequent recreations
-            let buffer_size = (vertices.len() * std::mem::size_of::<Vertex>()).max(1024 * 1024);
+            let buffer_size = (vertices.len() * std::mem::size_of::<Vertex>()).max(2 * 1024 * 1024);
 
             if self.vertex_buffer.size() < buffer_size as u64 {
                 // Recreate buffer if it's too small
