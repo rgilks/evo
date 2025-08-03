@@ -280,6 +280,7 @@ impl Simulation {
             genes.color_b = rng.gen_range(0.0..0.3);
             genes.speed = rng.gen_range(0.5..2.0);
             genes.energy_loss_rate = rng.gen_range(0.2..0.8);
+            genes.energy_gain_rate = rng.gen_range(1.0..2.5); // Higher energy gain rate for herbivores
             genes.reproduction_threshold = rng.gen_range(0.6..0.8);
 
             let energy = rng.gen_range(30.0..50.0);
@@ -578,8 +579,13 @@ impl Simulation {
 
                                                 if can_eat {
                                                     eaten_entity = Some(*nearby_entity);
-                                                    let energy_gained = nearby_energy.current
-                                                        * genes.energy_gain_rate;
+                                                    let energy_gained = if entity_type.is_herbivore && nearby_entity_type.is_resource {
+                                                        // Herbivores gain much more energy from eating resources
+                                                        nearby_energy.current * genes.energy_gain_rate * 3.0
+                                                    } else {
+                                                        // Normal energy gain for other interactions
+                                                        nearby_energy.current * genes.energy_gain_rate
+                                                    };
                                                     new_energy = (new_energy + energy_gained)
                                                         .min(*max_energy);
                                                     break;
