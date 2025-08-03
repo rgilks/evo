@@ -23,59 +23,93 @@ impl MovementSystem {
         let target = self.find_movement_target(pos, genes, nearby_entities, world);
 
         if let Some((target_x, target_y)) = target {
-            // Move towards target
-            let dx = target_x - pos.x;
-            let dy = target_y - pos.y;
-            let distance = (dx * dx + dy * dy).sqrt();
-            if distance > 0.0 {
-                new_velocity.x = (dx / distance) * genes.speed();
-                new_velocity.y = (dy / distance) * genes.speed();
-            }
+            self.move_towards_target(pos, target_x, target_y, genes, new_velocity);
         } else {
-            // Random movement - use uniform distribution in a circle to avoid bias
-            let mut rng = thread_rng();
-            let speed_variation = rng.gen_range(0.8..1.2);
-            let speed = genes.speed() * speed_variation;
-
-            // Generate random direction using uniform distribution in a circle
-            let (dx, dy) = loop {
-                let dx = rng.gen_range(-1.0f32..1.0);
-                let dy = rng.gen_range(-1.0f32..1.0);
-                let length_sq = dx * dx + dy * dy;
-                if length_sq <= 1.0 && length_sq > 0.0 {
-                    // Normalize to unit vector
-                    let length = length_sq.sqrt();
-                    break (dx / length, dy / length);
-                }
-            };
-
-            new_velocity.x = dx * speed;
-            new_velocity.y = dy * speed;
-
-            // Cap velocity to prevent extreme movements
-            if new_velocity.x.abs() > config.max_velocity {
-                new_velocity.x = new_velocity.x.signum() * config.max_velocity;
-            }
-            if new_velocity.y.abs() > config.max_velocity {
-                new_velocity.y = new_velocity.y.signum() * config.max_velocity;
-            }
+            self.move_randomly(genes, new_velocity, config);
         }
 
+        self.update_position(new_pos, new_velocity);
+        self.validate_position(new_pos);
+        self.apply_movement_cost(new_velocity, new_energy, genes, config);
+    }
+
+    fn move_towards_target(
+        &self,
+        pos: &Position,
+        target_x: f32,
+        target_y: f32,
+        genes: &Genes,
+        new_velocity: &mut Velocity,
+    ) {
+        let dx = target_x - pos.x;
+        let dy = target_y - pos.y;
+        let distance = (dx * dx + dy * dy).sqrt();
+        if distance > 0.0 {
+            new_velocity.x = (dx / distance) * genes.speed();
+            new_velocity.y = (dy / distance) * genes.speed();
+        }
+    }
+
+    fn move_randomly(&self, genes: &Genes, new_velocity: &mut Velocity, config: &SimulationConfig) {
+        let mut rng = thread_rng();
+        let speed_variation = rng.gen_range(0.8..1.2);
+        let speed = genes.speed() * speed_variation;
+
+        // Generate random direction using uniform distribution in a circle
+        let (dx, dy) = self.generate_random_direction(&mut rng);
+        new_velocity.x = dx * speed;
+        new_velocity.y = dy * speed;
+
+        self.cap_velocity(new_velocity, config);
+    }
+
+    fn generate_random_direction(&self, rng: &mut ThreadRng) -> (f32, f32) {
+        loop {
+            let dx = rng.gen_range(-1.0f32..1.0);
+            let dy = rng.gen_range(-1.0f32..1.0);
+            let length_sq = dx * dx + dy * dy;
+            if length_sq <= 1.0 && length_sq > 0.0 {
+                // Normalize to unit vector
+                let length = length_sq.sqrt();
+                return (dx / length, dy / length);
+            }
+        }
+    }
+
+    fn cap_velocity(&self, velocity: &mut Velocity, config: &SimulationConfig) {
+        if velocity.x.abs() > config.physics.max_velocity {
+            velocity.x = velocity.x.signum() * config.physics.max_velocity;
+        }
+        if velocity.y.abs() > config.physics.max_velocity {
+            velocity.y = velocity.y.signum() * config.physics.max_velocity;
+        }
+    }
+
+    fn update_position(&self, new_pos: &mut Position, new_velocity: &Velocity) {
         new_pos.x += new_velocity.x;
         new_pos.y += new_velocity.y;
+    }
 
-        // Validate position to prevent NaN or infinite values
+    fn validate_position(&self, new_pos: &mut Position) {
         if new_pos.x.is_nan() || new_pos.x.is_infinite() {
             new_pos.x = 0.0;
         }
         if new_pos.y.is_nan() || new_pos.y.is_infinite() {
             new_pos.y = 0.0;
         }
+    }
 
-        // Movement cost based on genes
+    fn apply_movement_cost(
+        &self,
+        new_velocity: &Velocity,
+        new_energy: &mut f32,
+        genes: &Genes,
+        config: &SimulationConfig,
+    ) {
         let movement_distance =
             (new_velocity.x * new_velocity.x + new_velocity.y * new_velocity.y).sqrt();
-        *new_energy -= movement_distance * config.movement_energy_cost / genes.energy_efficiency();
+        *new_energy -=
+            movement_distance * config.energy.movement_energy_cost / genes.energy_efficiency();
     }
 
     fn find_movement_target(
@@ -123,20 +157,20 @@ impl MovementSystem {
         let half_world = world_size / 2.0;
 
         // Use <= and >= to handle edge cases better
-        if pos.x <= -half_world + config.boundary_margin {
-            pos.x = -half_world + config.boundary_margin;
-            velocity.x = velocity.x.abs() * config.velocity_bounce_factor;
-        } else if pos.x >= half_world - config.boundary_margin {
-            pos.x = half_world - config.boundary_margin;
-            velocity.x = -velocity.x.abs() * config.velocity_bounce_factor;
+        if pos.x <= -half_world + config.physics.boundary_margin {
+            pos.x = -half_world + config.physics.boundary_margin;
+            velocity.x = velocity.x.abs() * config.physics.velocity_bounce_factor;
+        } else if pos.x >= half_world - config.physics.boundary_margin {
+            pos.x = half_world - config.physics.boundary_margin;
+            velocity.x = -velocity.x.abs() * config.physics.velocity_bounce_factor;
         }
 
-        if pos.y <= -half_world + config.boundary_margin {
-            pos.y = -half_world + config.boundary_margin;
-            velocity.y = velocity.y.abs() * config.velocity_bounce_factor;
-        } else if pos.y >= half_world - config.boundary_margin {
-            pos.y = half_world - config.boundary_margin;
-            velocity.y = -velocity.y.abs() * config.velocity_bounce_factor;
+        if pos.y <= -half_world + config.physics.boundary_margin {
+            pos.y = -half_world + config.physics.boundary_margin;
+            velocity.y = velocity.y.abs() * config.physics.velocity_bounce_factor;
+        } else if pos.y >= half_world - config.physics.boundary_margin {
+            pos.y = half_world - config.physics.boundary_margin;
+            velocity.y = -velocity.y.abs() * config.physics.velocity_bounce_factor;
         }
     }
 }
@@ -157,32 +191,61 @@ impl InteractionSystem {
         config: &SimulationConfig,
     ) {
         for &entity in nearby_entities {
-            if let Ok(nearby_pos) = world.get::<&Position>(entity) {
-                if let Ok(nearby_genes) = world.get::<&Genes>(entity) {
-                    if let Ok(nearby_energy) = world.get::<&Energy>(entity) {
-                        if let Ok(nearby_size) = world.get::<&Size>(entity) {
-                            let distance = ((nearby_pos.x - new_pos.x).powi(2)
-                                + (nearby_pos.y - new_pos.y).powi(2))
-                            .sqrt();
+            if self.can_interact_with_entity(entity, new_pos, size, genes, world, config) {
+                self.process_interaction(entity, new_energy, eaten_entity, genes, world);
+                break; // Only interact with one entity per frame
+            }
+        }
+    }
 
-                            if distance < (size.radius + config.interaction_radius_offset)
-                                && nearby_energy.current > 0.0
-                            {
-                                if genes.can_eat(&*nearby_genes, &*nearby_size, size) {
-                                    *eaten_entity = Some(entity);
-                                    let energy_gained = genes.get_energy_gain(
-                                        nearby_energy.current,
-                                        &*nearby_size,
-                                        size,
-                                    );
-                                    *new_energy = (*new_energy + energy_gained - 0.5)
-                                        .min(genes.energy_efficiency() * 100.0);
-                                    break;
-                                }
+    fn can_interact_with_entity(
+        &self,
+        entity: Entity,
+        new_pos: &Position,
+        size: &Size,
+        genes: &Genes,
+        world: &World,
+        config: &SimulationConfig,
+    ) -> bool {
+        if let Ok(nearby_pos) = world.get::<&Position>(entity) {
+            if let Ok(nearby_genes) = world.get::<&Genes>(entity) {
+                if let Ok(nearby_energy) = world.get::<&Energy>(entity) {
+                    if let Ok(nearby_size) = world.get::<&Size>(entity) {
+                        if nearby_energy.current > 0.0 {
+                            let distance = self.calculate_distance(new_pos, &nearby_pos);
+                            if distance < (size.radius + config.physics.interaction_radius_offset) {
+                                return genes.can_eat(&*nearby_genes, &*nearby_size, size);
                             }
                         }
                     }
                 }
+            }
+        }
+        false
+    }
+
+    fn calculate_distance(&self, pos1: &Position, pos2: &Position) -> f32 {
+        ((pos2.x - pos1.x).powi(2) + (pos2.y - pos1.y).powi(2)).sqrt()
+    }
+
+    fn process_interaction(
+        &self,
+        entity: Entity,
+        new_energy: &mut f32,
+        eaten_entity: &mut Option<Entity>,
+        genes: &Genes,
+        world: &World,
+    ) {
+        if let Ok(nearby_energy) = world.get::<&Energy>(entity) {
+            if let Ok(nearby_size) = world.get::<&Size>(entity) {
+                *eaten_entity = Some(entity);
+                let energy_gained = genes.get_energy_gain(
+                    nearby_energy.current,
+                    &*nearby_size,
+                    &Size { radius: 1.0 },
+                );
+                *new_energy =
+                    (*new_energy + energy_gained - 0.5).min(genes.energy_efficiency() * 100.0);
             }
         }
     }
@@ -200,13 +263,15 @@ impl EnergySystem {
         config: &SimulationConfig,
     ) {
         // Energy changes based on genes and size (larger entities cost more to maintain)
-        let size_energy_cost = size.radius * config.size_energy_cost_factor;
+        let size_energy_cost = size.radius * config.energy.size_energy_cost_factor;
         *new_energy -= (genes.energy_loss_rate() + size_energy_cost) / genes.energy_efficiency();
     }
 
     pub fn calculate_new_size(&self, energy: f32, genes: &Genes, config: &SimulationConfig) -> f32 {
-        (energy / 15.0 * genes.size_factor())
-            .clamp(config.min_entity_radius, config.max_entity_radius)
+        (energy / 15.0 * genes.size_factor()).clamp(
+            config.physics.min_entity_radius,
+            config.physics.max_entity_radius,
+        )
     }
 }
 
@@ -223,10 +288,10 @@ impl ReproductionSystem {
         config: &SimulationConfig,
     ) -> bool {
         let reproduction_chance = genes.reproduction_rate()
-            * (1.0 - population_density * config.population_density_factor)
-                .max(config.min_reproduction_chance);
+            * (1.0 - population_density * config.reproduction.population_density_factor)
+                .max(config.reproduction.min_reproduction_chance);
 
-        energy > max_energy * config.reproduction_energy_threshold
+        energy > max_energy * config.reproduction.reproduction_energy_threshold
             && thread_rng().gen::<f32>() < reproduction_chance
     }
 
@@ -246,17 +311,23 @@ impl ReproductionSystem {
     ) {
         let mut rng = thread_rng();
         let child_genes = parent_genes.mutate(&mut rng);
-        let child_energy = parent_energy_max * config.child_energy_factor;
-        let child_radius =
-            (child_energy / 15.0 * child_genes.size_factor()).clamp(config.min_entity_radius, 15.0);
+        let child_energy = parent_energy_max * config.reproduction.child_energy_factor;
+        let child_radius = (child_energy / 15.0 * child_genes.size_factor())
+            .clamp(config.physics.min_entity_radius, 15.0);
         let child_color = child_genes.get_color();
 
         // Use uniform distribution in a circle for child positioning
         let (dx, dy) = loop {
-            let dx = rng.gen_range(-config.child_spawn_radius..config.child_spawn_radius);
-            let dy = rng.gen_range(-config.child_spawn_radius..config.child_spawn_radius);
+            let dx = rng.gen_range(
+                -config.reproduction.child_spawn_radius..config.reproduction.child_spawn_radius,
+            );
+            let dy = rng.gen_range(
+                -config.reproduction.child_spawn_radius..config.reproduction.child_spawn_radius,
+            );
             let distance_sq = dx * dx + dy * dy;
-            if distance_sq <= config.child_spawn_radius * config.child_spawn_radius {
+            if distance_sq
+                <= config.reproduction.child_spawn_radius * config.reproduction.child_spawn_radius
+            {
                 break (dx, dy);
             }
         };
@@ -280,7 +351,7 @@ impl ReproductionSystem {
     }
 
     pub fn check_death(&self, population_density: f32, config: &SimulationConfig) -> bool {
-        let death_chance = population_density * config.death_chance_factor;
+        let death_chance = population_density * config.reproduction.death_chance_factor;
         thread_rng().gen::<f32>() < death_chance
     }
 }
@@ -339,8 +410,8 @@ mod tests {
         system.handle_boundaries(&mut pos, &mut velocity, world_size, &config);
 
         // Position should be clamped to boundary
-        assert!(pos.x <= 50.0 - config.boundary_margin);
-        assert!(pos.y <= 50.0 - config.boundary_margin);
+        assert!(pos.x <= 50.0 - config.physics.boundary_margin);
+        assert!(pos.y <= 50.0 - config.physics.boundary_margin);
 
         // Velocity should be reflected
         assert!(velocity.x < 0.0 || velocity.y < 0.0);
@@ -421,7 +492,7 @@ mod tests {
 
         // Size should be positive and reasonable
         assert!(new_size > 0.0);
-        assert!(new_size <= config.max_entity_radius);
+        assert!(new_size <= config.physics.max_entity_radius);
     }
 
     #[test]
@@ -437,9 +508,7 @@ mod tests {
         let should_reproduce =
             system.check_reproduction(energy, max_energy, &genes, population_density, &config);
 
-        // Reproduction is probabilistic, so we just check it doesn't panic
-        // and that the logic is sound (high energy, low density = higher chance)
-        assert!(should_reproduce || !should_reproduce); // Always true, just checking no panic
+        // Reproduction check completed without panic
     }
 
     #[test]
@@ -456,7 +525,7 @@ mod tests {
 
         // Position should be near parent
         let distance = ((pos.x - parent_pos.x).powi(2) + (pos.y - parent_pos.y).powi(2)).sqrt();
-        assert!(distance <= config.child_spawn_radius);
+        assert!(distance <= config.reproduction.child_spawn_radius);
 
         // Energy should be reasonable
         assert!(energy.current > 0.0);
@@ -464,7 +533,7 @@ mod tests {
 
         // Size should be reasonable
         assert!(size.radius > 0.0);
-        assert!(size.radius <= config.max_entity_radius);
+        assert!(size.radius <= config.physics.max_entity_radius);
 
         // Color should be valid
         assert!(color.r >= 0.0 && color.r <= 1.0);
@@ -472,8 +541,8 @@ mod tests {
         assert!(color.b >= 0.0 && color.b <= 1.0);
 
         // Velocity should be reasonable
-        assert!(velocity.x.abs() <= config.max_velocity);
-        assert!(velocity.y.abs() <= config.max_velocity);
+        assert!(velocity.x.abs() <= config.physics.max_velocity);
+        assert!(velocity.y.abs() <= config.physics.max_velocity);
     }
 
     #[test]
@@ -484,9 +553,7 @@ mod tests {
 
         let should_die = system.check_death(population_density, &config);
 
-        // High population density should increase death chance
-        // This is probabilistic, so we just check it doesn't panic
-        assert!(should_die || !should_die); // Always true, just checking no panic
+        // Death check completed without panic
     }
 
     #[test]
@@ -1202,8 +1269,8 @@ mod tests {
 
         let mut config = SimulationConfig::default();
         // Disable reproduction to isolate interaction effects
-        config.reproduction_energy_threshold = 2.0; // Impossible threshold
-        config.min_reproduction_chance = 0.0;
+        config.reproduction.reproduction_energy_threshold = 2.0; // Impossible threshold
+        config.reproduction.min_reproduction_chance = 0.0;
 
         let world_size = 100.0;
         let mut simulation = Simulation::new_with_config(world_size, config);
@@ -1267,7 +1334,7 @@ mod tests {
 
         let mut config = SimulationConfig::default();
         // Disable interactions to isolate reproduction effects
-        config.interaction_radius_offset = 0.0; // No interactions
+        config.physics.interaction_radius_offset = 0.0; // No interactions
 
         let world_size = 100.0;
         let mut simulation = Simulation::new_with_config(world_size, config);
@@ -1483,7 +1550,7 @@ mod tests {
 
         let mut config = SimulationConfig::default();
         // Make interactions more likely to see the effect
-        config.interaction_radius_offset = 25.0; // Larger interaction radius
+        config.physics.interaction_radius_offset = 25.0; // Larger interaction radius
 
         let world_size = 100.0;
         let mut simulation = Simulation::new_with_config(world_size, config);
@@ -1581,7 +1648,7 @@ mod tests {
 
         let mut config = SimulationConfig::default();
         // Make interactions very likely
-        config.interaction_radius_offset = 30.0;
+        config.physics.interaction_radius_offset = 30.0;
 
         let world_size = 100.0;
         let mut simulation = Simulation::new_with_config(world_size, config);

@@ -44,8 +44,8 @@ impl WebSimulation {
     pub fn get_stats(&self) -> JsValue {
         let stats = stats::SimulationStats::from_world(
             self.simulation.world(),
-            self.config.max_population as f32,
-            self.config.entity_scale,
+            self.config.population.max_population as f32,
+            self.config.population.entity_scale,
         );
         serde_wasm_bindgen::to_value(&stats).unwrap_or_else(|_| JsValue::NULL)
     }

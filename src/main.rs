@@ -72,8 +72,8 @@ fn main() {
                 // Use the new stats module for clean, consistent logging
                 let stats = stats::SimulationStats::from_world(
                     sim.world(),
-                    config.max_population as f32,
-                    config.entity_scale,
+                    config.population.max_population as f32,
+                    config.population.entity_scale,
                 );
                 println!("{}", stats.format_summary(step));
             }

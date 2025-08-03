@@ -34,7 +34,7 @@ impl Simulation {
     pub fn new_with_config(world_size: f32, config: SimulationConfig) -> Self {
         let mut world = World::new();
         let mut rng = thread_rng();
-        let grid = SpatialGrid::new(config.grid_cell_size);
+        let grid = SpatialGrid::new(config.physics.grid_cell_size);
 
         Self::spawn_initial_entities(&mut world, &mut rng, world_size, &config);
 
@@ -58,8 +58,9 @@ impl Simulation {
         world_size: f32,
         config: &SimulationConfig,
     ) {
-        let total_entities = (config.initial_entities as f32 * config.entity_scale) as usize;
-        let spawn_radius = world_size * config.spawn_radius_factor;
+        let total_entities =
+            (config.population.initial_entities as f32 * config.population.entity_scale) as usize;
+        let spawn_radius = world_size * config.population.spawn_radius_factor;
 
         for _ in 0..total_entities {
             // Use perfectly uniform distribution in a circle
@@ -71,8 +72,10 @@ impl Simulation {
             let genes = Genes::new_random(rng);
             let energy = rng.gen_range(15.0..75.0);
             let color = genes.get_color();
-            let radius = (energy / 15.0 * genes.size_factor())
-                .clamp(config.min_entity_radius, config.max_entity_radius);
+            let radius = (energy / 15.0 * genes.size_factor()).clamp(
+                config.physics.min_entity_radius,
+                config.physics.max_entity_radius,
+            );
 
             world.spawn((
                 Position { x, y },
@@ -100,39 +103,24 @@ impl Simulation {
     fn log_simulation_metrics(&self) {
         let stats = SimulationStats::from_world(
             &self.world,
-            self.config.max_population as f32,
-            self.config.entity_scale,
+            self.config.population.max_population as f32,
+            self.config.population.entity_scale,
         );
         println!("{}", stats.format_detailed(self.step));
     }
 
     fn update_simulation(&mut self) {
-        // Store previous positions for smooth interpolation
+        self.store_previous_positions();
+        self.rebuild_spatial_grid();
+        let updates = self.process_entities_parallel();
+        self.apply_entity_updates(updates);
+    }
+
+    fn store_previous_positions(&mut self) {
         self.previous_positions.clear();
         for (entity, (pos,)) in self.world.query::<(&Position,)>().iter() {
             self.previous_positions.insert(entity, pos.clone());
         }
-
-        // Rebuild spatial grid in parallel
-        self.rebuild_spatial_grid();
-
-        // Process entities in parallel using the new systems
-        let updates: Vec<_> = self
-            .world
-            .query::<(&Position, &Energy, &Size, &Genes, &Color, &Velocity)>()
-            .iter()
-            .par_bridge()
-            .filter_map(|(entity, (pos, energy, size, genes, color, velocity))| {
-                if energy.current <= 0.0 {
-                    return None;
-                }
-
-                self.process_entity(entity, pos, energy, size, genes, color, velocity)
-            })
-            .collect();
-
-        // Apply updates and handle reproduction
-        self.apply_updates(updates);
     }
 
     fn rebuild_spatial_grid(&mut self) {
@@ -151,6 +139,33 @@ impl Simulation {
         for (entity, x, y) in grid_entities {
             self.grid.insert(entity, x, y);
         }
+    }
+
+    fn process_entities_parallel(
+        &self,
+    ) -> Vec<(
+        Entity,
+        Position,
+        Energy,
+        Size,
+        Genes,
+        Color,
+        Velocity,
+        bool,
+        Option<Entity>,
+    )> {
+        self.world
+            .query::<(&Position, &Energy, &Size, &Genes, &Color, &Velocity)>()
+            .iter()
+            .par_bridge()
+            .filter_map(|(entity, (pos, energy, size, genes, color, velocity))| {
+                if energy.current <= 0.0 {
+                    return None;
+                }
+
+                self.process_entity(entity, pos, energy, size, genes, color, velocity)
+            })
+            .collect()
     }
 
     fn process_entity(
@@ -173,31 +188,24 @@ impl Simulation {
         bool,
         Option<Entity>,
     )> {
+        let nearby_entities = self.get_nearby_entities_for_entity(pos, genes);
+
         let mut new_pos = pos.clone();
-        let mut new_energy = energy.current;
         let mut new_velocity = velocity.clone();
+        let mut new_energy = energy.current;
         let mut eaten_entity = None;
-        let mut should_reproduce = false;
 
-        // Find nearby entities
-        let nearby_entities = self
-            .grid
-            .get_nearby_entities(pos.x, pos.y, genes.sense_radius());
-        let nearby_entities = nearby_entities.iter().take(20).copied().collect::<Vec<_>>();
-
-        // Movement logic using the movement system
-        self.movement_system.update_movement(
+        // Apply movement
+        self.apply_movement_to_entity(
             genes,
             &mut new_pos,
             &mut new_velocity,
             &mut new_energy,
             pos,
             &nearby_entities,
-            &self.world,
-            &self.config,
         );
 
-        // Boundary handling
+        // Handle boundaries
         self.movement_system.handle_boundaries(
             &mut new_pos,
             &mut new_velocity,
@@ -205,39 +213,25 @@ impl Simulation {
             &self.config,
         );
 
-        // Interaction logic using the interaction system
-        self.interaction_system.handle_interactions(
+        // Handle interactions
+        self.apply_interactions_to_entity(
             &mut new_energy,
             &mut eaten_entity,
             &new_pos,
             size,
             genes,
             &nearby_entities,
-            &self.world,
-            &self.config,
         );
 
-        // Energy changes using the energy system
+        // Apply energy changes
         self.energy_system
             .update_energy(&mut new_energy, size, genes, &self.config);
 
-        // Calculate population density for reproduction and death checks
-        let population_density = self.world.len() as f32
-            / (self.config.max_population as f32 * self.config.entity_scale);
+        // Check reproduction and death
+        let population_density = self.calculate_population_density();
+        let should_reproduce =
+            self.check_reproduction_for_entity(new_energy, energy.max, genes, population_density);
 
-        // Reproduction check using the reproduction system
-        if self.reproduction_system.check_reproduction(
-            new_energy,
-            energy.max,
-            genes,
-            population_density,
-            &self.config,
-        ) {
-            should_reproduce = true;
-            new_energy *= self.config.reproduction_energy_cost;
-        }
-
-        // Death check using the reproduction system
         if self
             .reproduction_system
             .check_death(population_density, &self.config)
@@ -245,7 +239,11 @@ impl Simulation {
             new_energy = 0.0; // Kill the entity
         }
 
-        // Calculate new size using the energy system
+        if should_reproduce {
+            new_energy *= self.config.reproduction.reproduction_energy_cost;
+        }
+
+        // Calculate new size
         let new_radius = self
             .energy_system
             .calculate_new_size(new_energy, genes, &self.config);
@@ -266,7 +264,77 @@ impl Simulation {
         ))
     }
 
-    fn apply_updates(
+    fn get_nearby_entities_for_entity(&self, pos: &Position, genes: &Genes) -> Vec<Entity> {
+        let nearby_entities = self
+            .grid
+            .get_nearby_entities(pos.x, pos.y, genes.sense_radius());
+        nearby_entities.iter().take(20).copied().collect::<Vec<_>>()
+    }
+
+    fn apply_movement_to_entity(
+        &self,
+        genes: &Genes,
+        new_pos: &mut Position,
+        new_velocity: &mut Velocity,
+        new_energy: &mut f32,
+        pos: &Position,
+        nearby_entities: &[Entity],
+    ) {
+        self.movement_system.update_movement(
+            genes,
+            new_pos,
+            new_velocity,
+            new_energy,
+            pos,
+            nearby_entities,
+            &self.world,
+            &self.config,
+        );
+    }
+
+    fn apply_interactions_to_entity(
+        &self,
+        new_energy: &mut f32,
+        eaten_entity: &mut Option<Entity>,
+        new_pos: &Position,
+        size: &Size,
+        genes: &Genes,
+        nearby_entities: &[Entity],
+    ) {
+        self.interaction_system.handle_interactions(
+            new_energy,
+            eaten_entity,
+            new_pos,
+            size,
+            genes,
+            nearby_entities,
+            &self.world,
+            &self.config,
+        );
+    }
+
+    fn calculate_population_density(&self) -> f32 {
+        self.world.len() as f32
+            / (self.config.population.max_population as f32 * self.config.population.entity_scale)
+    }
+
+    fn check_reproduction_for_entity(
+        &self,
+        energy: f32,
+        max_energy: f32,
+        genes: &Genes,
+        population_density: f32,
+    ) -> bool {
+        self.reproduction_system.check_reproduction(
+            energy,
+            max_energy,
+            genes,
+            population_density,
+            &self.config,
+        )
+    }
+
+    fn apply_entity_updates(
         &mut self,
         updates: Vec<(
             Entity,
@@ -313,8 +381,9 @@ impl Simulation {
                     )];
 
                     // Handle reproduction with stricter population control
-                    let max_population =
-                        (self.config.max_population as f32 * self.config.entity_scale) as u32;
+                    let max_population = (self.config.population.max_population as f32
+                        * self.config.population.entity_scale)
+                        as u32;
                     if *should_reproduce && self.world.len() < max_population {
                         let (
                             child_pos,
@@ -437,14 +506,14 @@ mod tests {
     #[test]
     fn test_simulation_creation_with_config() {
         let mut config = SimulationConfig::default();
-        config.initial_entities = 100;
-        config.max_population = 500;
+        config.population.initial_entities = 100;
+        config.population.max_population = 500;
 
         let sim = Simulation::new_with_config(500.0, config.clone());
 
         assert_eq!(sim.world_size, 500.0);
-        assert_eq!(sim.config.initial_entities, 100);
-        assert_eq!(sim.config.max_population, 500);
+        assert_eq!(sim.config.population.initial_entities, 100);
+        assert_eq!(sim.config.population.max_population, 500);
     }
 
     #[test]
@@ -459,7 +528,7 @@ mod tests {
 
         // Entity count might change due to reproduction/death
         // but should be within reasonable bounds
-        assert!(sim.world.len() > 0 || sim.world.len() == 0); // Just check it doesn't panic
+        assert!(sim.world.len() >= 0);
     }
 
     #[test]
@@ -517,8 +586,8 @@ mod tests {
             .handle_boundaries(&mut pos, &mut velocity, 100.0, &sim.config);
 
         // Position should be clamped to boundary
-        assert!(pos.x <= 50.0 - sim.config.boundary_margin);
-        assert!(pos.y <= 50.0 - sim.config.boundary_margin);
+        assert!(pos.x <= 50.0 - sim.config.physics.boundary_margin);
+        assert!(pos.y <= 50.0 - sim.config.physics.boundary_margin);
     }
 
     #[test]
@@ -571,8 +640,8 @@ mod tests {
     #[test]
     fn test_simulation_large_world() {
         let mut config = SimulationConfig::default();
-        config.initial_entities = 1000;
-        config.max_population = 2000;
+        config.population.initial_entities = 1000;
+        config.population.max_population = 2000;
 
         let sim = Simulation::new_with_config(1000.0, config);
 
@@ -643,7 +712,7 @@ mod tests {
             None,
         )];
 
-        sim.apply_updates(updates);
+        sim.apply_entity_updates(updates);
 
         // Entity should be updated
         // Note: We can't easily test this due to borrowing rules

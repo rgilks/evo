@@ -3,7 +3,39 @@ import init, {
   WebSimulation,
   WebRenderer,
   init_panic_hook,
-} from "./pkg/evo.js";
+} from "./pkg/evo.js?v=2";
+
+// Shared configuration object - matches the new Rust SimulationConfig structure
+const DEFAULT_CONFIG = {
+  population: {
+    entity_scale: 0.5,
+    max_population: 5000,
+    initial_entities: 3000,
+    spawn_radius_factor: 0.2,
+  },
+  physics: {
+    max_velocity: 2.0,
+    max_entity_radius: 20.0,
+    min_entity_radius: 1.0,
+    grid_cell_size: 25.0,
+    boundary_margin: 5.0,
+    interaction_radius_offset: 15.0,
+    velocity_bounce_factor: 0.8,
+  },
+  energy: {
+    size_energy_cost_factor: 0.15,
+    movement_energy_cost: 0.1,
+  },
+  reproduction: {
+    reproduction_energy_threshold: 0.8,
+    reproduction_energy_cost: 0.7,
+    child_energy_factor: 0.4,
+    child_spawn_radius: 15.0,
+    population_density_factor: 0.8,
+    min_reproduction_chance: 0.05,
+    death_chance_factor: 0.1,
+  },
+};
 
 class EvolutionApp {
   constructor() {
@@ -27,38 +59,16 @@ class EvolutionApp {
       // Initialize thread pool
       await initThreadPool(navigator.hardwareConcurrency);
 
-      // Create simulation
-      const config = {
-        entity_scale: 0.5,
-        max_population: 5000,
-        initial_entities: 3000,
-        max_velocity: 2.0,
-        max_entity_radius: 20.0,
-        min_entity_radius: 1.0,
-        spawn_radius_factor: 0.2,
-        grid_cell_size: 25.0,
-        boundary_margin: 5.0,
-        interaction_radius_offset: 15.0,
-        reproduction_energy_threshold: 0.8,
-        reproduction_energy_cost: 0.7,
-        child_energy_factor: 0.4,
-        child_spawn_radius: 15.0,
-        size_energy_cost_factor: 0.15,
-        movement_energy_cost: 0.1,
-        population_density_factor: 0.8,
-        min_reproduction_chance: 0.05,
-        death_chance_factor: 0.1,
-        velocity_bounce_factor: 0.8,
-      };
-
       // Get canvas and make it full-screen
       const canvas = document.getElementById("simulation-canvas");
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
 
+      const configJson = JSON.stringify(DEFAULT_CONFIG);
+      console.log("Config being passed to WebSimulation:", configJson);
       this.simulation = new WebSimulation(
         Math.max(canvas.width, canvas.height),
-        JSON.stringify(config)
+        configJson
       );
       this.renderer = new WebRenderer("simulation-canvas");
 
@@ -78,7 +88,7 @@ class EvolutionApp {
     resetBtn.addEventListener("click", () => this.reset());
     toggleUiBtn.addEventListener("click", () => this.toggleUI());
     showUiBtn.addEventListener("click", () => this.toggleUI());
-    
+
     // Keyboard shortcuts
     document.addEventListener("keydown", (e) => {
       if (e.key === "h" || e.key === "H") {
@@ -103,30 +113,6 @@ class EvolutionApp {
   }
 
   reset() {
-    // Recreate simulation with same config
-    const config = {
-      entity_scale: 0.5,
-      max_population: 5000,
-      initial_entities: 3000,
-      max_velocity: 2.0,
-      max_entity_radius: 20.0,
-      min_entity_radius: 1.0,
-      spawn_radius_factor: 0.2,
-      grid_cell_size: 25.0,
-      boundary_margin: 5.0,
-      interaction_radius_offset: 15.0,
-      reproduction_energy_threshold: 0.8,
-      reproduction_energy_cost: 0.7,
-      child_energy_factor: 0.4,
-      child_spawn_radius: 15.0,
-      size_energy_cost_factor: 0.15,
-      movement_energy_cost: 0.1,
-      population_density_factor: 0.8,
-      min_reproduction_chance: 0.05,
-      death_chance_factor: 0.1,
-      velocity_bounce_factor: 0.8,
-    };
-
     // Get canvas and make it full-screen
     const canvas = document.getElementById("simulation-canvas");
     canvas.width = window.innerWidth;
@@ -134,7 +120,7 @@ class EvolutionApp {
 
     this.simulation = new WebSimulation(
       Math.max(canvas.width, canvas.height),
-      JSON.stringify(config)
+      JSON.stringify(DEFAULT_CONFIG)
     );
     this.updateStats();
   }

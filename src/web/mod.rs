@@ -1,7 +1,3 @@
-pub mod controls;
-pub mod renderer;
-pub mod wasm_bridge;
-
 use wasm_bindgen::prelude::*;
 use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement};
 
