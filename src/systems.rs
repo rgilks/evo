@@ -132,7 +132,7 @@ impl MovementSystem {
             let edge_multiplier = if distance_from_edge < 50.0 {
                 // Exponential increase as we get closer to edges
                 let edge_factor = (50.0 - distance_from_edge) / 50.0;
-                1.0 + edge_factor * edge_factor * 4.0 // Up to 5x stronger at edges
+                1.0 + edge_factor * edge_factor * 8.0 // Up to 9x stronger at edges
             } else {
                 1.0
             };

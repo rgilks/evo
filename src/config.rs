@@ -64,7 +64,7 @@ impl Default for SimulationConfig {
                 boundary_margin: 5.0,
                 interaction_radius_offset: 15.0,
                 velocity_bounce_factor: 0.8,
-                center_pressure_strength: 0.1,
+                center_pressure_strength: 0.3,
             },
             energy: EnergyConfig {
                 size_energy_cost_factor: 0.15,
