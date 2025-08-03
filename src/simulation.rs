@@ -218,7 +218,7 @@ impl Simulation {
     }
 
     fn spawn_initial_entities(world: &mut World, rng: &mut ThreadRng, world_size: f32) {
-        let num_resources = (1000.0 * ENTITY_SCALE) as usize;
+        let num_resources = (500.0 * ENTITY_SCALE) as usize; // Half as many resources
         let num_herbivores = (500.0 * ENTITY_SCALE) as usize;
         let num_predators = (200.0 * ENTITY_SCALE) as usize;
 
