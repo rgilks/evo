@@ -402,6 +402,14 @@ impl Simulation {
     pub fn world(&self) -> &World {
         &self.world
     }
+
+    pub fn world_size(&self) -> f32 {
+        self.world_size
+    }
+
+    pub fn step(&self) -> u32 {
+        self.step
+    }
 }
 
 #[cfg(test)]

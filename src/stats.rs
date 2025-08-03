@@ -3,9 +3,10 @@ use crate::genes::Genes;
 use hecs::World;
 use rayon::prelude::*;
 use std::collections::HashMap;
+use serde::Serialize;
 
 /// Entity type classification based on dominant traits
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 pub enum EntityType {
     RedDominant,
     GreenDominant,
@@ -15,7 +16,7 @@ pub enum EntityType {
 }
 
 /// Comprehensive simulation statistics
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct SimulationStats {
     pub total_entities: usize,
     pub entity_counts: HashMap<EntityType, usize>,
@@ -25,7 +26,7 @@ pub struct SimulationStats {
 }
 
 /// Average metrics across all entities
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct EntityMetrics {
     pub average_energy: f32,
     pub average_speed: f32,

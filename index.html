@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Evolution Simulation</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>Evolution Simulation</h1>
+        <div class="controls">
+          <button id="reset">Reset</button>
+          <button id="toggle-ui" title="Hide UI (H)">Hide UI</button>
+        </div>
+      </header>
+
+      <div id="ui-toggle-corner" class="ui-toggle-corner">
+        <button id="show-ui-btn" title="Show UI (H)">⋮</button>
+      </div>
+
+      <main>
+        <canvas id="simulation-canvas"></canvas>
+
+        <div class="stats-panel">
+          <h3>Stats</h3>
+          <div id="stats-display">
+            <div>Pop: <span id="population">0</span></div>
+            <div>Step: <span id="step-count">0</span></div>
+            <div>FPS: <span id="fps">0</span></div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

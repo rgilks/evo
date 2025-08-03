@@ -1,0 +1,13 @@
+{
+  "name": "evo-web",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "wasm-pack build --target web --out-dir pkg",
+    "dev": "python3 web/server.py",
+    "serve": "npx serve web"
+  },
+  "devDependencies": {
+    "wasm-pack": "^0.12.0"
+  }
+}
