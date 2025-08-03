@@ -26,30 +26,29 @@ fn main() {
         println!("Running evolution simulation in headless mode...");
         let mut sim = simulation::Simulation::new(args.world_size);
 
-        let mut last_stats = (0, 0, 0); // (resources, herbivores, predators)
+        let mut last_stats = (0, 0, 0); // (passive, neutral, aggressive)
 
         for step in 0..args.steps {
             sim.update();
             if step % 10 == 0 {
                 let entities = sim.get_entities();
-                let resources = entities
+                // Count entities by color ranges (redder = more aggressive)
+                let aggressive = entities
                     .iter()
-                    .filter(|(_, _, _, _, g, _)| *g > 0.7)
+                    .filter(|(_, _, _, r, g, _b)| *r > 0.6 && *g < 0.4)
                     .count();
-                let predators = entities
+                let neutral = entities
                     .iter()
-                    .filter(|(_, _, _, r, g, b)| *r > 0.7 && *g < 0.3 && *b < 0.3)
+                    .filter(|(_, _, _, r, g, _b)| *r > 0.3 && *r < 0.6 && *g > 0.3)
                     .count();
-                let herbivores = entities
+                let passive = entities
                     .iter()
-                    .filter(|(_, _, _, r, g, b)| {
-                        *r > 0.7 && *g > 0.4 && *g < 0.6 && *b > 0.05 && *b < 0.15
-                    })
+                    .filter(|(_, _, _, r, g, _b)| *r < 0.4 && *g > 0.5)
                     .count();
 
-                let current_stats = (resources, herbivores, predators);
+                let current_stats = (passive, neutral, aggressive);
                 let population_change = if step > 0 {
-                    let total_change = (resources + herbivores + predators) as i32
+                    let total_change = (passive + neutral + aggressive) as i32
                         - (last_stats.0 + last_stats.1 + last_stats.2) as i32;
                     if total_change > 0 {
                         format!("+{}", total_change)
@@ -61,12 +60,12 @@ fn main() {
                 };
 
                 println!(
-                    "Step {}: {} entities (R:{} H:{} P:{}) {}",
+                    "Step {}: {} entities (Passive:{} Neutral:{} Aggressive:{}) {}",
                     step,
                     entities.len(),
-                    resources,
-                    herbivores,
-                    predators,
+                    passive,
+                    neutral,
+                    aggressive,
                     population_change
                 );
 
