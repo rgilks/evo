@@ -3,6 +3,9 @@ use rand::prelude::*;
 use rayon::prelude::*;
 use std::collections::HashMap;
 
+// Global scale parameter to control entity counts
+const ENTITY_SCALE: f32 = 0.5; // 0.5 = half the current counts, 1.0 = current counts, 2.0 = double counts
+
 // Components
 pub struct Position {
     pub x: f32,
@@ -119,15 +122,20 @@ impl Simulation {
     }
 
     fn spawn_initial_entities(world: &mut World, rng: &mut ThreadRng, world_size: f32) {
-        // Spawn initial entities with 10x increased counts to test parallelization
-        let num_resources = 1000; // Increased from 100
-        let num_herbivores = 500; // Increased from 50
-        let num_predators = 200; // Increased from 20
+        // Spawn initial entities with scalable counts
+        let num_resources = (10000.0 * ENTITY_SCALE) as usize; // 5000 with 0.5 scale
+        let num_herbivores = (5000.0 * ENTITY_SCALE) as usize; // 2500 with 0.5 scale
+        let num_predators = (2000.0 * ENTITY_SCALE) as usize; // 1000 with 0.5 scale
 
-        // Spawn resources (green) - spread them out more
+        // Spawn resources (green) - in a circle in the center
+        let spawn_radius = world_size * 0.25; // 25% of world size for initial circle (increased from 15%)
         for _ in 0..num_resources {
-            let x = rng.gen_range(-world_size / 2.0..world_size / 2.0);
-            let y = rng.gen_range(-world_size / 2.0..world_size / 2.0);
+            // Generate random angle and distance for circular distribution
+            let angle = rng.gen_range(0.0..std::f32::consts::TAU);
+            let distance = rng.gen_range(0.0..spawn_radius);
+
+            let x = distance * angle.cos();
+            let y = distance * angle.sin();
             let energy: f32 = rng.gen_range(15.0..35.0);
             let radius = (energy / 10.0).max(2.0_f32);
 
@@ -146,10 +154,14 @@ impl Simulation {
             ));
         }
 
-        // Spawn herbivores (orange/brown) - spread them out
+        // Spawn herbivores (orange/brown) - in a circle in the center
         for _ in 0..num_herbivores {
-            let x = rng.gen_range(-world_size / 2.0..world_size / 2.0);
-            let y = rng.gen_range(-world_size / 2.0..world_size / 2.0);
+            // Generate random angle and distance for circular distribution
+            let angle = rng.gen_range(0.0..std::f32::consts::TAU);
+            let distance = rng.gen_range(0.0..spawn_radius);
+
+            let x = distance * angle.cos();
+            let y = distance * angle.sin();
             let energy: f32 = rng.gen_range(25.0..45.0);
             let radius = (energy / 10.0).max(2.5_f32);
 
@@ -168,10 +180,14 @@ impl Simulation {
             ));
         }
 
-        // Spawn predators (red) - spread them out
+        // Spawn predators (red) - in a circle in the center
         for _ in 0..num_predators {
-            let x = rng.gen_range(-world_size / 2.0..world_size / 2.0);
-            let y = rng.gen_range(-world_size / 2.0..world_size / 2.0);
+            // Generate random angle and distance for circular distribution
+            let angle = rng.gen_range(0.0..std::f32::consts::TAU);
+            let distance = rng.gen_range(0.0..spawn_radius);
+
+            let x = distance * angle.cos();
+            let y = distance * angle.sin();
             let energy: f32 = rng.gen_range(35.0..55.0);
             let radius = (energy / 10.0).max(3.0_f32);
 
@@ -251,15 +267,16 @@ impl Simulation {
 
                         // Limit the number of nearby entities we check to prevent performance issues
                         let max_nearby_to_check = 15; // Further reduced to prevent flickering
-                        let nearby_entities_to_check = if nearby_entities.len() > max_nearby_to_check {
-                            nearby_entities
-                                .iter()
-                                .take(max_nearby_to_check)
-                                .copied()
-                                .collect::<Vec<_>>()
-                        } else {
-                            nearby_entities
-                        };
+                        let nearby_entities_to_check =
+                            if nearby_entities.len() > max_nearby_to_check {
+                                nearby_entities
+                                    .iter()
+                                    .take(max_nearby_to_check)
+                                    .copied()
+                                    .collect::<Vec<_>>()
+                            } else {
+                                nearby_entities
+                            };
 
                         // Simple movement based on entity type (determined by color)
                         let mut new_x = *x;
@@ -321,13 +338,16 @@ impl Simulation {
                         for nearby_entity in &nearby_entities_to_check {
                             if let Ok(nearby_pos) = self.world.get::<&Position>(*nearby_entity) {
                                 if let Ok(nearby_color) = self.world.get::<&Color>(*nearby_entity) {
-                                    if let Ok(nearby_energy) = self.world.get::<&Energy>(*nearby_entity) {
+                                    if let Ok(nearby_energy) =
+                                        self.world.get::<&Energy>(*nearby_entity)
+                                    {
                                         let distance = ((nearby_pos.x - clamped_x).powi(2)
                                             + (nearby_pos.y - clamped_y).powi(2))
                                         .sqrt();
 
                                         // Interaction distance based on entity size
-                                        if distance < (radius + 8.0) && nearby_energy.current > 0.0 {
+                                        if distance < (radius + 8.0) && nearby_energy.current > 0.0
+                                        {
                                             // Check entity types
                                             let is_predator =
                                                 color.r > 0.7 && color.g < 0.3 && color.b < 0.3;
@@ -446,7 +466,8 @@ impl Simulation {
                 ));
 
                 // Handle reproduction only if population is not too high
-                if should_reproduce && self.world.len() < 15000 { // Increased from 1500 to allow 10x more entities
+                if should_reproduce && self.world.len() < (150000.0 * ENTITY_SCALE) as u32 {
+                    // Scaled population limit
                     let mut rng = rand::thread_rng();
                     let child_energy = max_energy * 0.4;
                     let child_radius = (child_energy / 15.0).max(1.0);
@@ -533,7 +554,8 @@ impl Simulation {
             })
             .count();
 
-        if herbivore_count < 500 && self.step % 100 == 0 { // Increased from 50 to allow 10x more herbivores
+        if herbivore_count < (5000.0 * ENTITY_SCALE) as usize && self.step % 100 == 0 {
+            // Scaled herbivore spawning threshold
             let x = self
                 .rng
                 .gen_range(-self.world_size / 2.0..self.world_size / 2.0);
@@ -569,7 +591,8 @@ impl Simulation {
             .filter(|(_, (color,))| color.r > 0.7 && color.g < 0.3 && color.b < 0.3)
             .count();
 
-        if herbivore_count > 800 && predator_count < 300 && self.step % 150 == 0 { // Increased from 80/30 to allow 10x more entities
+        if herbivore_count > (8000.0 * ENTITY_SCALE) as usize && predator_count < (3000.0 * ENTITY_SCALE) as usize && self.step % 150 == 0 {
+            // Scaled predator spawning thresholds
             let x = self
                 .rng
                 .gen_range(-self.world_size / 2.0..self.world_size / 2.0);
