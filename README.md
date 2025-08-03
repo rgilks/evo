@@ -16,41 +16,174 @@ A beautiful and performant evolution simulation written in Rust, featuring an En
 
 ## Quick Start
 
-### Desktop Application
+### Prerequisites
+
+1. **Install Rust** (if not already installed):
+   ```bash
+   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+   ```
+
+2. **Install Rust nightly toolchain** (required for WebAssembly):
+   ```bash
+   rustup toolchain install nightly-2024-08-02
+   ```
+
+3. **Install wasm-pack** (for web builds):
+   ```bash
+   cargo install wasm-pack
+   ```
+
+### Desktop Application (Recommended)
+
+The desktop version offers the best performance and visual experience with GPU-accelerated graphics.
+
+#### Simple Commands (Recommended)
 
 ```bash
-# Install Rust (if not already installed)
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+# First time setup
+./setup.sh
 
-# Clone and build
-git clone <repository>
-cd evo
-cargo build --release
+# Run desktop application with UI
+./run.sh desktop
 
-# Run with UI
+# Run headless simulation
+./run.sh headless --steps 1000
+
+# Run tests
+./run.sh test
+
+# Build only (no run)
+./run.sh build
+
+# Show all available commands
+./run.sh help
+```
+
+#### Manual Commands
+
+```bash
+# Build and run with UI (default)
 cargo run --release
 
-# Run headless mode
-cargo run --release -- --headless --steps 1000 --world-size 1000
+# Run headless mode (console only)
+cargo run --release -- --headless --steps 1000
+
+# Run with custom configuration
+cargo run --release -- --config my_config.json
+
+# Create a default configuration file
+cargo run --release -- --create-config my_config.json
+```
+
+#### Advanced Options
+
+```bash
+# Run with specific world size
+cargo run --release -- --world-size 800
+
+# Run headless with custom parameters
+cargo run --release -- --headless --steps 5000 --world-size 1000
+
+# Build only (without running)
+cargo build --release
+
+# Run tests
+cargo test
+
+# Check code quality
+cargo clippy
 ```
 
 ### Web Application
 
+The web version runs in any modern browser with parallel processing support.
+
+#### Simple Commands (Recommended)
+
 ```bash
-# Install Rust nightly toolchain (required for WASM)
-rustup toolchain install nightly-2024-08-02
+# Build and serve web application
+./run.sh web
 
-# Install wasm-pack
-cargo install wasm-pack
+# Or use the dedicated script:
+./build-web.sh
+```
 
-# Build WebAssembly package
+#### Manual Commands
+
+```bash
+# Build and serve web application
+wasm-pack build --target web --out-dir pkg
+python3 web/server.py
+```
+
+#### Manual Web Build
+
+```bash
+# Build WASM package
 wasm-pack build --target web --out-dir pkg
 
-# Serve the web application
+# Fix worker imports (if needed)
+./fix-worker-imports.sh
+
+# Serve with Python
 python3 web/server.py
 
-# Open browser to http://localhost:8000
+# Or serve with Node.js
+npx serve web
 ```
+
+Then open your browser to `http://localhost:8000`
+
+### Platform-Specific Notes
+
+#### macOS
+- **Desktop**: Works out of the box with Metal GPU acceleration
+- **Web**: Requires Python 3 for the development server
+
+#### Linux
+- **Desktop**: Uses Vulkan or OpenGL for GPU acceleration
+- **Web**: Same as macOS
+
+#### Windows
+- **Desktop**: Uses DirectX 12 or Vulkan for GPU acceleration
+- **Web**: Same as other platforms
+
+### Troubleshooting
+
+#### Common Issues
+
+1. **Build errors with `-Zbuild-std requires --target`**:
+   ```bash
+   # Use native target explicitly
+   cargo run --release --target x86_64-apple-darwin  # macOS Intel
+   cargo run --release --target aarch64-apple-darwin # macOS Apple Silicon
+   ```
+
+2. **WebAssembly build fails**:
+   ```bash
+   # Ensure you have the correct toolchain
+   rustup default nightly-2024-08-02
+   rustup target add wasm32-unknown-unknown
+   ```
+
+3. **Missing dependencies**:
+   ```bash
+   # Update Rust and install missing tools
+   rustup update
+   cargo install wasm-pack
+   ```
+
+4. **Web server CORS issues**:
+   ```bash
+   # Use the provided Python server (recommended)
+   python3 web/server.py
+   ```
+
+#### Performance Tips
+
+- **Desktop**: Use `--release` flag for optimal performance
+- **Web**: Ensure browser supports SharedArrayBuffer for parallel processing
+- **Headless**: Use for batch processing or testing without graphics overhead
 
 ## Architecture
 
