@@ -39,6 +39,12 @@ if [ ! -d "pkg" ] || [ -z "$(ls -A pkg)" ]; then
     exit 1
 fi
 
+# Copy WASM package to web/js/ for the web application
+echo "📁 Copying WASM package to web/js/..."
+rm -rf web/js/pkg
+cp -r pkg web/js/
+echo "✅ WASM package copied successfully!"
+
 echo "🌐 Starting development server..."
 echo "   Open your browser to: http://localhost:8000"
 echo "   Press Ctrl+C to stop the server"

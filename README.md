@@ -32,6 +32,18 @@ A beautiful and performant evolution simulation written in Rust, featuring an En
    cargo install wasm-pack
    ```
 
+4. **Python 3** (for web server):
+   ```bash
+   # macOS (with Homebrew)
+   brew install python@3
+   
+   # Ubuntu/Debian
+   sudo apt install python3
+   
+   # Windows
+   # Download from https://www.python.org/downloads/
+   ```
+
 ### First Time Setup
 
 ```bash
@@ -110,7 +122,7 @@ evo/
 ├── scripts/                # Build and utility scripts
 ├── pkg/                    # Generated WebAssembly files
 ├── config.json             # Default configuration
-├── example_config.json     # Example configuration
+├── config.json            # Configuration file
 └── README.md              # This documentation
 ```
 

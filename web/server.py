@@ -16,6 +16,11 @@ if __name__ == "__main__":
     # Try different ports if 8000 is in use
     ports = [8000, 8001, 8002, 8003, 8004]
     
+    # Change to web directory before starting server
+    import os
+    web_dir = os.path.dirname(os.path.abspath(__file__))
+    os.chdir(web_dir)
+    
     for PORT in ports:
         try:
             with socketserver.TCPServer(("", PORT), CORSHTTPRequestHandler) as httpd:

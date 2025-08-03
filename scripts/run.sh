@@ -39,7 +39,16 @@ case $COMMAND in
         ;;
     "headless")
         echo "🖥️  Starting headless simulation..."
-        cargo run --release -- --headless "$@"
+        # Use native target to avoid build-std issues
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            if [[ $(uname -m) == "arm64" ]]; then
+                cargo run --release --target aarch64-apple-darwin -- --headless "$@"
+            else
+                cargo run --release --target x86_64-apple-darwin -- --headless "$@"
+            fi
+        else
+            cargo run --release -- --headless "$@"
+        fi
         ;;
     "web")
         echo "🌐 Building and serving web application..."
