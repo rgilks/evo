@@ -212,7 +212,6 @@ impl SpatialGrid {
 pub struct Simulation {
     world: World,
     world_size: f32,
-    rng: ThreadRng,
     step: u32,
     grid: SpatialGrid,
 }
@@ -229,7 +228,6 @@ impl Simulation {
         Self {
             world,
             world_size,
-            rng,
             step: 0,
             grid,
         }
@@ -751,10 +749,6 @@ impl Simulation {
         }
     }
 
-    pub fn entity_count(&self) -> usize {
-        self.world.len() as usize
-    }
-
     pub fn get_entities(&self) -> Vec<(f32, f32, f32, f32, f32, f32)> {
         self.world
             .query::<(&Position, &Size, &Color)>()
@@ -762,9 +756,5 @@ impl Simulation {
             .par_bridge()
             .map(|(_, (pos, size, color))| (pos.x, pos.y, size.radius, color.r, color.g, color.b))
             .collect()
-    }
-
-    pub fn get_world_size(&self) -> f32 {
-        self.world_size
     }
 }

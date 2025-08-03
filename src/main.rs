@@ -1,5 +1,4 @@
 mod simulation;
-mod test_graphics;
 mod ui;
 
 use clap::Parser;
@@ -18,19 +17,12 @@ struct Args {
     /// World size
     #[arg(short, long, default_value_t = 600.0)]
     world_size: f32,
-
-    /// Run graphics test (simple circle)
-    #[arg(long)]
-    test_graphics: bool,
 }
 
 fn main() {
     let args = Args::parse();
 
-    if args.test_graphics {
-        println!("Running graphics test...");
-        test_graphics::test_graphics();
-    } else if args.headless {
+    if args.headless {
         println!("Running evolution simulation in headless mode...");
         let mut sim = simulation::Simulation::new(args.world_size);
 
