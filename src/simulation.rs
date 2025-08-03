@@ -231,182 +231,188 @@ impl Simulation {
             })
             .collect();
 
-        // Process entities sequentially to reduce CPU load and prevent flickering
+        // Process entities in parallel chunks for better CPU utilization
+        let chunk_size = (entity_data.len() / rayon::current_num_threads()).max(1);
         let updates: Vec<_> = entity_data
-            .iter() // Use sequential processing to reduce CPU load
-            .filter_map(|(entity, x, y, energy, max_energy, radius, color)| {
-                if *energy <= 0.0 {
-                    return None;
-                }
+            .par_chunks(chunk_size)
+            .flat_map(|chunk| {
+                chunk
+                    .iter()
+                    .filter_map(|(entity, x, y, energy, max_energy, radius, color)| {
+                        if *energy <= 0.0 {
+                            return None;
+                        }
 
-                // Create a thread-local RNG for this entity
-                let mut rng = rand::thread_rng();
+                        // Create a thread-local RNG for this entity
+                        let mut rng = rand::thread_rng();
 
-                // Use spatial grid to find nearby entities for potential interactions
-                let nearby_entities = self.grid.get_nearby_entities(*x, *y, radius * 1.5);
+                        // Use spatial grid to find nearby entities for potential interactions
+                        let nearby_entities = self.grid.get_nearby_entities(*x, *y, radius * 1.5);
 
-                // Limit the number of nearby entities we check to prevent performance issues
-                let max_nearby_to_check = 15; // Further reduced to prevent flickering
-                let nearby_entities_to_check = if nearby_entities.len() > max_nearby_to_check {
-                    nearby_entities
-                        .iter()
-                        .take(max_nearby_to_check)
-                        .copied()
-                        .collect::<Vec<_>>()
-                } else {
-                    nearby_entities
-                };
+                        // Limit the number of nearby entities we check to prevent performance issues
+                        let max_nearby_to_check = 15; // Further reduced to prevent flickering
+                        let nearby_entities_to_check = if nearby_entities.len() > max_nearby_to_check {
+                            nearby_entities
+                                .iter()
+                                .take(max_nearby_to_check)
+                                .copied()
+                                .collect::<Vec<_>>()
+                        } else {
+                            nearby_entities
+                        };
 
-                // Simple movement based on entity type (determined by color)
-                let mut new_x = *x;
-                let mut new_y = *y;
+                        // Simple movement based on entity type (determined by color)
+                        let mut new_x = *x;
+                        let mut new_y = *y;
 
-                if color.r > 0.7 {
-                    // Red entities (predators) - move randomly but faster
-                    let angle = rng.gen_range(0.0..std::f32::consts::TAU);
-                    let speed = 0.3; // Very slow movement for predators
-                    new_x += angle.cos() * speed;
-                    new_y += angle.sin() * speed;
-                } else if color.g > 0.7 {
-                    // Green entities (resources) - move very slowly to spread out
-                    let angle = rng.gen_range(0.0..std::f32::consts::TAU);
-                    let speed = 0.1; // Extremely slow movement for resources
-                    new_x += angle.cos() * speed;
-                    new_y += angle.sin() * speed;
-                } else {
-                    // Brown entities (herbivores) - move towards green areas
-                    let angle = rng.gen_range(0.0..std::f32::consts::TAU);
-                    let speed = 0.2; // Very slow movement for herbivores
-                    new_x += angle.cos() * speed;
-                    new_y += angle.sin() * speed;
-                }
+                        if color.r > 0.7 {
+                            // Red entities (predators) - move randomly but faster
+                            let angle = rng.gen_range(0.0..std::f32::consts::TAU);
+                            let speed = 0.3; // Very slow movement for predators
+                            new_x += angle.cos() * speed;
+                            new_y += angle.sin() * speed;
+                        } else if color.g > 0.7 {
+                            // Green entities (resources) - move very slowly to spread out
+                            let angle = rng.gen_range(0.0..std::f32::consts::TAU);
+                            let speed = 0.1; // Extremely slow movement for resources
+                            new_x += angle.cos() * speed;
+                            new_y += angle.sin() * speed;
+                        } else {
+                            // Brown entities (herbivores) - move towards green areas
+                            let angle = rng.gen_range(0.0..std::f32::consts::TAU);
+                            let speed = 0.2; // Very slow movement for herbivores
+                            new_x += angle.cos() * speed;
+                            new_y += angle.sin() * speed;
+                        }
 
-                // Limit maximum movement distance to prevent teleporting
-                let max_move_distance = 2.0;
-                let dx = new_x - *x;
-                let dy = new_y - *y;
-                let move_distance = (dx * dx + dy * dy).sqrt();
+                        // Limit maximum movement distance to prevent teleporting
+                        let max_move_distance = 2.0;
+                        let dx = new_x - *x;
+                        let dy = new_y - *y;
+                        let move_distance = (dx * dx + dy * dy).sqrt();
 
-                if move_distance > max_move_distance {
-                    let scale = max_move_distance / move_distance;
-                    new_x = *x + dx * scale;
-                    new_y = *y + dy * scale;
-                }
+                        if move_distance > max_move_distance {
+                            let scale = max_move_distance / move_distance;
+                            new_x = *x + dx * scale;
+                            new_y = *y + dy * scale;
+                        }
 
-                // Keep within bounds with bounce effect
-                let mut clamped_x = new_x;
-                let mut clamped_y = new_y;
+                        // Keep within bounds with bounce effect
+                        let mut clamped_x = new_x;
+                        let mut clamped_y = new_y;
 
-                if new_x < -self.world_size / 2.0 {
-                    clamped_x = -self.world_size / 2.0 + 10.0; // Bounce back
-                } else if new_x > self.world_size / 2.0 {
-                    clamped_x = self.world_size / 2.0 - 10.0; // Bounce back
-                }
+                        if new_x < -self.world_size / 2.0 {
+                            clamped_x = -self.world_size / 2.0 + 10.0; // Bounce back
+                        } else if new_x > self.world_size / 2.0 {
+                            clamped_x = self.world_size / 2.0 - 10.0; // Bounce back
+                        }
 
-                if new_y < -self.world_size / 2.0 {
-                    clamped_y = -self.world_size / 2.0 + 10.0; // Bounce back
-                } else if new_y > self.world_size / 2.0 {
-                    clamped_y = self.world_size / 2.0 - 10.0; // Bounce back
-                }
+                        if new_y < -self.world_size / 2.0 {
+                            clamped_y = -self.world_size / 2.0 + 10.0; // Bounce back
+                        } else if new_y > self.world_size / 2.0 {
+                            clamped_y = self.world_size / 2.0 - 10.0; // Bounce back
+                        }
 
-                // Energy changes based on entity type
-                let mut new_energy = *energy;
-                let mut eaten_entity = None;
+                        // Energy changes based on entity type
+                        let mut new_energy = *energy;
+                        let mut eaten_entity = None;
 
-                // Check for interactions with nearby entities using spatial grid
-                for nearby_entity in &nearby_entities_to_check {
-                    if let Ok(nearby_pos) = self.world.get::<&Position>(*nearby_entity) {
-                        if let Ok(nearby_color) = self.world.get::<&Color>(*nearby_entity) {
-                            if let Ok(nearby_energy) = self.world.get::<&Energy>(*nearby_entity) {
-                                let distance = ((nearby_pos.x - clamped_x).powi(2)
-                                    + (nearby_pos.y - clamped_y).powi(2))
-                                .sqrt();
+                        // Check for interactions with nearby entities using spatial grid
+                        for nearby_entity in &nearby_entities_to_check {
+                            if let Ok(nearby_pos) = self.world.get::<&Position>(*nearby_entity) {
+                                if let Ok(nearby_color) = self.world.get::<&Color>(*nearby_entity) {
+                                    if let Ok(nearby_energy) = self.world.get::<&Energy>(*nearby_entity) {
+                                        let distance = ((nearby_pos.x - clamped_x).powi(2)
+                                            + (nearby_pos.y - clamped_y).powi(2))
+                                        .sqrt();
 
-                                // Interaction distance based on entity size
-                                if distance < (radius + 8.0) && nearby_energy.current > 0.0 {
-                                    // Check entity types
-                                    let is_predator =
-                                        color.r > 0.7 && color.g < 0.3 && color.b < 0.3;
-                                    let is_herbivore = color.r > 0.7
-                                        && color.g > 0.4
-                                        && color.g < 0.6
-                                        && color.b > 0.05
-                                        && color.b < 0.15;
-                                    let is_nearby_herbivore = nearby_color.r > 0.7
-                                        && nearby_color.g > 0.4
-                                        && nearby_color.g < 0.6
-                                        && nearby_color.b > 0.05
-                                        && nearby_color.b < 0.15;
-                                    let is_nearby_resource =
-                                        nearby_color.g > 0.6 && nearby_color.r < 0.4; // More lenient resource detection
+                                        // Interaction distance based on entity size
+                                        if distance < (radius + 8.0) && nearby_energy.current > 0.0 {
+                                            // Check entity types
+                                            let is_predator =
+                                                color.r > 0.7 && color.g < 0.3 && color.b < 0.3;
+                                            let is_herbivore = color.r > 0.7
+                                                && color.g > 0.4
+                                                && color.g < 0.6
+                                                && color.b > 0.05
+                                                && color.b < 0.15;
+                                            let is_nearby_herbivore = nearby_color.r > 0.7
+                                                && nearby_color.g > 0.4
+                                                && nearby_color.g < 0.6
+                                                && nearby_color.b > 0.05
+                                                && nearby_color.b < 0.15;
+                                            let is_nearby_resource =
+                                                nearby_color.g > 0.6 && nearby_color.r < 0.4; // More lenient resource detection
 
-                                    if is_predator && is_nearby_herbivore {
-                                        // Predator (red) eats herbivore (brown)
-                                        // Mark herbivore for removal and give energy to predator
-                                        eaten_entity = Some(*nearby_entity);
-                                        new_energy = (new_energy + 20.0).min(*max_energy);
-                                        break;
-                                    } else if is_herbivore && is_nearby_resource {
-                                        // Herbivore (brown) eats resource (green)
-                                        // Mark resource for removal and give energy to herbivore
-                                        eaten_entity = Some(*nearby_entity);
-                                        new_energy = (new_energy + 15.0).min(*max_energy);
-                                        break;
+                                            if is_predator && is_nearby_herbivore {
+                                                // Predator (red) eats herbivore (brown)
+                                                // Mark herbivore for removal and give energy to predator
+                                                eaten_entity = Some(*nearby_entity);
+                                                new_energy = (new_energy + 20.0).min(*max_energy);
+                                                break;
+                                            } else if is_herbivore && is_nearby_resource {
+                                                // Herbivore (brown) eats resource (green)
+                                                // Mark resource for removal and give energy to herbivore
+                                                eaten_entity = Some(*nearby_entity);
+                                                new_energy = (new_energy + 15.0).min(*max_energy);
+                                                break;
+                                            }
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
-                }
 
-                // Determine entity type for energy changes
-                let is_resource = color.g > 0.7 && color.r < 0.3;
-                let is_predator = color.r > 0.7 && color.g < 0.3 && color.b < 0.3;
-                let is_herbivore = color.r > 0.7
-                    && color.g > 0.4
-                    && color.g < 0.6
-                    && color.b > 0.05
-                    && color.b < 0.15;
+                        // Determine entity type for energy changes
+                        let is_resource = color.g > 0.7 && color.r < 0.3;
+                        let is_predator = color.r > 0.7 && color.g < 0.3 && color.b < 0.3;
+                        let is_herbivore = color.r > 0.7
+                            && color.g > 0.4
+                            && color.g < 0.6
+                            && color.b > 0.05
+                            && color.b < 0.15;
 
-                if is_resource {
-                    // Resources grow faster and more sustainably
-                    new_energy = (new_energy + 0.4).min(*max_energy); // Reduced from 0.8
-                } else if is_predator {
-                    // Predators lose energy more slowly
-                    new_energy -= 0.6;
-                } else if is_herbivore {
-                    // Herbivores lose energy more slowly
-                    new_energy -= 0.4; // Reduced from 0.5 to restore stability
-                } else {
-                    // Default energy loss for unknown entities
-                    new_energy -= 0.5;
-                }
+                        if is_resource {
+                            // Resources grow faster and more sustainably
+                            new_energy = (new_energy + 0.4).min(*max_energy); // Reduced from 0.8
+                        } else if is_predator {
+                            // Predators lose energy more slowly
+                            new_energy -= 0.6;
+                        } else if is_herbivore {
+                            // Herbivores lose energy more slowly
+                            new_energy -= 0.4; // Reduced from 0.5 to restore stability
+                        } else {
+                            // Default energy loss for unknown entities
+                            new_energy -= 0.5;
+                        }
 
-                // Cap energy at maximum
-                new_energy = new_energy.min(*max_energy);
+                        // Cap energy at maximum
+                        new_energy = new_energy.min(*max_energy);
 
-                // Reproduction logic
-                let mut should_reproduce = false;
-                if new_energy > *max_energy * 0.6 && (is_predator || is_herbivore) {
-                    if rng.gen::<f32>() < 0.12 {
-                        // 12% chance to reproduce (increased from 8%)
-                        should_reproduce = true;
-                        new_energy *= 0.5; // Parent loses more energy
-                    }
-                }
+                        // Reproduction logic
+                        let mut should_reproduce = false;
+                        if new_energy > *max_energy * 0.6 && (is_predator || is_herbivore) {
+                            if rng.gen::<f32>() < 0.12 {
+                                // 12% chance to reproduce (increased from 8%)
+                                should_reproduce = true;
+                                new_energy *= 0.5; // Parent loses more energy
+                            }
+                        }
 
-                // Return the update for this entity
-                Some((
-                    *entity,
-                    clamped_x,
-                    clamped_y,
-                    new_energy,
-                    *max_energy,
-                    *radius,
-                    *color,
-                    should_reproduce,
-                    eaten_entity,
-                ))
+                        // Return the update for this entity
+                        Some((
+                            *entity,
+                            clamped_x,
+                            clamped_y,
+                            new_energy,
+                            *max_energy,
+                            *radius,
+                            *color,
+                            should_reproduce,
+                            eaten_entity,
+                        ))
+                    })
+                    .collect::<Vec<_>>()
             })
             .collect();
 
@@ -595,13 +601,12 @@ impl Simulation {
     }
 
     pub fn get_entities(&self) -> Vec<(f32, f32, f32, f32, f32, f32)> {
-        let mut entities = Vec::new();
-
-        for (_, (pos, size, color)) in self.world.query::<(&Position, &Size, &Color)>().iter() {
-            entities.push((pos.x, pos.y, size.radius, color.r, color.g, color.b));
-        }
-
-        entities
+        self.world
+            .query::<(&Position, &Size, &Color)>()
+            .iter()
+            .par_bridge()
+            .map(|(_, (pos, size, color))| (pos.x, pos.y, size.radius, color.r, color.g, color.b))
+            .collect()
     }
 
     pub fn get_world_size(&self) -> f32 {
