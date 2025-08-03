@@ -80,7 +80,7 @@ mod tests {
         let mut system = SpatialSystem::new(1000.0, 500);
         assert_eq!(system.system_type(), "Grid");
         
-        let entity = hecs::Entity::new();
+        let entity = hecs::Entity::from_bits(1).expect("Failed to create entity");
         system.insert(entity, 0.0, 0.0);
         
         let nearby = system.get_nearby_entities(0.0, 0.0, 10.0);
@@ -92,7 +92,7 @@ mod tests {
         let mut system = SpatialSystem::new(1000.0, 2000);
         assert_eq!(system.system_type(), "Quadtree");
         
-        let entity = hecs::Entity::new();
+        let entity = hecs::Entity::from_bits(2).expect("Failed to create entity");
         system.insert(entity, 0.0, 0.0);
         
         let nearby = system.get_nearby_entities(0.0, 0.0, 10.0);

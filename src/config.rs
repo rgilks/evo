@@ -86,9 +86,9 @@ mod tests {
         let config = SimulationConfig::default();
 
         // Test default values
-        assert_eq!(config.entity_scale, 0.5);
-        assert_eq!(config.max_population, 2000);
-        assert_eq!(config.initial_entities, 500);
+        assert_eq!(config.entity_scale, 1.0);
+        assert_eq!(config.max_population, 8000);
+        assert_eq!(config.initial_entities, 4000);
         assert_eq!(config.max_velocity, 2.0);
         assert_eq!(config.max_entity_radius, 20.0);
         assert_eq!(config.min_entity_radius, 1.0);

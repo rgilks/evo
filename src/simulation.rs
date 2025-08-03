@@ -445,7 +445,7 @@ mod tests {
 
         // Should have initial entities
         assert!(sim.world.len() > 0);
-        assert!(sim.world.len() <= 250); // Default config values
+        assert!(sim.world.len() <= 4000); // Default config values (4000 * 1.0 = 4000)
 
         // World size should be set correctly
         assert_eq!(sim.world_size, 1000.0);
