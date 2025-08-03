@@ -212,6 +212,43 @@ impl Simulation {
 
         // Simple update with spatial grid optimization
         self.simple_update_with_grid();
+        
+        // Log simulation metrics every 60 frames (about once per second)
+        if self.step % 60 == 0 {
+            self.log_simulation_metrics();
+        }
+    }
+    
+    fn log_simulation_metrics(&self) {
+        // Count different entity types
+        let mut resource_count = 0;
+        let mut herbivore_count = 0;
+        let mut predator_count = 0;
+        let mut other_count = 0;
+        
+        for (_, (color,)) in self.world.query::<(&Color,)>().iter() {
+            if color.g > 0.7 && color.r < 0.3 {
+                resource_count += 1;
+            } else if color.r > 0.7 && color.g > 0.4 && color.g < 0.6 && color.b > 0.05 && color.b < 0.15 {
+                herbivore_count += 1;
+            } else if color.r > 0.7 && color.g < 0.3 && color.b < 0.3 {
+                predator_count += 1;
+            } else {
+                other_count += 1;
+            }
+        }
+        
+        let total_entities = self.world.len();
+        let avg_energy = self.world
+            .query::<(&Energy,)>()
+            .iter()
+            .map(|(_, (energy,))| energy.current)
+            .sum::<f32>() / total_entities as f32;
+        
+        println!(
+            "Step {}: Total={}, Resources={}, Herbivores={}, Predators={}, Other={}, AvgEnergy={:.1}",
+            self.step, total_entities, resource_count, herbivore_count, predator_count, other_count, avg_energy
+        );
     }
 
     fn simple_update_with_grid(&mut self) {
