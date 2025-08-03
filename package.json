@@ -2,6 +2,8 @@
   "name": "evo-web",
   "version": "1.0.0",
   "type": "module",
+  "description": "Evolution Simulation Web Application",
+  "license": "MIT",
   "scripts": {
     "build": "wasm-pack build --target web --out-dir pkg",
     "dev": "python3 web/server.py",

@@ -173,11 +173,22 @@ Then open your browser to `http://localhost:8000`
    cargo install wasm-pack
    ```
 
-4. **Web server CORS issues**:
+4. **Web server port conflicts**:
+   ```bash
+   # The server automatically tries ports 8000-8004
+   # Or manually specify a port
+   python3 web/server.py
+   ```
+
+5. **Web server CORS issues**:
    ```bash
    # Use the provided Python server (recommended)
    python3 web/server.py
    ```
+
+6. **WASM build warnings**:
+   - Deprecated `set_fill_style` warnings are acceptable (web-sys API limitation)
+   - Unstable `atomics` feature warnings are expected for WASM parallel processing
 
 #### Performance Tips
 

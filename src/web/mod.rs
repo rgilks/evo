@@ -3,7 +3,6 @@ use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement};
 
 #[wasm_bindgen]
 pub struct WebRenderer {
-    canvas: HtmlCanvasElement,
     ctx: CanvasRenderingContext2d,
     width: u32,
     height: u32,
@@ -28,12 +27,7 @@ impl WebRenderer {
         let width = canvas.width();
         let height = canvas.height();
 
-        Ok(WebRenderer {
-            canvas,
-            ctx,
-            width,
-            height,
-        })
+        Ok(WebRenderer { ctx, width, height })
     }
 
     pub fn render(&self, entities: &JsValue) -> Result<(), JsValue> {
@@ -60,12 +54,14 @@ impl WebRenderer {
                 2.0 * std::f64::consts::PI,
             )?;
 
-            self.ctx.set_fill_style(&JsValue::from_str(&format!(
+            let fill_style = format!(
                 "rgba({}, {}, {}, 0.8)",
                 (r * 255.0) as u8,
                 (g * 255.0) as u8,
                 (b * 255.0) as u8
-            )));
+            );
+            self.ctx
+                .set_fill_style(&JsValue::from_str(&fill_style));
             self.ctx.fill();
         }
 

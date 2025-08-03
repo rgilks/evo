@@ -11,10 +11,24 @@ class CORSHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    PORT = 8000
-    with socketserver.TCPServer(("", PORT), CORSHTTPRequestHandler) as httpd:
-        print(f"Serving at http://localhost:{PORT}")
-        print(
-            "Make sure to build the WASM package first with: wasm-pack build --target web --out-dir ../pkg"
-        )
-        httpd.serve_forever()
+    import sys
+    
+    # Try different ports if 8000 is in use
+    ports = [8000, 8001, 8002, 8003, 8004]
+    
+    for PORT in ports:
+        try:
+            with socketserver.TCPServer(("", PORT), CORSHTTPRequestHandler) as httpd:
+                print(f"Serving at http://localhost:{PORT}")
+                print(
+                    "Make sure to build the WASM package first with: wasm-pack build --target web --out-dir ../pkg"
+                )
+                httpd.serve_forever()
+                break
+        except OSError as e:
+            if PORT == ports[-1]:  # Last port
+                print(f"Error: Could not start server on any port {ports}")
+                print(f"Last error: {e}")
+                sys.exit(1)
+            print(f"Port {PORT} in use, trying next port...")
+            continue
