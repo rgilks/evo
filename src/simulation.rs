@@ -38,7 +38,9 @@ pub struct Genes {
     pub movement_cost: f32,  // Energy cost per unit of movement
     pub eating_cost: f32,    // Energy cost for eating
     pub reproduction_rate: f32, // How likely they are to reproduce
-    pub color_variation: f32, // Additional color variation factor
+    pub color_r: f32,        // Red color component (0.0-1.0)
+    pub color_g: f32,        // Green color component (0.0-1.0)
+    pub color_b: f32,        // Blue color component (0.0-1.0)
 }
 
 impl Genes {
@@ -56,7 +58,9 @@ impl Genes {
             movement_cost: rng.gen_range(0.1..0.5),
             eating_cost: rng.gen_range(0.2..1.0),
             reproduction_rate: rng.gen_range(0.01..0.1),
-            color_variation: rng.gen_range(0.0..1.0),
+            color_r: rng.gen_range(0.0..1.0),
+            color_g: rng.gen_range(0.0..1.0),
+            color_b: rng.gen_range(0.0..1.0),
         }
     }
 
@@ -110,26 +114,32 @@ impl Genes {
                 (self.reproduction_rate + rng.gen_range(-0.02..0.02)).clamp(0.001, 0.2);
         }
         if rng.gen::<f32>() < self.mutation_rate {
-            new_genes.color_variation =
-                (self.color_variation + rng.gen_range(-0.1..0.1)).clamp(0.0, 1.0);
+            new_genes.color_r = (self.color_r + rng.gen_range(-0.1..0.1)).clamp(0.0, 1.0);
+        }
+        if rng.gen::<f32>() < self.mutation_rate {
+            new_genes.color_g = (self.color_g + rng.gen_range(-0.1..0.1)).clamp(0.0, 1.0);
+        }
+        if rng.gen::<f32>() < self.mutation_rate {
+            new_genes.color_b = (self.color_b + rng.gen_range(-0.1..0.1)).clamp(0.0, 1.0);
         }
 
         new_genes
     }
 
-    // Calculate color based on aggressiveness and other genes
+    // Calculate color based on color genes with minimal influence from aggressiveness
     fn get_color(&self) -> (f32, f32, f32) {
-        // Base color calculation based on aggressiveness
-        // More aggressive entities are redder
-        let base_red = self.aggressiveness;
-        let base_green = (1.0 - self.aggressiveness) * 0.8;
-        let base_blue = (1.0 - self.aggressiveness) * 0.3;
+        // Base color from color genes
+        let mut red = self.color_r;
+        let mut green = self.color_g;
+        let mut blue = self.color_b;
 
-        // Add variation based on color_variation gene
-        let variation = self.color_variation * 0.3;
-        let red = (base_red + variation * (self.speed - 1.5) / 1.5).clamp(0.0, 1.0);
-        let green = (base_green + variation * (self.energy_efficiency - 1.0)).clamp(0.0, 1.0);
-        let blue = (base_blue + variation * (self.sense_radius - 60.0) / 60.0).clamp(0.0, 1.0);
+        // Add very minimal influence from aggressiveness (redder = more aggressive)
+        let aggressiveness_influence = 0.05; // Further reduced
+        red = (red + self.aggressiveness * aggressiveness_influence).clamp(0.0, 1.0);
+        green =
+            (green + (1.0 - self.aggressiveness) * aggressiveness_influence * 0.2).clamp(0.0, 1.0);
+        blue =
+            (blue + (1.0 - self.aggressiveness) * aggressiveness_influence * 0.1).clamp(0.0, 1.0);
 
         (red, green, blue)
     }
@@ -309,7 +319,9 @@ impl Simulation {
             }
 
             // Add more color variation
-            genes.color_variation = rng.gen_range(0.0..0.5);
+            genes.color_r = rng.gen_range(0.0..1.0);
+            genes.color_g = rng.gen_range(0.0..1.0);
+            genes.color_b = rng.gen_range(0.0..1.0);
 
             let energy = rng.gen_range(25.0..55.0);
             let behavior_type = genes.get_behavior_type();
@@ -341,6 +353,8 @@ impl Simulation {
         if self.step % 60 == 0 {
             self.log_simulation_metrics();
         }
+
+        // Redistribution removed to avoid ECS complexity
     }
 
     fn log_simulation_metrics(&self) {
@@ -372,6 +386,8 @@ impl Simulation {
             self.step, total_entities, passive_count, neutral_count, aggressive_count, avg_energy
         );
     }
+
+    // Redistribution method removed to avoid ECS complexity
 
     fn update_simulation(&mut self) {
         // Clear and rebuild spatial grid
@@ -524,22 +540,11 @@ impl Simulation {
                                         new_vel_y = (dy / distance) * genes.speed;
                                     }
                                 } else {
-                                    // Random movement with better drift prevention
-                                    // Use a more random approach to prevent systematic drift
-                                    if rng.gen::<f32>() < 0.1 {
-                                        // Occasionally reset velocity to prevent long-term drift
-                                        let angle = rng.gen_range(0.0..std::f32::consts::TAU);
-                                        new_vel_x = angle.cos() * genes.speed;
-                                        new_vel_y = angle.sin() * genes.speed;
-                                    } else {
-                                        // Add small random changes to current velocity
-                                        let angle_change = rng.gen_range(-0.5..0.5);
-                                        let current_angle = new_vel_y.atan2(new_vel_x);
-                                        let new_angle = current_angle + angle_change;
-                                        let speed_variation = rng.gen_range(0.8..1.2);
-                                        new_vel_x = new_angle.cos() * genes.speed * speed_variation;
-                                        new_vel_y = new_angle.sin() * genes.speed * speed_variation;
-                                    }
+                                    // Pure random movement - no velocity persistence to eliminate bias
+                                    let angle = rng.gen_range(0.0..std::f32::consts::TAU);
+                                    let speed_variation = rng.gen_range(0.8..1.2);
+                                    new_vel_x = angle.cos() * genes.speed * speed_variation;
+                                    new_vel_y = angle.sin() * genes.speed * speed_variation;
                                 }
 
                                 new_x += new_vel_x;
@@ -553,25 +558,25 @@ impl Simulation {
                                 new_energy -= movement_energy_cost;
                             }
 
-                            // Keep within bounds with reflection
+                            // Keep within bounds with uniform reflection
                             let half_world = self.world_size / 2.0;
 
                             // Check X boundaries
                             if new_x < -half_world {
                                 new_x = -half_world;
-                                new_vel_x = -new_vel_x * 0.8; // Reflect with some energy loss
+                                new_vel_x = -new_vel_x * 0.9; // Reflect with minimal energy loss
                             } else if new_x > half_world {
                                 new_x = half_world;
-                                new_vel_x = -new_vel_x * 0.8; // Reflect with some energy loss
+                                new_vel_x = -new_vel_x * 0.9; // Reflect with minimal energy loss
                             }
 
                             // Check Y boundaries
                             if new_y < -half_world {
                                 new_y = -half_world;
-                                new_vel_y = -new_vel_y * 0.8; // Reflect with some energy loss
+                                new_vel_y = -new_vel_y * 0.9; // Reflect with minimal energy loss
                             } else if new_y > half_world {
                                 new_y = half_world;
-                                new_vel_y = -new_vel_y * 0.8; // Reflect with some energy loss
+                                new_vel_y = -new_vel_y * 0.9; // Reflect with minimal energy loss
                             }
 
                             // Check for interactions (eating)

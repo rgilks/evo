@@ -32,23 +32,43 @@ fn main() {
             sim.update();
             if step % 10 == 0 {
                 let entities = sim.get_entities();
-                // Count entities by color ranges (redder = more aggressive)
-                let aggressive = entities
+                // Count entities by color ranges for more detailed color analysis
+                let red_dominant = entities
                     .iter()
-                    .filter(|(_, _, _, r, g, _b)| *r > 0.6 && *g < 0.4)
+                    .filter(|(_, _, _, r, g, b)| *r > 0.6 && *r > *g && *r > *b)
                     .count();
-                let neutral = entities
+                let green_dominant = entities
                     .iter()
-                    .filter(|(_, _, _, r, g, _b)| *r > 0.3 && *r < 0.6 && *g > 0.3)
+                    .filter(|(_, _, _, r, g, b)| *g > 0.6 && *g > *r && *g > *b)
                     .count();
-                let passive = entities
+                let blue_dominant = entities
                     .iter()
-                    .filter(|(_, _, _, r, g, _b)| *r < 0.4 && *g > 0.5)
+                    .filter(|(_, _, _, r, g, b)| *b > 0.6 && *b > *r && *b > *g)
+                    .count();
+                let purple_colors = entities
+                    .iter()
+                    .filter(|(_, _, _, r, g, b)| {
+                        // Purple: high red and blue, low green
+                        *r > 0.5 && *b > 0.5 && *g < 0.4
+                    })
+                    .count();
+                let mixed_colors = entities
+                    .iter()
+                    .filter(|(_, _, _, r, g, b)| {
+                        let max = (*r).max(*g).max(*b);
+                        // Not dominant in any color and not purple
+                        (max <= 0.6 || ((*r - *g).abs() < 0.2 && (*g - *b).abs() < 0.2))
+                            && !(*r > 0.5 && *b > 0.5 && *g < 0.4)
+                    })
                     .count();
 
-                let current_stats = (passive, neutral, aggressive);
+                let current_stats = (red_dominant, green_dominant, blue_dominant);
                 let population_change = if step > 0 {
-                    let total_change = (passive + neutral + aggressive) as i32
+                    let total_change = (red_dominant
+                        + green_dominant
+                        + blue_dominant
+                        + purple_colors
+                        + mixed_colors) as i32
                         - (last_stats.0 + last_stats.1 + last_stats.2) as i32;
                     if total_change > 0 {
                         format!("+{}", total_change)
@@ -60,12 +80,14 @@ fn main() {
                 };
 
                 println!(
-                    "Step {}: {} entities (Passive:{} Neutral:{} Aggressive:{}) {}",
+                    "Step {}: {} entities (Red:{} Green:{} Blue:{} Purple:{} Mixed:{}) {}",
                     step,
                     entities.len(),
-                    passive,
-                    neutral,
-                    aggressive,
+                    red_dominant,
+                    green_dominant,
+                    blue_dominant,
+                    purple_colors,
+                    mixed_colors,
                     population_change
                 );
 
