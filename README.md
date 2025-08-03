@@ -11,22 +11,57 @@ A beautiful and performant evolution simulation written in Rust, featuring an En
 - **Emergent Behaviors**: Complex predator-prey dynamics emerge from simple genetic rules
 - **Population Balance**: Sophisticated population control mechanisms prevent explosions
 - **Stable Physics**: Advanced boundary handling and drift correction
+- **Modular Architecture**: Clean separation of concerns with focused modules
+
+## Architecture
+
+The project follows a clean, modular architecture:
+
+### Core Modules
+
+- **`components.rs`**: ECS components (Position, Energy, Size, Velocity, Color)
+- **`genes.rs`**: Genetic system with grouped traits (Movement, Energy, Reproduction, Appearance)
+- **`systems.rs`**: Simulation systems (Movement, Interaction, Energy, Reproduction)
+- **`spatial_grid.rs`**: Spatial optimization for efficient neighbor finding
+- **`stats.rs`**: Analytics and statistics collection
+- **`simulation.rs`**: Main simulation orchestration
+- **`config.rs`**: Configuration management
+- **`ui.rs`**: GPU-accelerated rendering
+
+### Design Principles
+
+- **Single Responsibility**: Each module has a focused purpose
+- **Separation of Concerns**: Logic is cleanly separated into systems
+- **Performance First**: Parallel processing and spatial optimization
+- **Configuration Driven**: External JSON configuration for easy experimentation
 
 ## Evolution Mechanics
 
 ### Gene-Based Behaviors
 
-Instead of predefined entity types, all behaviors emerge from genes:
+Instead of predefined entity types, all behaviors emerge from genes organized into logical groups:
+
+#### Movement Genes
 
 - **Speed**: Movement velocity and hunting effectiveness
 - **Sense Radius**: Detection range for food and threats
-- **Energy Efficiency**: How efficiently energy is used and stored
-- **Reproduction Rate**: Likelihood of successful reproduction
-- **Mutation Rate**: How much genes change in offspring
+
+#### Energy Genes
+
+- **Efficiency**: How efficiently energy is used and stored
+- **Loss Rate**: Base energy consumption per tick
+- **Gain Rate**: Efficiency of consuming other entities
 - **Size Factor**: How size relates to energy requirements
-- **Energy Loss Rate**: Base energy consumption per tick
-- **Energy Gain Rate**: Efficiency of consuming other entities
-- **Color**: Visual representation of genetic traits (HSV-based)
+
+#### Reproduction Genes
+
+- **Rate**: Likelihood of successful reproduction
+- **Mutation Rate**: How much genes change in offspring
+
+#### Appearance Genes
+
+- **Hue**: Color hue (0.0-1.0)
+- **Saturation**: Color saturation (0.0-1.0)
 
 ### Emergent Interactions
 
@@ -69,6 +104,7 @@ The simulation is heavily optimized for performance:
 - **Spatial Grid**: O(n²) → O(n) complexity for entity interactions
 - **Efficient ECS**: Hecs for fast entity queries and updates
 - **GPU Acceleration**: WGPU for smooth real-time graphics
+- **Modular Systems**: Focused systems for better performance and maintainability
 
 ## Simulation Rules
 
@@ -99,7 +135,14 @@ The simulation is heavily optimized for performance:
 - **Color**: RGB color derived from genetic traits
 - **Genes**: Inheritable traits that define behavior
 
-### Key Systems
+### Systems Architecture
+
+- **MovementSystem**: Handles entity movement and boundary constraints
+- **InteractionSystem**: Manages entity interactions and predation
+- **EnergySystem**: Handles energy consumption and metabolism
+- **ReproductionSystem**: Manages reproduction and population control
+
+### Key Optimizations
 
 - **Spatial Grid**: Efficient neighbor finding and collision detection
 - **Parallel Processing**: Rayon-based parallel entity updates
@@ -159,11 +202,16 @@ cargo run -- --config my_config.json
 - **drift_compensation_x/y**: Compensation for systematic position drift
 - **velocity_bounce_factor**: Velocity reduction on boundary collision
 
-```
+## Code Quality
 
+The project demonstrates excellent software engineering practices:
 
-
-
+- **Modular Design**: Clean separation of concerns with focused modules
+- **Type Safety**: Comprehensive use of Rust's type system
+- **Error Handling**: Proper error handling with `Result` types
+- **Testing**: Comprehensive test coverage for critical components
+- **Documentation**: Clear documentation and examples
+- **Performance**: Optimized for both development and production use
 
 ## Future Enhancements
 
@@ -173,4 +221,4 @@ cargo run -- --config my_config.json
 - Data export and analysis tools
 - WebAssembly support for browser deployment
 - More complex gene interactions and epigenetics
-```
+- Additional simulation systems (environment, weather, etc.)
