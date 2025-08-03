@@ -37,6 +37,8 @@ pub struct Genes {
     pub size_factor: f32,            // How size relates to energy
     pub energy_loss_rate: f32,       // How quickly they lose energy
     pub energy_gain_rate: f32,       // How much energy they gain from eating
+    pub movement_cost: f32,          // Energy cost per unit of movement
+    pub eating_cost: f32,            // Energy cost for eating
 }
 
 impl Genes {
@@ -53,6 +55,8 @@ impl Genes {
             size_factor: rng.gen_range(0.5..2.0),
             energy_loss_rate: rng.gen_range(0.1..1.0),
             energy_gain_rate: rng.gen_range(0.5..2.0),
+            movement_cost: rng.gen_range(0.1..0.5),
+            eating_cost: rng.gen_range(0.2..1.0),
         }
     }
 
@@ -98,6 +102,14 @@ impl Genes {
         if rng.gen::<f32>() < self.mutation_rate {
             new_genes.energy_gain_rate =
                 (self.energy_gain_rate + rng.gen_range(-0.2..0.2)).clamp(0.2, 3.0);
+        }
+        if rng.gen::<f32>() < self.mutation_rate {
+            new_genes.movement_cost =
+                (self.movement_cost + rng.gen_range(-0.1..0.1)).clamp(0.05, 1.0);
+        }
+        if rng.gen::<f32>() < self.mutation_rate {
+            new_genes.eating_cost =
+                (self.eating_cost + rng.gen_range(-0.2..0.2)).clamp(0.1, 2.0);
         }
 
         new_genes
@@ -545,6 +557,11 @@ impl Simulation {
 
                                 new_x += new_vel_x;
                                 new_y += new_vel_y;
+                                
+                                // Calculate movement cost based on distance moved and genes
+                                let movement_distance = (new_vel_x * new_vel_x + new_vel_y * new_vel_y).sqrt();
+                                let movement_energy_cost = movement_distance * genes.movement_cost / genes.energy_efficiency;
+                                new_energy -= movement_energy_cost;
                             }
 
                             // Keep within bounds
@@ -591,7 +608,9 @@ impl Simulation {
                                                         nearby_energy.current
                                                             * genes.energy_gain_rate
                                                     };
-                                                    new_energy = (new_energy + energy_gained)
+                                                    // Apply eating cost based on genes
+                                                    let eating_energy_cost = genes.eating_cost / genes.energy_efficiency;
+                                                    new_energy = (new_energy + energy_gained - eating_energy_cost)
                                                         .min(*max_energy);
                                                     break;
                                                 }
