@@ -66,28 +66,6 @@ impl Vec2 {
     pub fn new(x: f32, y: f32) -> Self {
         Self { x, y }
     }
-
-    pub fn distance_squared(&self, other: &Vec2) -> f32 {
-        let dx = self.x - other.x;
-        let dy = self.y - other.y;
-        dx * dx + dy * dy
-    }
-
-    pub fn distance(&self, other: &Vec2) -> f32 {
-        self.distance_squared(other).sqrt()
-    }
-
-    pub fn normalize(&self) -> Option<Vec2> {
-        let length = (self.x * self.x + self.y * self.y).sqrt();
-        if length > 0.0 {
-            Some(Vec2 {
-                x: self.x / length,
-                y: self.y / length,
-            })
-        } else {
-            None
-        }
-    }
 }
 
 impl From<Position> for Vec2 {
@@ -192,43 +170,6 @@ mod tests {
         let vec = Vec2::new(3.0, 4.0);
         assert_eq!(vec.x, 3.0);
         assert_eq!(vec.y, 4.0);
-    }
-
-    #[test]
-    fn test_vec2_distance_squared() {
-        let vec1 = Vec2::new(0.0, 0.0);
-        let vec2 = Vec2::new(3.0, 4.0);
-        let distance_sq = vec1.distance_squared(&vec2);
-        assert_eq!(distance_sq, 25.0); // 3^2 + 4^2 = 25
-    }
-
-    #[test]
-    fn test_vec2_distance() {
-        let vec1 = Vec2::new(0.0, 0.0);
-        let vec2 = Vec2::new(3.0, 4.0);
-        let distance = vec1.distance(&vec2);
-        assert_eq!(distance, 5.0); // sqrt(3^2 + 4^2) = 5
-    }
-
-    #[test]
-    fn test_vec2_normalize() {
-        let vec = Vec2::new(3.0, 4.0);
-        let normalized = vec.normalize().unwrap();
-
-        // Should be unit vector
-        let length = (normalized.x * normalized.x + normalized.y * normalized.y).sqrt();
-        assert!((length - 1.0).abs() < 0.001);
-
-        // Should point in same direction
-        assert!((normalized.x - 0.6).abs() < 0.001); // 3/5
-        assert!((normalized.y - 0.8).abs() < 0.001); // 4/5
-    }
-
-    #[test]
-    fn test_vec2_normalize_zero() {
-        let vec = Vec2::new(0.0, 0.0);
-        let normalized = vec.normalize();
-        assert!(normalized.is_none());
     }
 
     #[test]

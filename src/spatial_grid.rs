@@ -48,9 +48,7 @@ impl SpatialGrid {
         nearby
     }
 
-    pub fn cell_size(&self) -> f32 {
-        self.cell_size
-    }
+
 }
 
 #[cfg(test)]
@@ -60,7 +58,6 @@ mod tests {
     #[test]
     fn test_spatial_grid_creation() {
         let grid = SpatialGrid::new(25.0);
-        assert_eq!(grid.cell_size(), 25.0);
         assert!(grid.grid.is_empty());
     }
 

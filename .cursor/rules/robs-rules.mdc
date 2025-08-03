@@ -193,11 +193,4 @@ fn update_positions_parallel(world: &mut World, dt: f32) {
 - **Git Hygiene**: Keep the .gitignore file up to date
 - **Code Quality**: Be rigorous in fixing warnings and errors
 
-### Workflow Commands
-
-- **`rcp`**: Review all changes in each file, remove pointless comments, run any checks or tests, update relevant documentation, then `git add -A` and commit and push all changed files
-- **`p`**: Proceed with the current task
-
-### Development Philosophy
-
-The project follows a "devise the best plan and proceed" approach - rather than presenting multiple options, the development process focuses on implementing the most effective solution directly.
+When I just type 'rcp' that means "Review all changes in each file, remove pointless comments, run any checks or tests, update relevant documentation, then `git add -A` and commit and push all changed files"

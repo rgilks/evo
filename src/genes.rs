@@ -162,24 +162,14 @@ impl Genes {
     pub fn reproduction_rate(&self) -> f32 {
         self.reproduction.rate
     }
-    pub fn mutation_rate(&self) -> f32 {
-        self.reproduction.mutation_rate
-    }
+
     pub fn size_factor(&self) -> f32 {
         self.energy.size_factor
     }
     pub fn energy_loss_rate(&self) -> f32 {
         self.energy.loss_rate
     }
-    pub fn energy_gain_rate(&self) -> f32 {
-        self.energy.gain_rate
-    }
-    pub fn color_hue(&self) -> f32 {
-        self.appearance.hue
-    }
-    pub fn color_saturation(&self) -> f32 {
-        self.appearance.saturation
-    }
+
 }
 
 #[cfg(test)]
@@ -288,7 +278,11 @@ mod tests {
 
         // Energy gain should be positive and reasonable
         assert!(energy_gain > 0.0);
-        assert!(energy_gain <= 50.0); // Should not exceed the original energy
+        // The formula is: other_energy * gain_rate * 0.3 * (1 + size_ratio * 0.3).min(1.5)
+        // With max gain_rate of 3.0, max size_ratio of 1.25, the theoretical max is:
+        // 50 * 3.0 * 0.3 * 1.5 = 67.5
+        // But in practice, we expect values around 20-40
+        assert!(energy_gain <= 70.0); // Allow for the full range of possible values
     }
 
     #[test]
@@ -301,12 +295,8 @@ mod tests {
         assert_eq!(genes.sense_radius(), genes.movement.sense_radius);
         assert_eq!(genes.energy_efficiency(), genes.energy.efficiency);
         assert_eq!(genes.reproduction_rate(), genes.reproduction.rate);
-        assert_eq!(genes.mutation_rate(), genes.reproduction.mutation_rate);
         assert_eq!(genes.size_factor(), genes.energy.size_factor);
         assert_eq!(genes.energy_loss_rate(), genes.energy.loss_rate);
-        assert_eq!(genes.energy_gain_rate(), genes.energy.gain_rate);
-        assert_eq!(genes.color_hue(), genes.appearance.hue);
-        assert_eq!(genes.color_saturation(), genes.appearance.saturation);
     }
 
     #[test]

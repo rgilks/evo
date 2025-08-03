@@ -423,7 +423,6 @@ mod tests {
         assert_eq!(sim.step, 0);
 
         // Grid should be initialized
-        assert_eq!(sim.grid.cell_size(), sim.config.grid_cell_size);
     }
 
     #[test]
