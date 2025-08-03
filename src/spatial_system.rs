@@ -1,25 +1,36 @@
-use hecs::Entity;
-use crate::spatial_grid::SpatialGrid;
 use crate::quadtree::Quadtree;
+use crate::spatial_grid::SpatialGrid;
+use crate::spatial_hash::SpatialHash;
+use hecs::Entity;
 
 /// High-performance spatial system that automatically chooses the best data structure
 pub enum SpatialSystem {
     Grid(SpatialGrid),
     Quadtree(Quadtree),
+    SpatialHash(SpatialHash),
 }
 
 impl SpatialSystem {
     /// Create a new spatial system optimized for the given entity count
     pub fn new(world_size: f32, entity_count: usize) -> Self {
-        // Use quadtree for large numbers of entities (>1000)
+        // Use spatial hash for very large numbers of entities (>10000)
+        // Use quadtree for medium numbers (1000-10000)
         // Use grid for smaller numbers (better for small, dense populations)
-        if entity_count > 1000 {
+        if entity_count > 10000 {
+            let cell_size = (world_size / (entity_count as f32).sqrt())
+                .max(5.0)
+                .min(50.0);
+            let max_entities_per_cell = 100;
+            SpatialSystem::SpatialHash(SpatialHash::new(cell_size, max_entities_per_cell))
+        } else if entity_count > 1000 {
             let max_entities_per_node = (entity_count as f32).sqrt() as usize;
             let max_depth = 8;
             SpatialSystem::Quadtree(Quadtree::new(world_size, max_entities_per_node, max_depth))
         } else {
             // Optimize cell size based on entity density
-            let cell_size = (world_size / (entity_count as f32).sqrt()).max(10.0).min(100.0);
+            let cell_size = (world_size / (entity_count as f32).sqrt())
+                .max(10.0)
+                .min(100.0);
             SpatialSystem::Grid(SpatialGrid::new(cell_size))
         }
     }
@@ -28,6 +39,7 @@ impl SpatialSystem {
         match self {
             SpatialSystem::Grid(grid) => grid.clear(),
             SpatialSystem::Quadtree(quadtree) => quadtree.clear(),
+            SpatialSystem::SpatialHash(hash) => hash.clear(),
         }
     }
 
@@ -35,6 +47,7 @@ impl SpatialSystem {
         match self {
             SpatialSystem::Grid(grid) => grid.insert(entity, x, y),
             SpatialSystem::Quadtree(quadtree) => quadtree.insert(entity, x, y),
+            SpatialSystem::SpatialHash(hash) => hash.insert(entity, x, y),
         }
     }
 
@@ -42,11 +55,18 @@ impl SpatialSystem {
         match self {
             SpatialSystem::Grid(grid) => grid.get_nearby_entities(x, y, radius),
             SpatialSystem::Quadtree(quadtree) => quadtree.get_nearby_entities(x, y, radius),
+            SpatialSystem::SpatialHash(hash) => hash.get_nearby_entities(x, y, radius),
         }
     }
 
     /// Optimized version with result limiting and pre-allocation
-    pub fn get_nearby_entities_optimized(&self, x: f32, y: f32, radius: f32, limit: usize) -> Vec<Entity> {
+    pub fn get_nearby_entities_optimized(
+        &self,
+        x: f32,
+        y: f32,
+        radius: f32,
+        limit: usize,
+    ) -> Vec<Entity> {
         match self {
             SpatialSystem::Grid(grid) => {
                 let mut results = grid.get_nearby_entities(x, y, radius);
@@ -58,7 +78,12 @@ impl SpatialSystem {
                 }
                 results
             }
-            SpatialSystem::Quadtree(quadtree) => quadtree.get_nearby_entities_optimized(x, y, radius, limit),
+            SpatialSystem::Quadtree(quadtree) => {
+                quadtree.get_nearby_entities_optimized(x, y, radius, limit)
+            }
+            SpatialSystem::SpatialHash(hash) => {
+                hash.get_nearby_entities_optimized(x, y, radius, limit)
+            }
         }
     }
 
@@ -67,6 +92,7 @@ impl SpatialSystem {
         match self {
             SpatialSystem::Grid(_) => "Grid",
             SpatialSystem::Quadtree(_) => "Quadtree",
+            SpatialSystem::SpatialHash(_) => "SpatialHash",
         }
     }
 }
@@ -79,10 +105,10 @@ mod tests {
     fn test_spatial_system_grid() {
         let mut system = SpatialSystem::new(1000.0, 500);
         assert_eq!(system.system_type(), "Grid");
-        
+
         let entity = hecs::Entity::from_bits(1).expect("Failed to create entity");
         system.insert(entity, 0.0, 0.0);
-        
+
         let nearby = system.get_nearby_entities(0.0, 0.0, 10.0);
         assert_eq!(nearby.len(), 1);
     }
@@ -91,11 +117,11 @@ mod tests {
     fn test_spatial_system_quadtree() {
         let mut system = SpatialSystem::new(1000.0, 2000);
         assert_eq!(system.system_type(), "Quadtree");
-        
+
         let entity = hecs::Entity::from_bits(2).expect("Failed to create entity");
         system.insert(entity, 0.0, 0.0);
-        
+
         let nearby = system.get_nearby_entities(0.0, 0.0, 10.0);
         assert_eq!(nearby.len(), 1);
     }
-} 
+}

@@ -142,7 +142,7 @@ impl State {
             multiview: None,
         });
 
-        // Create initial vertex buffer with large size for massive simulations
+        // Create initial vertex buffer with massive size for 100K+ entity simulations
         let initial_vertices = vec![
             Vertex {
                 position: [0.0, 0.0],
@@ -150,8 +150,8 @@ impl State {
                 center: [0.0, 0.0],
                 radius: 0.0,
             };
-            60000
-        ]; // Pre-allocate space for 10,000 entities (6 vertices per entity for quads)
+            300000
+        ]; // Pre-allocate space for 50,000 entities (6 vertices per entity for quads)
 
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
@@ -203,8 +203,17 @@ impl State {
         // Convert entities to vertices (triangles for circles)
         let mut vertices = Vec::with_capacity(entities.len() * 6); // Pre-allocate for efficiency
 
-        // For very large simulations, we might need to sample entities for rendering
-        let max_entities_to_render = 15000; // Limit rendering to prevent GPU overload
+        // For very large simulations, we need aggressive sampling for rendering
+        let max_entities_to_render = if entities.len() > 50000 {
+            5000 // Very aggressive sampling for 100K+ entities
+        } else if entities.len() > 20000 {
+            10000 // Moderate sampling for 20K-50K entities
+        } else if entities.len() > 10000 {
+            15000 // Standard sampling for 10K-20K entities
+        } else {
+            entities.len() // Render all entities for smaller populations
+        };
+        
         let entities_to_render = if entities.len() > max_entities_to_render {
             // Sample entities evenly across the population
             let step = entities.len() / max_entities_to_render;
