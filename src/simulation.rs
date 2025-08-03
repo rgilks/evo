@@ -234,8 +234,8 @@ impl Simulation {
         for _ in 0..num_resources {
             let angle = rng.gen_range(0.0..std::f32::consts::TAU);
             let distance = rng.gen_range(0.0..spawn_radius);
-            let x = distance * angle.cos();
-            let y = distance * angle.sin();
+            let x = distance * angle.cos() + rng.gen_range(-10.0..10.0);
+            let y = distance * angle.sin() + rng.gen_range(-10.0..10.0);
 
             let mut genes = Genes::new_random(rng);
             // Make them green and resource-like
@@ -270,8 +270,8 @@ impl Simulation {
         for _ in 0..num_herbivores {
             let angle = rng.gen_range(0.0..std::f32::consts::TAU);
             let distance = rng.gen_range(0.0..spawn_radius);
-            let x = distance * angle.cos();
-            let y = distance * angle.sin();
+            let x = distance * angle.cos() + rng.gen_range(-10.0..10.0);
+            let y = distance * angle.sin() + rng.gen_range(-10.0..10.0);
 
             let mut genes = Genes::new_random(rng);
             // Make them brown/orange
@@ -305,8 +305,8 @@ impl Simulation {
         for _ in 0..num_predators {
             let angle = rng.gen_range(0.0..std::f32::consts::TAU);
             let distance = rng.gen_range(0.0..spawn_radius);
-            let x = distance * angle.cos();
-            let y = distance * angle.sin();
+            let x = distance * angle.cos() + rng.gen_range(-10.0..10.0);
+            let y = distance * angle.sin() + rng.gen_range(-10.0..10.0);
 
             let mut genes = Genes::new_random(rng);
             // Make them red
@@ -536,10 +536,10 @@ impl Simulation {
                                         new_vel_y = (dy / distance) * genes.speed;
                                     }
                                 } else {
-                                    // Random movement with some persistence
+                                    // Random movement with less persistence to prevent drift
                                     let angle = rng.gen_range(0.0..std::f32::consts::TAU);
-                                    new_vel_x = new_vel_x * 0.8 + angle.cos() * genes.speed * 0.2;
-                                    new_vel_y = new_vel_y * 0.8 + angle.sin() * genes.speed * 0.2;
+                                    new_vel_x = new_vel_x * 0.3 + angle.cos() * genes.speed * 0.7;
+                                    new_vel_y = new_vel_y * 0.3 + angle.sin() * genes.speed * 0.7;
                                 }
 
                                 new_x += new_vel_x;
