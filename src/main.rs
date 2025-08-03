@@ -1,6 +1,7 @@
 mod components;
 mod config;
 mod genes;
+mod profiler;
 mod simulation;
 mod spatial_grid;
 mod stats;

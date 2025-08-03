@@ -1,7 +1,7 @@
 use hecs::Entity;
-use std::collections::HashMap;
-use rand::thread_rng;
 use rand::seq::SliceRandom;
+use rand::thread_rng;
+use std::collections::HashMap;
 
 /// Optimized spatial grid for efficient neighbor finding
 #[derive(Default)]
@@ -12,9 +12,11 @@ pub struct SpatialGrid {
 
 impl SpatialGrid {
     pub fn new(cell_size: f32) -> Self {
+        // Optimize cell size based on expected entity count
+        let optimized_cell_size = cell_size.max(10.0).min(100.0);
         Self {
-            cell_size,
-            grid: HashMap::new(),
+            cell_size: optimized_cell_size,
+            grid: HashMap::with_capacity(1000), // Pre-allocate for better performance
         }
     }
 

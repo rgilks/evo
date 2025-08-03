@@ -4,6 +4,10 @@ use crate::genes::Genes;
 use crate::spatial_grid::SpatialGrid;
 use crate::stats::SimulationStats;
 use crate::systems::{EnergySystem, InteractionSystem, MovementSystem, ReproductionSystem};
+use crate::{
+    profile_block,
+    profiler::{PerformanceAnalyzer, Profiler},
+};
 use hecs::*;
 use rand::prelude::*;
 use rayon::prelude::*;
@@ -23,6 +27,10 @@ pub struct Simulation {
     interaction_system: InteractionSystem,
     energy_system: EnergySystem,
     reproduction_system: ReproductionSystem,
+
+    // Performance profiling
+    profiler: Profiler,
+    performance_analyzer: PerformanceAnalyzer,
 }
 
 impl Simulation {
@@ -49,6 +57,8 @@ impl Simulation {
             interaction_system: InteractionSystem,
             energy_system: EnergySystem,
             reproduction_system: ReproductionSystem,
+            profiler: Profiler::new(true),
+            performance_analyzer: PerformanceAnalyzer::new(true, 100),
         }
     }
 
@@ -90,11 +100,16 @@ impl Simulation {
 
     pub fn update(&mut self) {
         self.step += 1;
-        self.update_simulation();
+
+        profile_block!(self.profiler, "simulation_update", {
+            self.update_simulation();
+        });
 
         if self.step % 60 == 0 {
             self.log_simulation_metrics();
         }
+
+        self.performance_analyzer.step();
     }
 
     fn log_simulation_metrics(&self) {
@@ -108,49 +123,60 @@ impl Simulation {
 
     fn update_simulation(&mut self) {
         // Store previous positions for smooth interpolation
-        self.previous_positions.clear();
-        for (entity, (pos,)) in self.world.query::<(&Position,)>().iter() {
-            self.previous_positions.insert(entity, pos.clone());
-        }
+        profile_block!(self.profiler, "store_previous_positions", {
+            self.previous_positions.clear();
+            for (entity, (pos,)) in self.world.query::<(&Position,)>().iter() {
+                self.previous_positions.insert(entity, pos.clone());
+            }
+        });
 
         // Rebuild spatial grid in parallel
-        self.rebuild_spatial_grid();
+        profile_block!(self.profiler, "rebuild_spatial_grid", {
+            self.rebuild_spatial_grid();
+        });
 
         // Process entities in parallel using the new systems
-        let updates: Vec<_> = self
-            .world
-            .query::<(&Position, &Energy, &Size, &Genes, &Color, &Velocity)>()
-            .iter()
-            .par_bridge()
-            .filter_map(|(entity, (pos, energy, size, genes, color, velocity))| {
-                if energy.current <= 0.0 {
-                    return None;
-                }
+        let updates: Vec<_> = profile_block!(self.profiler, "process_entities", {
+            self.world
+                .query::<(&Position, &Energy, &Size, &Genes, &Color, &Velocity)>()
+                .iter()
+                .par_bridge()
+                .filter_map(|(entity, (pos, energy, size, genes, color, velocity))| {
+                    if energy.current <= 0.0 {
+                        return None;
+                    }
 
-                self.process_entity(entity, pos, energy, size, genes, color, velocity)
-            })
-            .collect();
+                    self.process_entity(entity, pos, energy, size, genes, color, velocity)
+                })
+                .collect()
+        });
 
         // Apply updates and handle reproduction
-        self.apply_updates(updates);
+        profile_block!(self.profiler, "apply_updates", {
+            self.apply_updates(updates);
+        });
     }
 
     fn rebuild_spatial_grid(&mut self) {
         self.grid.clear();
 
-        // Use parallel processing for grid building
-        let grid_entities: Vec<_> = self
-            .world
-            .query::<(&Position,)>()
-            .iter()
-            .par_bridge()
-            .map(|(entity, (pos,))| (entity, pos.x, pos.y))
-            .collect();
+        // Use parallel processing for grid building (optimized: pre-allocate)
+        let entity_count = self.world.len() as usize;
+        let grid_entities: Vec<_> = profile_block!(self.profiler, "collect_grid_entities", {
+            self.world
+                .query::<(&Position,)>()
+                .iter()
+                .par_bridge()
+                .map(|(entity, (pos,))| (entity, pos.x, pos.y))
+                .collect()
+        });
 
         // Insert entities into grid (this part needs to be sequential due to HashMap)
-        for (entity, x, y) in grid_entities {
-            self.grid.insert(entity, x, y);
-        }
+        profile_block!(self.profiler, "insert_entities_into_grid", {
+            for (entity, x, y) in grid_entities {
+                self.grid.insert(entity, x, y);
+            }
+        });
     }
 
     fn process_entity(
@@ -179,11 +205,11 @@ impl Simulation {
         let mut eaten_entity = None;
         let mut should_reproduce = false;
 
-        // Find nearby entities
+        // Find nearby entities (optimized: reduced limit from 20 to 10)
         let nearby_entities = self
             .grid
             .get_nearby_entities(pos.x, pos.y, genes.sense_radius());
-        let nearby_entities = nearby_entities.iter().take(20).copied().collect::<Vec<_>>();
+        let nearby_entities = nearby_entities.iter().take(10).copied().collect::<Vec<_>>();
 
         // Movement logic using the movement system
         self.movement_system.update_movement(

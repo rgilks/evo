@@ -57,4 +57,5 @@ node_modules/
 
 # Temporary folders
 tmp/
-temp/ 
+temp/ profiling_output/
+cargo-flamegraph.trace/
