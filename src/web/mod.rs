@@ -60,8 +60,7 @@ impl WebRenderer {
                 (g * 255.0) as u8,
                 (b * 255.0) as u8
             );
-            self.ctx
-                .set_fill_style(&JsValue::from_str(&fill_style));
+            self.ctx.set_fill_style(&JsValue::from_str(&fill_style));
             self.ctx.fill();
         }
 
