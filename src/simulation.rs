@@ -43,7 +43,7 @@ impl Genes {
     fn new_random(rng: &mut ThreadRng) -> Self {
         Self {
             speed: rng.gen_range(0.1..2.0),
-            sense_radius: rng.gen_range(10.0..50.0),
+            sense_radius: rng.gen_range(20.0..80.0), // Larger sense radius
             energy_efficiency: rng.gen_range(0.5..1.5),
             reproduction_threshold: rng.gen_range(0.6..0.9),
             mutation_rate: rng.gen_range(0.01..0.1),
@@ -224,8 +224,8 @@ impl Simulation {
     }
 
     fn spawn_initial_entities(world: &mut World, rng: &mut ThreadRng, world_size: f32) {
-        let num_resources = (250.0 * ENTITY_SCALE) as usize; // Quarter as many resources
-        let num_herbivores = (500.0 * ENTITY_SCALE) as usize;
+        let num_resources = (100.0 * ENTITY_SCALE) as usize; // Much fewer resources
+        let num_herbivores = (800.0 * ENTITY_SCALE) as usize; // More herbivores to consume resources
         let num_predators = (200.0 * ENTITY_SCALE) as usize;
 
         let spawn_radius = world_size * 0.3;
@@ -243,8 +243,8 @@ impl Simulation {
             genes.color_g = rng.gen_range(0.7..1.0);
             genes.color_b = rng.gen_range(0.0..0.3);
             genes.speed = rng.gen_range(0.0..0.5); // Resources move very slowly
-            genes.energy_loss_rate = rng.gen_range(-0.2..0.1); // Negative means they gain energy
-            genes.energy_gain_rate = rng.gen_range(0.01..0.05); // Much slower growth
+            genes.energy_loss_rate = rng.gen_range(0.05..0.15); // Resources lose energy faster
+            genes.energy_gain_rate = rng.gen_range(0.001..0.01); // Extremely slow growth
             genes.reproduction_threshold = rng.gen_range(0.7..0.9);
 
             let energy = rng.gen_range(20.0..40.0);
@@ -278,9 +278,9 @@ impl Simulation {
             genes.color_r = rng.gen_range(0.6..1.0);
             genes.color_g = rng.gen_range(0.3..0.7);
             genes.color_b = rng.gen_range(0.0..0.3);
-            genes.speed = rng.gen_range(0.5..2.0);
+            genes.speed = rng.gen_range(1.0..3.0); // Faster herbivores to find resources
             genes.energy_loss_rate = rng.gen_range(0.2..0.8);
-            genes.energy_gain_rate = rng.gen_range(1.0..2.5); // Higher energy gain rate for herbivores
+            genes.energy_gain_rate = rng.gen_range(2.0..4.0); // Much higher energy gain rate for herbivores
             genes.reproduction_threshold = rng.gen_range(0.6..0.8);
 
             let energy = rng.gen_range(30.0..50.0);
@@ -315,8 +315,8 @@ impl Simulation {
             genes.color_g = rng.gen_range(0.0..0.3);
             genes.color_b = rng.gen_range(0.0..0.3);
             genes.speed = rng.gen_range(1.0..3.0);
-            genes.energy_loss_rate = rng.gen_range(0.4..1.0);
-            genes.reproduction_threshold = rng.gen_range(0.7..0.9);
+            genes.energy_loss_rate = rng.gen_range(1.5..3.0); // Much higher energy loss for predators
+            genes.reproduction_threshold = rng.gen_range(0.8..0.95); // Higher threshold for reproduction
 
             let energy = rng.gen_range(40.0..60.0);
             let entity_type = EntityType::new_from_genes(&genes);
@@ -566,7 +566,7 @@ impl Simulation {
                                                 + (nearby_pos.y - new_y).powi(2))
                                             .sqrt();
 
-                                            if distance < (*radius + 5.0)
+                                            if distance < (*radius + 15.0) // Larger interaction distance
                                                 && nearby_energy.current > 0.0
                                             {
                                                 let can_eat = if entity_type.is_predator {
@@ -579,12 +579,17 @@ impl Simulation {
 
                                                 if can_eat {
                                                     eaten_entity = Some(*nearby_entity);
-                                                    let energy_gained = if entity_type.is_herbivore && nearby_entity_type.is_resource {
+                                                    let energy_gained = if entity_type.is_herbivore
+                                                        && nearby_entity_type.is_resource
+                                                    {
                                                         // Herbivores gain much more energy from eating resources
-                                                        nearby_energy.current * genes.energy_gain_rate * 3.0
+                                                        nearby_energy.current
+                                                            * genes.energy_gain_rate
+                                                            * 5.0
                                                     } else {
                                                         // Normal energy gain for other interactions
-                                                        nearby_energy.current * genes.energy_gain_rate
+                                                        nearby_energy.current
+                                                            * genes.energy_gain_rate
                                                     };
                                                     new_energy = (new_energy + energy_gained)
                                                         .min(*max_energy);
@@ -598,8 +603,8 @@ impl Simulation {
 
                             // Energy changes based on genes and entity type
                             if entity_type.is_resource {
-                                // Resources gain energy over time
-                                new_energy = (new_energy + genes.energy_gain_rate).min(*max_energy);
+                                // Resources lose energy slowly over time (no longer gain energy)
+                                new_energy -= genes.energy_loss_rate;
                             } else {
                                 // Other entities lose energy over time
                                 new_energy -= genes.energy_loss_rate;
@@ -607,8 +612,13 @@ impl Simulation {
 
                             // Check for reproduction
                             if new_energy > *max_energy * genes.reproduction_threshold {
-                                let reproduction_chance =
-                                    if entity_type.is_resource { 0.01 } else { 0.05 };
+                                            let reproduction_chance = if entity_type.is_resource {
+                0.0 // Resources never reproduce
+            } else if entity_type.is_predator {
+                0.01 // Predators reproduce rarely
+            } else {
+                0.05 // Herbivores reproduce normally
+            };
                                 if rng.gen::<f32>() < reproduction_chance {
                                     should_reproduce = true;
                                     new_energy *= 0.6; // Parent loses energy
