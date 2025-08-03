@@ -180,7 +180,24 @@ impl State {
 
     fn update(&mut self, simulation: &Simulation, world_size: f32) {
         let entities = simulation.get_entities();
+        self.update_with_entities(entities, world_size);
+    }
 
+    fn update_interpolated(
+        &mut self,
+        simulation: &Simulation,
+        world_size: f32,
+        interpolation_factor: f32,
+    ) {
+        let entities = simulation.get_interpolated_entities(interpolation_factor);
+        self.update_with_entities(entities, world_size);
+    }
+
+    fn update_with_entities(
+        &mut self,
+        entities: Vec<(f32, f32, f32, f32, f32, f32)>,
+        world_size: f32,
+    ) {
         // Convert entities to vertices (triangles for circles)
         let mut vertices = Vec::new();
 
@@ -340,6 +357,8 @@ pub fn run(world_size: f32) {
     let mut simulation = Simulation::new(world_size);
     let mut frame_count = 0;
     let mut last_frame_time = std::time::Instant::now();
+    let mut fps_counter = 0;
+    let mut fps_start_time = std::time::Instant::now();
     let _window_id = window.id();
 
     println!("Evolution simulation window created! You should see colored triangles representing entities.");
@@ -366,19 +385,33 @@ pub fn run(world_size: f32) {
                             }
                             last_frame_time = now;
 
-                            // Update simulation every few frames to reduce load
-                            if frame_count % 2 == 0 {
-                                simulation.update();
-                            }
+                            // Update simulation every frame for smoother movement
+                            simulation.update();
                             frame_count += 1;
 
-                            // Update rendering every frame for smooth animation
-                            state.update(&simulation, world_size);
+                            // Calculate interpolation factor for smooth movement
+                            let interpolation_factor = 0.5; // Interpolate halfway between updates
 
-                            // Debug: Print frame info
-                            if frame_count % 120 == 0 {
-                                let entities = simulation.get_entities();
-                                println!("Frame {}: {} entities", frame_count, entities.len());
+                            // Update rendering every frame for smooth animation
+                            state.update_interpolated(
+                                &simulation,
+                                world_size,
+                                interpolation_factor,
+                            );
+
+                            // FPS calculation and display
+                            fps_counter += 1;
+                            if fps_counter >= 60 {
+                                let fps_duration = now.duration_since(fps_start_time);
+                                let fps = fps_counter as f64 / fps_duration.as_secs_f64();
+                                println!(
+                                    "FPS: {:.1}, Frame {}: {} entities",
+                                    fps,
+                                    frame_count,
+                                    simulation.get_entities().len()
+                                );
+                                fps_counter = 0;
+                                fps_start_time = now;
                             }
 
                             // Debug: Print first few entity positions

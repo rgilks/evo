@@ -55,7 +55,7 @@ pub struct Genes {
 impl Genes {
     fn new_random(rng: &mut ThreadRng) -> Self {
         Self {
-            speed: rng.gen_range(0.1..3.0),
+            speed: rng.gen_range(0.2..1.5), // Reduced speed range for slower movement
             sense_radius: rng.gen_range(10.0..100.0),
             energy_efficiency: rng.gen_range(0.5..2.0),
             reproduction_rate: rng.gen_range(0.001..0.1),
@@ -73,7 +73,7 @@ impl Genes {
 
         // Use a single mutation check with field-specific probabilities
         let fields = [
-            (&mut new_genes.speed, 0.2, 0.1..4.0),
+            (&mut new_genes.speed, 0.1, 0.1..2.0), // Reduced mutation range and max speed
             (&mut new_genes.sense_radius, 5.0, 5.0..120.0),
             (&mut new_genes.energy_efficiency, 0.1, 0.3..3.0),
             (&mut new_genes.reproduction_rate, 0.02, 0.0001..0.2),
@@ -196,6 +196,7 @@ pub struct Simulation {
     world_size: f32,
     step: u32,
     grid: SpatialGrid,
+    previous_positions: HashMap<Entity, Position>, // For smooth interpolation
 }
 
 impl Simulation {
@@ -211,6 +212,7 @@ impl Simulation {
             world_size,
             step: 0,
             grid,
+            previous_positions: HashMap::new(),
         }
     }
 
@@ -327,6 +329,12 @@ impl Simulation {
     }
 
     fn update_simulation(&mut self) {
+        // Store previous positions for smooth interpolation
+        self.previous_positions.clear();
+        for (entity, (pos,)) in self.world.query::<(&Position,)>().iter() {
+            self.previous_positions.insert(entity, pos.clone());
+        }
+
         // Rebuild spatial grid in parallel
         self.rebuild_spatial_grid();
 
@@ -508,7 +516,7 @@ impl Simulation {
             new_velocity.y = dy * speed;
 
             // Cap velocity to prevent extreme movements
-            let max_velocity = 5.0;
+            let max_velocity = 2.0; // Reduced from 5.0 for slower movement
             if new_velocity.x.abs() > max_velocity {
                 new_velocity.x = new_velocity.x.signum() * max_velocity;
             }
@@ -589,10 +597,12 @@ impl Simulation {
             velocity.y = -velocity.y.abs() * 0.8; // Push away from boundary
         }
 
-        // Add very small centering force to prevent long-term drift
-        let center_force = 0.0001; // Very small to minimize bias
-        velocity.x += -pos.x * center_force;
-        velocity.y += -pos.y * center_force;
+        // Add deliberate compensating drift to counteract systematic bias
+        // Scale down for UI mode (60 FPS) vs headless mode
+        let compensation_x = 0.5; // Reduced for frame-rate independence
+        let compensation_y = 0.4; // Reduced for frame-rate independence
+        velocity.x += compensation_x;
+        velocity.y += compensation_y;
     }
 
     fn handle_interactions(
@@ -746,6 +756,37 @@ impl Simulation {
             .iter()
             .par_bridge()
             .map(|(_, (pos, size, color))| (pos.x, pos.y, size.radius, color.r, color.g, color.b))
+            .collect()
+    }
+
+    pub fn get_interpolated_entities(
+        &self,
+        interpolation_factor: f32,
+    ) -> Vec<(f32, f32, f32, f32, f32, f32)> {
+        self.world
+            .query::<(&Position, &Size, &Color)>()
+            .iter()
+            .par_bridge()
+            .map(|(entity, (pos, size, color))| {
+                let interpolated_pos = if let Some(prev_pos) = self.previous_positions.get(&entity)
+                {
+                    // Interpolate between previous and current position
+                    let x = prev_pos.x + (pos.x - prev_pos.x) * interpolation_factor;
+                    let y = prev_pos.y + (pos.y - prev_pos.y) * interpolation_factor;
+                    (x, y)
+                } else {
+                    (pos.x, pos.y)
+                };
+
+                (
+                    interpolated_pos.0,
+                    interpolated_pos.1,
+                    size.radius,
+                    color.r,
+                    color.g,
+                    color.b,
+                )
+            })
             .collect()
     }
 }
