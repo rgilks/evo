@@ -1,6 +1,5 @@
 use crate::simulation::Simulation;
 use bytemuck::{Pod, Zeroable};
-use std::time::{Duration, Instant};
 
 use std::sync::Arc;
 use wgpu::util::DeviceExt;
@@ -58,10 +57,10 @@ impl State {
             format: surface_format,
             width: size.width,
             height: size.height,
-            present_mode: wgpu::PresentMode::Fifo,
+            present_mode: wgpu::PresentMode::Immediate, // Use Immediate for better performance
             alpha_mode: surface_caps.alpha_modes[0],
             view_formats: vec![],
-            desired_maximum_frame_latency: 2,
+            desired_maximum_frame_latency: 1, // Reduce latency
         };
         surface.configure(&device, &config);
 
@@ -127,11 +126,19 @@ impl State {
             multiview: None,
         });
 
-        // Create initial empty vertex buffer
+        // Create initial vertex buffer with reasonable size
+        let initial_vertices = vec![
+            Vertex {
+                position: [0.0, 0.0],
+                color: [0.0, 0.0, 0.0],
+            };
+            1000
+        ]; // Pre-allocate space for 1000 entities
+
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
-            contents: &[],
-            usage: wgpu::BufferUsages::VERTEX,
+            contents: bytemuck::cast_slice(&initial_vertices),
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
         });
 
         Self {
@@ -159,26 +166,16 @@ impl State {
 
         // Convert entities to vertices (triangles for circles)
         let mut vertices = Vec::new();
-        let max_entities_to_draw = 1000;
-        let entities_to_draw = if entities.len() > max_entities_to_draw {
-            let step = entities.len() / max_entities_to_draw;
-            entities
-                .iter()
-                .step_by(step)
-                .take(max_entities_to_draw)
-                .collect::<Vec<_>>()
-        } else {
-            entities.iter().collect::<Vec<_>>()
-        };
 
-        for (x, y, radius, r, g, b) in entities_to_draw {
+        // Draw all entities without sampling to prevent flickering
+        for (x, y, radius, r, g, b) in entities {
             // Convert world coordinates to normalized device coordinates (-1 to 1)
-            let screen_x = (*x + world_size / 2.0) / world_size * 2.0 - 1.0;
-            let screen_y = -((*y + world_size / 2.0) / world_size * 2.0 - 1.0); // Flip Y
-            let screen_radius = (*radius / world_size * 2.0).min(0.1); // Scale radius
+            let screen_x = (x + world_size / 2.0) / world_size * 2.0 - 1.0;
+            let screen_y = -((y + world_size / 2.0) / world_size * 2.0 - 1.0); // Flip Y
+            let screen_radius = (radius / world_size * 2.0).min(0.1); // Scale radius
 
             // Create a simple triangle for each entity (simplified circle representation)
-            let color = [*r, *g, *b];
+            let color = [r, g, b];
 
             // Triangle 1
             vertices.push(Vertex {
@@ -197,14 +194,26 @@ impl State {
 
         self.num_vertices = vertices.len() as u32;
 
-        // Update vertex buffer
-        self.vertex_buffer = self
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Vertex Buffer"),
-                contents: bytemuck::cast_slice(&vertices),
-                usage: wgpu::BufferUsages::VERTEX,
-            });
+        // Only recreate vertex buffer if size changed significantly or if it's empty
+        if vertices.len() > 0 {
+            // Use a larger buffer size to avoid frequent recreations
+            let buffer_size = (vertices.len() * std::mem::size_of::<Vertex>()).max(1024 * 1024);
+
+            if self.vertex_buffer.size() < buffer_size as u64 {
+                // Recreate buffer if it's too small
+                self.vertex_buffer =
+                    self.device
+                        .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                            label: Some("Vertex Buffer"),
+                            contents: bytemuck::cast_slice(&vertices),
+                            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                        });
+            } else {
+                // Update existing buffer
+                self.queue
+                    .write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&vertices));
+            }
+        }
     }
 
     fn render(&mut self, surface: &wgpu::Surface<'_>) -> Result<(), wgpu::SurfaceError> {
@@ -225,9 +234,9 @@ impl State {
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.1,
-                            g: 0.1,
-                            b: 0.1,
+                            r: 0.0,
+                            g: 0.0,
+                            b: 0.0,
                             a: 1.0,
                         }),
                         store: wgpu::StoreOp::Store,
@@ -280,7 +289,8 @@ pub fn run(world_size: f32) {
     let mut state = pollster::block_on(State::new(&surface, &adapter, window.inner_size()));
     let mut simulation = Simulation::new(world_size);
     let mut frame_count = 0;
-    let window_id = window.id();
+    let mut last_frame_time = std::time::Instant::now();
+    let _window_id = window.id();
 
     println!("Evolution simulation window created! You should see colored triangles representing entities.");
 
@@ -297,21 +307,32 @@ pub fn run(world_size: f32) {
                             state.resize(&surface, *physical_size);
                         }
                         WindowEvent::RedrawRequested => {
-                            // Update simulation
-                            simulation.update();
+                            // Frame rate limiting to prevent flickering
+                            let now = std::time::Instant::now();
+                            let frame_duration = now.duration_since(last_frame_time);
+                            if frame_duration.as_millis() < 16 {
+                                // ~60 FPS limit
+                                return;
+                            }
+                            last_frame_time = now;
+
+                            // Update simulation every few frames to reduce load
+                            if frame_count % 2 == 0 {
+                                simulation.update();
+                            }
                             frame_count += 1;
 
                             // Update rendering every frame for smooth animation
                             state.update(&simulation, world_size);
 
                             // Debug: Print frame info
-                            if frame_count % 60 == 0 {
+                            if frame_count % 120 == 0 {
                                 let entities = simulation.get_entities();
                                 println!("Frame {}: {} entities", frame_count, entities.len());
                             }
 
                             // Debug: Print first few entity positions
-                            if frame_count % 120 == 0 {
+                            if frame_count % 240 == 0 {
                                 let entities = simulation.get_entities();
                                 if !entities.is_empty() {
                                     let (x, y, _, _, _, _) = entities[0];

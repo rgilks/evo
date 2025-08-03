@@ -104,7 +104,7 @@ impl Simulation {
     pub fn new(world_size: f32) -> Self {
         let mut world = World::new();
         let mut rng = thread_rng();
-        let grid = SpatialGrid::new(15.0); // Even smaller cell size for better performance
+        let grid = SpatialGrid::new(20.0); // Larger cell size to reduce grid operations
 
         // Spawn initial entities
         Self::spawn_initial_entities(&mut world, &mut rng, world_size);
@@ -119,10 +119,10 @@ impl Simulation {
     }
 
     fn spawn_initial_entities(world: &mut World, rng: &mut ThreadRng, world_size: f32) {
-        // Spawn more initial entities for a more interesting simulation
-        let num_resources = 150; // Reduced from 200
-        let num_herbivores = 80; // Increased from 50
-        let num_predators = 30; // Increased from 20
+        // Spawn initial entities with reduced counts to prevent performance issues
+        let num_resources = 100; // Reduced from 150
+        let num_herbivores = 50; // Reduced from 80
+        let num_predators = 20; // Reduced from 30
 
         // Spawn resources (green) - spread them out more
         for _ in 0..num_resources {
@@ -231,9 +231,9 @@ impl Simulation {
             })
             .collect();
 
-        // Process entities in parallel using Rayon for efficient multi-core utilization
+        // Process entities sequentially to reduce CPU load and prevent flickering
         let updates: Vec<_> = entity_data
-            .par_iter() // Restore parallel processing to use all cores
+            .iter() // Use sequential processing to reduce CPU load
             .filter_map(|(entity, x, y, energy, max_energy, radius, color)| {
                 if *energy <= 0.0 {
                     return None;
@@ -243,10 +243,10 @@ impl Simulation {
                 let mut rng = rand::thread_rng();
 
                 // Use spatial grid to find nearby entities for potential interactions
-                let nearby_entities = self.grid.get_nearby_entities(*x, *y, radius * 1.2);
+                let nearby_entities = self.grid.get_nearby_entities(*x, *y, radius * 1.5);
 
                 // Limit the number of nearby entities we check to prevent performance issues
-                let max_nearby_to_check = 30; // Increased from 10 to provide more work
+                let max_nearby_to_check = 15; // Further reduced to prevent flickering
                 let nearby_entities_to_check = if nearby_entities.len() > max_nearby_to_check {
                     nearby_entities
                         .iter()
@@ -323,7 +323,7 @@ impl Simulation {
                                 .sqrt();
 
                                 // Interaction distance based on entity size
-                                if distance < (radius + 5.0) && nearby_energy.current > 0.0 {
+                                if distance < (radius + 8.0) && nearby_energy.current > 0.0 {
                                     // Check entity types
                                     let is_predator =
                                         color.r > 0.7 && color.g < 0.3 && color.b < 0.3;
@@ -338,7 +338,7 @@ impl Simulation {
                                         && nearby_color.b > 0.05
                                         && nearby_color.b < 0.15;
                                     let is_nearby_resource =
-                                        nearby_color.g > 0.7 && nearby_color.r < 0.3;
+                                        nearby_color.g > 0.6 && nearby_color.r < 0.4; // More lenient resource detection
 
                                     if is_predator && is_nearby_herbivore {
                                         // Predator (red) eats herbivore (brown)
@@ -370,13 +370,13 @@ impl Simulation {
 
                 if is_resource {
                     // Resources grow faster and more sustainably
-                    new_energy = (new_energy + 0.8).min(*max_energy);
+                    new_energy = (new_energy + 0.4).min(*max_energy); // Reduced from 0.8
                 } else if is_predator {
                     // Predators lose energy more slowly
                     new_energy -= 0.6;
                 } else if is_herbivore {
                     // Herbivores lose energy more slowly
-                    new_energy -= 0.3;
+                    new_energy -= 0.4; // Reduced from 0.5 to restore stability
                 } else {
                     // Default energy loss for unknown entities
                     new_energy -= 0.5;
@@ -411,7 +411,7 @@ impl Simulation {
             .collect();
 
         // Collect entities to remove
-        let mut entities_to_remove: Vec<Entity> = updates
+        let entities_to_remove: Vec<Entity> = updates
             .iter()
             .filter_map(|(_, _, _, _, _, _, _, _, eaten_entity)| *eaten_entity)
             .collect();
@@ -440,7 +440,7 @@ impl Simulation {
                 ));
 
                 // Handle reproduction only if population is not too high
-                if should_reproduce && self.world.len() < 5000 {
+                if should_reproduce && self.world.len() < 1500 { // Reduced from 2000 to prevent performance issues
                     let mut rng = rand::thread_rng();
                     let child_energy = max_energy * 0.4;
                     let child_radius = (child_energy / 15.0).max(1.0);
@@ -480,7 +480,7 @@ impl Simulation {
         }
 
         // Spawn new resources more frequently - use parallel processing for multiple spawns
-        if self.step % 30 == 0 && self.rng.gen::<f32>() < 0.5 {
+        if self.step % 60 == 0 && self.rng.gen::<f32>() < 0.3 {
             // Spawn multiple resources in parallel
             let spawn_count = if self.rng.gen::<f32>() < 0.3 { 2 } else { 1 };
             let spawns: Vec<_> = (0..spawn_count)
