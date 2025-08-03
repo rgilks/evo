@@ -119,10 +119,10 @@ impl Simulation {
     }
 
     fn spawn_initial_entities(world: &mut World, rng: &mut ThreadRng, world_size: f32) {
-        // Spawn initial entities with reduced counts to prevent performance issues
-        let num_resources = 100; // Reduced from 150
-        let num_herbivores = 50; // Reduced from 80
-        let num_predators = 20; // Reduced from 30
+        // Spawn initial entities with 10x increased counts to test parallelization
+        let num_resources = 1000; // Increased from 100
+        let num_herbivores = 500; // Increased from 50
+        let num_predators = 200; // Increased from 20
 
         // Spawn resources (green) - spread them out more
         for _ in 0..num_resources {
@@ -446,7 +446,7 @@ impl Simulation {
                 ));
 
                 // Handle reproduction only if population is not too high
-                if should_reproduce && self.world.len() < 1500 { // Reduced from 2000 to prevent performance issues
+                if should_reproduce && self.world.len() < 15000 { // Increased from 1500 to allow 10x more entities
                     let mut rng = rand::thread_rng();
                     let child_energy = max_energy * 0.4;
                     let child_radius = (child_energy / 15.0).max(1.0);
@@ -533,7 +533,7 @@ impl Simulation {
             })
             .count();
 
-        if herbivore_count < 50 && self.step % 100 == 0 {
+        if herbivore_count < 500 && self.step % 100 == 0 { // Increased from 50 to allow 10x more herbivores
             let x = self
                 .rng
                 .gen_range(-self.world_size / 2.0..self.world_size / 2.0);
@@ -569,7 +569,7 @@ impl Simulation {
             .filter(|(_, (color,))| color.r > 0.7 && color.g < 0.3 && color.b < 0.3)
             .count();
 
-        if herbivore_count > 80 && predator_count < 30 && self.step % 150 == 0 {
+        if herbivore_count > 800 && predator_count < 300 && self.step % 150 == 0 { // Increased from 80/30 to allow 10x more entities
             let x = self
                 .rng
                 .gen_range(-self.world_size / 2.0..self.world_size / 2.0);
