@@ -9,8 +9,8 @@ import init, {
 const DEFAULT_CONFIG = {
   population: {
     entity_scale: 0.5,
-    max_population: 5000,
-    initial_entities: 3000,
+    max_population: 10000,
+    initial_entities: 2500,
     spawn_radius_factor: 0.2,
   },
   physics: {

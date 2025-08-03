@@ -52,8 +52,8 @@ impl Default for SimulationConfig {
         Self {
             population: PopulationConfig {
                 entity_scale: 0.5,
-                max_population: 2000,
-                initial_entities: 500,
+                max_population: 10000,
+                initial_entities: 2500,
                 spawn_radius_factor: 0.2,
             },
             physics: PhysicsConfig {
@@ -117,8 +117,8 @@ mod tests {
 
         // Test default values
         assert_eq!(config.population.entity_scale, 0.5);
-        assert_eq!(config.population.max_population, 2000);
-        assert_eq!(config.population.initial_entities, 500);
+        assert_eq!(config.population.max_population, 10000);
+        assert_eq!(config.population.initial_entities, 2500);
         assert_eq!(config.population.spawn_radius_factor, 0.2);
         assert_eq!(config.physics.max_velocity, 2.0);
         assert_eq!(config.physics.max_entity_radius, 20.0);
