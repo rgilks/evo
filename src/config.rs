@@ -23,8 +23,6 @@ pub struct SimulationConfig {
     pub population_density_factor: f32,
     pub min_reproduction_chance: f32,
     pub death_chance_factor: f32,
-    pub drift_compensation_x: f32,
-    pub drift_compensation_y: f32,
     pub velocity_bounce_factor: f32,
 }
 
@@ -50,8 +48,6 @@ impl Default for SimulationConfig {
             population_density_factor: 0.8,
             min_reproduction_chance: 0.05,
             death_chance_factor: 0.1,
-            drift_compensation_x: 0.5,
-            drift_compensation_y: 0.4,
             velocity_bounce_factor: 0.8,
         }
     }
@@ -109,8 +105,6 @@ mod tests {
         assert_eq!(config.population_density_factor, 0.8);
         assert_eq!(config.min_reproduction_chance, 0.05);
         assert_eq!(config.death_chance_factor, 0.1);
-        assert_eq!(config.drift_compensation_x, 0.5);
-        assert_eq!(config.drift_compensation_y, 0.4);
         assert_eq!(config.velocity_bounce_factor, 0.8);
     }
 
@@ -161,14 +155,6 @@ mod tests {
         );
         assert_eq!(config.death_chance_factor, deserialized.death_chance_factor);
         assert_eq!(
-            config.drift_compensation_x,
-            deserialized.drift_compensation_x
-        );
-        assert_eq!(
-            config.drift_compensation_y,
-            deserialized.drift_compensation_y
-        );
-        assert_eq!(
             config.velocity_bounce_factor,
             deserialized.velocity_bounce_factor
         );
@@ -216,8 +202,6 @@ mod tests {
             cloned.min_reproduction_chance
         );
         assert_eq!(config.death_chance_factor, cloned.death_chance_factor);
-        assert_eq!(config.drift_compensation_x, cloned.drift_compensation_x);
-        assert_eq!(config.drift_compensation_y, cloned.drift_compensation_y);
         assert_eq!(config.velocity_bounce_factor, cloned.velocity_bounce_factor);
     }
 
@@ -286,14 +270,6 @@ mod tests {
             loaded_config.death_chance_factor
         );
         assert_eq!(
-            config.drift_compensation_x,
-            loaded_config.drift_compensation_x
-        );
-        assert_eq!(
-            config.drift_compensation_y,
-            loaded_config.drift_compensation_y
-        );
-        assert_eq!(
             config.velocity_bounce_factor,
             loaded_config.velocity_bounce_factor
         );
@@ -354,8 +330,6 @@ mod tests {
         config.population_density_factor = 0.9;
         config.min_reproduction_chance = 0.1;
         config.death_chance_factor = 0.2;
-        config.drift_compensation_x = 0.6;
-        config.drift_compensation_y = 0.5;
         config.velocity_bounce_factor = 0.9;
 
         // Test that values were set correctly
@@ -378,8 +352,6 @@ mod tests {
         assert_eq!(config.population_density_factor, 0.9);
         assert_eq!(config.min_reproduction_chance, 0.1);
         assert_eq!(config.death_chance_factor, 0.2);
-        assert_eq!(config.drift_compensation_x, 0.6);
-        assert_eq!(config.drift_compensation_y, 0.5);
         assert_eq!(config.velocity_bounce_factor, 0.9);
     }
 

@@ -209,7 +209,7 @@ impl State {
             // Ensure proper centering and scaling
             let screen_x = (x + world_size / 2.0) / world_size * 2.0 - 1.0;
             let screen_y = -((y + world_size / 2.0) / world_size * 2.0 - 1.0); // Flip Y for screen coordinates
-            let screen_radius = (radius / world_size * 2.0).min(0.15); // Scale radius - increased for better visibility
+            let screen_radius = (radius / world_size * 2.0 / 10.0).min(0.015); // Scale radius - made 10x smaller
 
             // Create a larger quad to accommodate the glow effect
             // The glow extends beyond the actual radius, so we need extra space

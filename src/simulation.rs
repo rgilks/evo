@@ -525,8 +525,8 @@ mod tests {
         assert_eq!(pos.x, 0.0);
         assert_eq!(pos.y, 0.0);
         // Velocity should have drift compensation applied
-        assert_eq!(velocity.x, 5.0 + sim.config.drift_compensation_x);
-        assert_eq!(velocity.y, 5.0 + sim.config.drift_compensation_y);
+        assert_eq!(velocity.x, 5.0);
+        assert_eq!(velocity.y, 5.0);
     }
 
     #[test]

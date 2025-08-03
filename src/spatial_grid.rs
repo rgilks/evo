@@ -1,5 +1,7 @@
 use hecs::Entity;
 use std::collections::HashMap;
+use rand::thread_rng;
+use rand::seq::SliceRandom;
 
 /// Optimized spatial grid for efficient neighbor finding
 #[derive(Default)]
@@ -36,19 +38,28 @@ impl SpatialGrid {
         let center_cell = self.get_cell_coords(x, y);
         let cell_radius = (radius / self.cell_size).ceil() as i32;
 
+        // Generate all cell coordinates in the search area
+        let mut cells = Vec::new();
         for dx in -cell_radius..=cell_radius {
             for dy in -cell_radius..=cell_radius {
                 let cell = (center_cell.0 + dx, center_cell.1 + dy);
-                if let Some(entities) = self.grid.get(&cell) {
-                    nearby.extend(entities.iter().copied());
-                }
+                cells.push(cell);
+            }
+        }
+
+        // Randomize the order of cell processing to eliminate bias
+        let mut rng = thread_rng();
+        cells.shuffle(&mut rng);
+
+        // Process cells in randomized order
+        for cell in cells {
+            if let Some(entities) = self.grid.get(&cell) {
+                nearby.extend(entities.iter().copied());
             }
         }
 
         nearby
     }
-
-
 }
 
 #[cfg(test)]

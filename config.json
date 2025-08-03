@@ -18,7 +18,5 @@
   "population_density_factor": 0.8,
   "min_reproduction_chance": 0.05,
   "death_chance_factor": 0.1,
-  "drift_compensation_x": 0.5,
-  "drift_compensation_y": 0.4,
   "velocity_bounce_factor": 0.8
 }
