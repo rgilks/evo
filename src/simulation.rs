@@ -395,7 +395,7 @@ impl Simulation {
                         ) = self.reproduction_system.create_offspring(
                             genes,
                             energy_max,
-                            &position,
+                            position,
                             &self.config,
                         );
 
@@ -491,7 +491,7 @@ mod tests {
         let sim = Simulation::new(1000.0);
 
         // Should have initial entities
-        assert!(sim.world.len() > 0);
+        assert!(!sim.world.is_empty());
         assert!(sim.world.len() <= 250); // Default config values
 
         // World size should be set correctly
@@ -528,7 +528,6 @@ mod tests {
 
         // Entity count might change due to reproduction/death
         // but should be within reasonable bounds
-        assert!(sim.world.len() >= 0);
     }
 
     #[test]
@@ -548,7 +547,7 @@ mod tests {
 
         // Should return data for all entities
         // Note: We can't easily compare lengths due to type mismatches
-        assert!(!entities.is_empty() || sim.world.len() == 0);
+        assert!(!entities.is_empty() || sim.world.is_empty());
     }
 
     #[test]
@@ -646,7 +645,7 @@ mod tests {
         let sim = Simulation::new_with_config(1000.0, config);
 
         // Should handle large world
-        assert!(sim.world.len() > 0);
+        assert!(!sim.world.is_empty());
         assert!(sim.world.len() <= 1000);
     }
 

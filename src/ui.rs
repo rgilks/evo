@@ -264,7 +264,7 @@ impl State {
         self.num_vertices = vertices.len() as u32;
 
         // Only recreate vertex buffer if size changed significantly or if it's empty
-        if vertices.len() > 0 {
+        if !vertices.is_empty() {
             // Use a larger buffer size to avoid frequent recreations
             let buffer_size = (vertices.len() * std::mem::size_of::<Vertex>()).max(2 * 1024 * 1024);
 

@@ -64,9 +64,6 @@ temp/
 # Git
 .git/
 
-# Cursor specific
-.cursor/
-
 # Large data files and traces
 *.trace
 *.trace.*
@@ -86,10 +83,6 @@ callgrind.out.*
 # Memory dumps
 *.dump
 *.core
-
-# Documentation build artifacts
-/docs/
-/book/
 
 # Test artifacts
 /test-results/

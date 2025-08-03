@@ -38,7 +38,7 @@ impl WebSimulation {
 
     pub fn get_entities(&self) -> JsValue {
         let entities = self.simulation.get_entities();
-        serde_wasm_bindgen::to_value(&entities).unwrap_or_else(|_| JsValue::NULL)
+        serde_wasm_bindgen::to_value(&entities).unwrap_or(JsValue::NULL)
     }
 
     pub fn get_stats(&self) -> JsValue {
@@ -47,7 +47,7 @@ impl WebSimulation {
             self.config.population.max_population as f32,
             self.config.population.entity_scale,
         );
-        serde_wasm_bindgen::to_value(&stats).unwrap_or_else(|_| JsValue::NULL)
+        serde_wasm_bindgen::to_value(&stats).unwrap_or(JsValue::NULL)
     }
 
     pub fn get_world_size(&self) -> f32 {

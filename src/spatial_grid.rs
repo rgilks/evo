@@ -30,7 +30,7 @@ impl SpatialGrid {
 
     pub fn insert(&mut self, entity: Entity, x: f32, y: f32) {
         let cell = self.get_cell_coords(x, y);
-        self.grid.entry(cell).or_insert_with(Vec::new).push(entity);
+        self.grid.entry(cell).or_default().push(entity);
     }
 
     pub fn get_nearby_entities(&self, x: f32, y: f32, radius: f32) -> Vec<Entity> {

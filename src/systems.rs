@@ -131,8 +131,8 @@ impl MovementSystem {
                                 if distance < genes.sense_radius() {
                                     // Check if this is a potential food source
                                     if genes.can_eat(
-                                        &*nearby_genes,
-                                        &*nearby_size,
+                                        &nearby_genes,
+                                        &nearby_size,
                                         &Size { radius: 1.0 },
                                     ) {
                                         return Some((nearby_pos.x, nearby_pos.y));
@@ -214,7 +214,7 @@ impl InteractionSystem {
                         if nearby_energy.current > 0.0 {
                             let distance = self.calculate_distance(new_pos, &nearby_pos);
                             if distance < (size.radius + config.physics.interaction_radius_offset) {
-                                return genes.can_eat(&*nearby_genes, &*nearby_size, size);
+                                return genes.can_eat(&nearby_genes, &nearby_size, size);
                             }
                         }
                     }
@@ -241,7 +241,7 @@ impl InteractionSystem {
                 *eaten_entity = Some(entity);
                 let energy_gained = genes.get_energy_gain(
                     nearby_energy.current,
-                    &*nearby_size,
+                    &nearby_size,
                     &Size { radius: 1.0 },
                 );
                 *new_energy =
@@ -505,10 +505,8 @@ mod tests {
         let population_density = 0.1; // Low density for higher reproduction chance
         let config = SimulationConfig::default();
 
-        let should_reproduce =
+        let _should_reproduce =
             system.check_reproduction(energy, max_energy, &genes, population_density, &config);
-
-        // Reproduction check completed without panic
     }
 
     #[test]
@@ -551,9 +549,7 @@ mod tests {
         let population_density = 0.9; // High density
         let config = SimulationConfig::default();
 
-        let should_die = system.check_death(population_density, &config);
-
-        // Death check completed without panic
+        let _should_die = system.check_death(population_density, &config);
     }
 
     #[test]
@@ -1485,15 +1481,15 @@ mod tests {
         // Create entities in a specific pattern to test order bias
         let mut entities = Vec::new();
 
-        let positions = vec![
+        let positions = [
             (-25.0, -25.0), // Bottom-left
             (25.0, -25.0),  // Bottom-right
             (-25.0, 25.0),  // Top-left
-            (25.0, 25.0),   // Top-right
+            (25.0, 25.0),
         ];
 
         // Insert entities in a specific order
-        for (_i, (x, y)) in positions.iter().enumerate() {
+        for (x, y) in positions.iter() {
             let entity = world.spawn((
                 Position { x: *x, y: *y },
                 Velocity { x: 0.0, y: 0.0 },

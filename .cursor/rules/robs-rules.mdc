@@ -1,196 +1,82 @@
-# Rob's Evolution Simulation Rules
+# Rob's Evolution Simulation Rules - Simplified
 
-## Core Design Principles
+## Core Design
+Minimize special cases by refactoring to use components
+Each component/system/function should have single responsibility
+Use descriptive names that clearly indicate purpose
+Write clear readable code first, optimize bottlenecks later
+Keep systems focused on specific component sets
+Group related components near each other
+Organize code by domain, not technical concerns
+Document complex algorithms explaining "why" not just "what"
 
-### Elegance and Simplicity
+## Rayon Parallelism
+Use Rayon for CPU-intensive operations on large datasets
+Apply to operations that don't depend on each other's results
+Prefer par_iter() over manual thread spawning
+Use par_iter_mut() for mutable operations
+Avoid nested parallelism
+Keep parallel blocks focused
+Use join() for divide-and-conquer algorithms
 
-- **Prefer composition over inheritance** - Use traits and structs to compose behavior
-- **Minimize special cases** - If you find yourself writing many `if` statements for different entity types, refactor to use components
-- **Single responsibility** - Each component, system, or function should have one clear purpose
-- **Consistent naming** - Use descriptive names that clearly indicate purpose and behavior
-- **Avoid premature optimization** - Write clear, readable code first, optimize bottlenecks later
+## Hecs ECS Design
+Keep components small and focused on one aspect
+Use composition for complex behavior
+Components should contain data, systems contain logic
+Use meaningful component names
+Query only what you need with specific component combinations
+Use Query for read-only access, QueryBorrow for mutable access
+Group related systems together
+Keep systems stateless between calls
 
-### Code Organization
-
-- **Keep systems focused** - Each system should operate on a specific set of components
-- **Group related components** - Components that are often used together should be defined near each other
-- **Use meaningful module structure** - Organize code by domain, not by technical concerns
-- **Document complex algorithms** - Add comments explaining the "why" not just the "what"
-
-## Rayon Parallelism Guidelines
-
-### When to Use Rayon
-
-- **Use for CPU-intensive operations** - Entity updates, physics calculations, AI decisions
-- **Apply to large datasets** - When processing hundreds or thousands of entities
-- **Parallelize independent work** - Operations that don't depend on each other's results
-
-### Rayon Best Practices
-
-- **Prefer `par_iter()` over manual thread spawning** - Let Rayon handle thread management
-- **Use `par_iter_mut()` for mutable operations** - When you need to modify data in parallel
-- **Avoid nested parallelism** - Don't use Rayon inside already parallel operations
-- **Keep parallel blocks focused** - Minimize work done inside parallel iterators
-- **Use `join()` for divide-and-conquer algorithms** - When you can split work into two independent parts
-
-### Rayon Patterns
-
-```rust
-// Good: Simple parallel iteration
-entities.par_iter().for_each(|entity| {
-    // Update entity state
-});
-
-// Good: Parallel iteration with mutable access
-entities.par_iter_mut().for_each(|entity| {
-    entity.velocity += entity.acceleration * dt;
-});
-
-// Good: Parallel filtering and mapping
-let results: Vec<_> = data.par_iter()
-    .filter(|item| item.is_valid())
-    .map(|item| item.process())
-    .collect();
-```
-
-## Hecs ECS Design Guidelines
-
-### Component Design
-
-- **Keep components small and focused** - Each component should represent one aspect of an entity
-- **Use composition for complex behavior** - Combine multiple simple components rather than one complex component
-- **Prefer data over behavior** - Components should contain data, systems should contain logic
-- **Use meaningful component names** - Names should clearly indicate what aspect they represent
-
-### System Design
-
-- **Query only what you need** - Use specific component combinations in queries
-- **Prefer `Query` over `QueryBorrow`** - Use `Query` when you don't need mutable access to all components
-- **Use `QueryBorrow` for mutable access** - When you need to modify components
-- **Group related systems** - Systems that operate on the same components should be defined together
-- **Keep systems stateless** - Systems should not maintain state between calls
-
-### ECS Patterns
-
-```rust
-// Good: Focused component
-#[derive(Component)]
-struct Position {
-    x: f32,
-    y: f32,
-}
-
-#[derive(Component)]
-struct Velocity {
-    x: f32,
-    y: f32,
-}
-
-// Good: Simple system with clear purpose
-fn update_positions(world: &mut World, dt: f32) {
-    let mut query = world.query_mut::<(&mut Position, &Velocity)>();
-    for (pos, vel) in query.iter() {
-        pos.x += vel.x * dt;
-        pos.y += vel.y * dt;
-    }
-}
-
-// Good: Parallel system using Rayon
-fn update_positions_parallel(world: &mut World, dt: f32) {
-    let mut query = world.query_mut::<(&mut Position, &Velocity)>();
-    query.par_iter_mut().for_each(|(pos, vel)| {
-        pos.x += vel.x * dt;
-        pos.y += vel.y * dt;
-    });
-}
-```
-
-## Performance Guidelines
-
-### Optimization Strategy
-
-- **Profile first** - Use `cargo flamegraph` or similar tools to identify bottlenecks
-- **Optimize hot paths** - Focus on code that runs frequently or processes large datasets
-- **Use appropriate data structures** - Choose structures based on access patterns, not just memory usage
-- **Minimize allocations** - Reuse vectors and other containers when possible
-- **Use `#[inline]` sparingly** - Only for small, frequently called functions
-
-### Memory Management
-
-- **Prefer stack allocation** - Use stack for small, short-lived data
-- **Use `Vec` for dynamic collections** - When you need to grow or shrink collections
-- **Consider `SmallVec` for small collections** - When most collections are small but occasionally large
-- **Use `Arc` for shared immutable data** - When multiple systems need read-only access
+## Performance
+Profile first to identify bottlenecks
+Optimize hot paths that run frequently
+Choose data structures based on access patterns
+Minimize allocations and reuse containers
+Use #[inline] sparingly for small frequently called functions
+Prefer stack allocation for small short-lived data
+Use Vec for dynamic collections
+Consider SmallVec for small collections that occasionally grow
+Use Arc for shared immutable data
 
 ## Logging and Debugging
+Include entity counts and relevant metrics
+Avoid log flooding with appropriate log levels
+Use structured logging with context
+Add debug components for visualization
+Use conditional compilation for debug features
+Provide inspection tools for entity state
 
-### Logging Guidelines
-
-- **Include entity counts** - Log numbers of different entity types and their states
-- **Add relevant metrics** - Performance metrics, simulation statistics, important events
-- **Avoid log flooding** - Use appropriate log levels and don't log in tight loops
-- **Use structured logging** - Include context and structured data in log messages
-
-### Debugging Support
-
-- **Add debug components** - Components that help with visualization or debugging
-- **Use conditional compilation** - Debug features should be behind `#[cfg(debug_assertions)]`
-- **Provide inspection tools** - Functions to examine entity state and system behavior
-
-## Testing Guidelines
-
-### Unit Testing
-
-- **Test systems in isolation** - Create minimal worlds with only required components
-- **Test component combinations** - Ensure systems work with various component combinations
-- **Use property-based testing** - For complex algorithms and data transformations
-- **Test edge cases** - Empty worlds, single entities, maximum entity counts
-
-### Integration Testing
-
-- **Test system interactions** - Ensure systems work together correctly
-- **Test performance characteristics** - Verify that parallelization provides expected benefits
-- **Test memory usage** - Ensure no memory leaks in long-running simulations
+## Testing
+Test systems in isolation with minimal worlds
+Test component combinations and edge cases
+Use property-based testing for complex algorithms
+Test system interactions and performance characteristics
+Test memory usage for long-running simulations
 
 ## Code Style
+Follow Rust naming conventions (snake_case, PascalCase)
+Use rustfmt for consistent formatting
+Use clippy and fix all warnings
+Write idiomatic Rust patterns
+Document public APIs with examples
+Document invariants and constraints
+Keep documentation up to date
 
-### Rust Conventions
-
-- **Follow Rust naming conventions** - `snake_case` for functions and variables, `PascalCase` for types
-- **Use `rustfmt`** - Ensure consistent code formatting
-- **Use `clippy`** - Enable all lints and fix warnings
-- **Write idiomatic Rust** - Use Rust patterns and avoid fighting the language
-
-### Documentation
-
-- **Document public APIs** - Use doc comments for all public functions, types, and modules
-- **Include examples** - Show how to use complex systems and components
-- **Document invariants** - Explain assumptions and constraints that must be maintained
-- **Keep docs up to date** - Update documentation when changing behavior
-
-## Evolution-Specific Guidelines
-
-### Entity Design
-
-- **Use components for traits** - Each genetic trait should be a separate component
-- **Design for mutation** - Components should be easy to modify during evolution
-- **Support inheritance** - Design systems that can handle parent-child relationships
-- **Plan for extinction** - Handle cases where entity types disappear from the population
-
-### Simulation Design
-
-- **Separate concerns** - Keep evolution logic separate from rendering and UI
-- **Design for scalability** - Plan for large populations and long-running simulations
-- **Support configuration** - Make simulation parameters easily adjustable
-- **Enable experimentation** - Design systems that can be easily modified for different experiments
+## Evolution-Specific
+Use components for genetic traits
+Design components for easy mutation during evolution
+Support parent-child inheritance relationships
+Handle entity type extinction gracefully
+Separate evolution logic from rendering/UI
+Design for large populations and scalability
+Make simulation parameters easily adjustable
+Enable easy experimentation and modification
 
 ## Development Workflow
-
-### Core Principles
-
-- **Simplicity First**: Code should be as simple, concise and elegant as possible
-- **Documentation Maintenance**: Always keep the README file up to date
-- **Git Hygiene**: Keep the .gitignore file up to date
-- **Code Quality**: Be rigorous in fixing warnings and errors
-
-When I just type 'rcp' that means "Review all changes in each file, remove pointless comments, run any checks or tests, update relevant documentation, then `git add -A` and commit and push all changed files"
+Simplicity first - code should be concise and elegant
+Keep README file up to date
+Keep .gitignore file up to date
+Be rigorous in fixing warnings and errors
+When typing 'rcp': review changes, remove pointless comments, run checks/tests, update docs, git add/commit/push
