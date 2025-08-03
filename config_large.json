@@ -1,0 +1,21 @@
+{
+  "initial_entities": 5000,
+  "entity_scale": 1.0,
+  "max_population": 10000,
+  "world_size": 3000.0,
+  "grid_cell_size": 50.0,
+  "spawn_radius_factor": 0.3,
+  "min_entity_radius": 2.0,
+  "max_entity_radius": 15.0,
+  "max_velocity": 5.0,
+  "movement_energy_cost": 0.1,
+  "base_energy_consumption": 0.5,
+  "reproduction_energy_threshold": 0.8,
+  "reproduction_energy_cost": 0.3,
+  "mutation_rate": 0.1,
+  "mutation_strength": 0.2,
+  "death_rate": 0.01,
+  "food_spawn_rate": 0.05,
+  "food_energy_value": 20.0,
+  "boundary_margin": 50.0
+} 

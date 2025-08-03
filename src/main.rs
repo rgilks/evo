@@ -1,9 +1,12 @@
+mod batch_processor;
 mod components;
 mod config;
 mod genes;
 mod profiler;
+mod quadtree;
 mod simulation;
 mod spatial_grid;
+mod spatial_system;
 mod stats;
 mod systems;
 mod ui;

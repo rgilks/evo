@@ -1,7 +1,7 @@
 use crate::components::{Color, Energy, Position, Size, Velocity};
 use crate::config::SimulationConfig;
 use crate::genes::Genes;
-use crate::spatial_grid::SpatialGrid;
+use crate::spatial_system::SpatialSystem;
 use crate::stats::SimulationStats;
 use crate::systems::{EnergySystem, InteractionSystem, MovementSystem, ReproductionSystem};
 use crate::{
@@ -18,7 +18,7 @@ pub struct Simulation {
     world: World,
     world_size: f32,
     step: u32,
-    grid: SpatialGrid,
+    spatial_system: SpatialSystem,
     previous_positions: HashMap<Entity, Position>, // For smooth interpolation
     config: SimulationConfig,
 
@@ -42,15 +42,17 @@ impl Simulation {
     pub fn new_with_config(world_size: f32, config: SimulationConfig) -> Self {
         let mut world = World::new();
         let mut rng = thread_rng();
-        let grid = SpatialGrid::new(config.grid_cell_size);
 
         Self::spawn_initial_entities(&mut world, &mut rng, world_size, &config);
+
+        let entity_count = (config.initial_entities as f32 * config.entity_scale) as usize;
+        let spatial_system = SpatialSystem::new(world_size, entity_count);
 
         Self {
             world,
             world_size,
             step: 0,
-            grid,
+            spatial_system,
             previous_positions: HashMap::new(),
             config,
             movement_system: MovementSystem,
@@ -130,9 +132,9 @@ impl Simulation {
             }
         });
 
-        // Rebuild spatial grid in parallel
-        profile_block!(self.profiler, "rebuild_spatial_grid", {
-            self.rebuild_spatial_grid();
+        // Rebuild spatial system in parallel
+        profile_block!(self.profiler, "rebuild_spatial_system", {
+            self.rebuild_spatial_system();
         });
 
         // Process entities in parallel using the new systems
@@ -157,12 +159,12 @@ impl Simulation {
         });
     }
 
-    fn rebuild_spatial_grid(&mut self) {
-        self.grid.clear();
+    fn rebuild_spatial_system(&mut self) {
+        self.spatial_system.clear();
 
-        // Use parallel processing for grid building (optimized: pre-allocate)
+        // Use parallel processing for spatial system building (optimized: pre-allocate)
         let entity_count = self.world.len() as usize;
-        let grid_entities: Vec<_> = profile_block!(self.profiler, "collect_grid_entities", {
+        let spatial_entities: Vec<_> = profile_block!(self.profiler, "collect_spatial_entities", {
             self.world
                 .query::<(&Position,)>()
                 .iter()
@@ -171,10 +173,10 @@ impl Simulation {
                 .collect()
         });
 
-        // Insert entities into grid (this part needs to be sequential due to HashMap)
-        profile_block!(self.profiler, "insert_entities_into_grid", {
-            for (entity, x, y) in grid_entities {
-                self.grid.insert(entity, x, y);
+        // Insert entities into spatial system (this part needs to be sequential due to HashMap)
+        profile_block!(self.profiler, "insert_entities_into_spatial_system", {
+            for (entity, x, y) in spatial_entities {
+                self.spatial_system.insert(entity, x, y);
             }
         });
     }
@@ -206,10 +208,12 @@ impl Simulation {
         let mut should_reproduce = false;
 
         // Find nearby entities (optimized: reduced limit from 20 to 10)
-        let nearby_entities = self
-            .grid
-            .get_nearby_entities(pos.x, pos.y, genes.sense_radius());
-        let nearby_entities = nearby_entities.iter().take(10).copied().collect::<Vec<_>>();
+        let nearby_entities = self.spatial_system.get_nearby_entities_optimized(
+            pos.x,
+            pos.y,
+            genes.sense_radius(),
+            10,
+        );
 
         // Movement logic using the movement system
         self.movement_system.update_movement(
@@ -566,13 +570,13 @@ mod tests {
     }
 
     #[test]
-    fn test_simulation_spatial_grid_rebuild() {
+    fn test_simulation_spatial_system_rebuild() {
         let mut sim = Simulation::new(100.0);
 
-        // Rebuild grid
-        sim.rebuild_spatial_grid();
+        // Rebuild spatial system
+        sim.rebuild_spatial_system();
 
-        // Grid should be rebuilt without panicking
+        // Spatial system should be rebuilt without panicking
         // We can't easily test the internal state, but we can ensure it doesn't crash
     }
 
