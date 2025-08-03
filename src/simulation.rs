@@ -69,9 +69,10 @@ impl Simulation {
             let y = distance * angle.sin();
 
             let genes = Genes::new_random(rng);
-            let energy = rng.gen_range(25.0..55.0);
+            let energy = rng.gen_range(15.0..75.0);
             let color = genes.get_color();
-            let radius = (energy / 15.0 * genes.size_factor()).clamp(config.min_entity_radius, 8.0);
+            let radius = (energy / 15.0 * genes.size_factor())
+                .clamp(config.min_entity_radius, config.max_entity_radius);
 
             world.spawn((
                 Position { x, y },

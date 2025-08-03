@@ -43,25 +43,25 @@ Instead of predefined entity types, all behaviors emerge from genes organized in
 
 #### Movement Genes
 
-- **Speed**: Movement velocity and hunting effectiveness
-- **Sense Radius**: Detection range for food and threats
+- **Speed**: Movement velocity and hunting effectiveness (0.1-2.5)
+- **Sense Radius**: Detection range for food and threats (5.0-150.0)
 
 #### Energy Genes
 
-- **Efficiency**: How efficiently energy is used and stored
-- **Loss Rate**: Base energy consumption per tick
-- **Gain Rate**: Efficiency of consuming other entities
-- **Size Factor**: How size relates to energy requirements
+- **Efficiency**: How efficiently energy is used and stored (0.3-3.0)
+- **Loss Rate**: Base energy consumption per tick (0.05-2.0)
+- **Gain Rate**: Efficiency of consuming other entities (0.2-4.5)
+- **Size Factor**: How size relates to energy requirements (0.3-2.5)
 
 #### Reproduction Genes
 
-- **Rate**: Likelihood of successful reproduction
-- **Mutation Rate**: How much genes change in offspring
+- **Rate**: Likelihood of successful reproduction (0.0005-0.15)
+- **Mutation Rate**: How much genes change in offspring (0.005-0.15)
 
 #### Appearance Genes
 
 - **Hue**: Color hue (0.0-1.0)
-- **Saturation**: Color saturation (0.0-1.0)
+- **Saturation**: Color saturation (0.2-1.0)
 
 ### Emergent Interactions
 
@@ -182,7 +182,7 @@ cargo run -- --config my_config.json
 
 - **entity_scale**: Global scaling factor for entity counts
 - **max_population**: Maximum number of entities allowed
-- **initial_entities**: Number of entities at simulation start
+- **initial_entities**: Number of entities at simulation start (default: 1000)
 - **max_velocity**: Maximum movement speed
 - **max_entity_radius**: Largest possible entity size
 - **min_entity_radius**: Smallest possible entity size
@@ -212,6 +212,19 @@ The project demonstrates excellent software engineering practices:
 - **Testing**: Comprehensive test coverage for critical components
 - **Documentation**: Clear documentation and examples
 - **Performance**: Optimized for both development and production use
+
+## Recent Updates
+
+### Enhanced Entity Diversity (Latest)
+
+The simulation now features significantly increased entity diversity:
+
+- **Doubled Population**: Initial entities increased from 500 to 1000
+- **Expanded Gene Ranges**: All genetic traits now have wider ranges for greater variation
+- **Enhanced Initial Conditions**: More diverse starting energy levels (15-75 vs 25-55)
+- **Improved Size Variation**: Entities can now utilize the full size range from min to max radius
+
+This creates a much more dynamic and interesting evolutionary environment with greater potential for diverse strategies to emerge and compete.
 
 ## Future Enhancements
 

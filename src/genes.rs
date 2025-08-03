@@ -42,22 +42,22 @@ impl Genes {
     pub fn new_random(rng: &mut ThreadRng) -> Self {
         Self {
             movement: MovementGenes {
-                speed: rng.gen_range(0.2..1.5),
-                sense_radius: rng.gen_range(10.0..100.0),
+                speed: rng.gen_range(0.1..2.5),
+                sense_radius: rng.gen_range(5.0..150.0),
             },
             energy: EnergyGenes {
-                efficiency: rng.gen_range(0.5..2.0),
-                loss_rate: rng.gen_range(0.1..1.0),
-                gain_rate: rng.gen_range(0.5..3.0),
-                size_factor: rng.gen_range(0.5..2.0),
+                efficiency: rng.gen_range(0.3..3.0),
+                loss_rate: rng.gen_range(0.05..2.0),
+                gain_rate: rng.gen_range(0.2..4.5),
+                size_factor: rng.gen_range(0.3..2.5),
             },
             reproduction: ReproductionGenes {
-                rate: rng.gen_range(0.001..0.1),
-                mutation_rate: rng.gen_range(0.01..0.1),
+                rate: rng.gen_range(0.0005..0.15),
+                mutation_rate: rng.gen_range(0.005..0.15),
             },
             appearance: AppearanceGenes {
                 hue: rng.gen_range(0.0..1.0),
-                saturation: rng.gen_range(0.3..1.0),
+                saturation: rng.gen_range(0.2..1.0),
             },
         }
     }
@@ -68,40 +68,40 @@ impl Genes {
         // Movement mutations
         if rng.gen::<f32>() < self.reproduction.mutation_rate {
             new_genes.movement.speed =
-                (new_genes.movement.speed + rng.gen_range(-0.1..0.1)).clamp(0.1, 2.0);
+                (new_genes.movement.speed + rng.gen_range(-0.15..0.15)).clamp(0.05, 3.0);
         }
         if rng.gen::<f32>() < self.reproduction.mutation_rate {
             new_genes.movement.sense_radius =
-                (new_genes.movement.sense_radius + rng.gen_range(-5.0..5.0)).clamp(5.0, 120.0);
+                (new_genes.movement.sense_radius + rng.gen_range(-8.0..8.0)).clamp(2.0, 180.0);
         }
 
         // Energy mutations
         if rng.gen::<f32>() < self.reproduction.mutation_rate {
             new_genes.energy.efficiency =
-                (new_genes.energy.efficiency + rng.gen_range(-0.1..0.1)).clamp(0.3, 3.0);
+                (new_genes.energy.efficiency + rng.gen_range(-0.15..0.15)).clamp(0.2, 4.0);
         }
         if rng.gen::<f32>() < self.reproduction.mutation_rate {
             new_genes.energy.loss_rate =
-                (new_genes.energy.loss_rate + rng.gen_range(-0.1..0.1)).clamp(0.05, 2.0);
+                (new_genes.energy.loss_rate + rng.gen_range(-0.15..0.15)).clamp(0.02, 3.0);
         }
         if rng.gen::<f32>() < self.reproduction.mutation_rate {
             new_genes.energy.gain_rate =
-                (new_genes.energy.gain_rate + rng.gen_range(-0.2..0.2)).clamp(0.2, 4.0);
+                (new_genes.energy.gain_rate + rng.gen_range(-0.25..0.25)).clamp(0.1, 5.0);
         }
         if rng.gen::<f32>() < self.reproduction.mutation_rate {
             new_genes.energy.size_factor =
-                (new_genes.energy.size_factor + rng.gen_range(-0.1..0.1)).clamp(0.2, 3.0);
+                (new_genes.energy.size_factor + rng.gen_range(-0.15..0.15)).clamp(0.1, 3.5);
         }
 
         // Reproduction mutations
         if rng.gen::<f32>() < self.reproduction.mutation_rate {
             new_genes.reproduction.rate =
-                (new_genes.reproduction.rate + rng.gen_range(-0.02..0.02)).clamp(0.0001, 0.2);
+                (new_genes.reproduction.rate + rng.gen_range(-0.025..0.025)).clamp(0.0001, 0.25);
         }
         if rng.gen::<f32>() < self.reproduction.mutation_rate {
             new_genes.reproduction.mutation_rate = (new_genes.reproduction.mutation_rate
-                + rng.gen_range(-0.02..0.02))
-            .clamp(0.001, 0.2);
+                + rng.gen_range(-0.025..0.025))
+            .clamp(0.001, 0.25);
         }
 
         // Appearance mutations
@@ -169,7 +169,6 @@ impl Genes {
     pub fn energy_loss_rate(&self) -> f32 {
         self.energy.loss_rate
     }
-
 }
 
 #[cfg(test)]
@@ -183,24 +182,24 @@ mod tests {
         let genes = Genes::new_random(&mut rng);
 
         // Test movement genes
-        assert!(genes.movement.speed >= 0.2 && genes.movement.speed <= 1.5);
-        assert!(genes.movement.sense_radius >= 10.0 && genes.movement.sense_radius <= 100.0);
+        assert!(genes.movement.speed >= 0.1 && genes.movement.speed <= 2.5);
+        assert!(genes.movement.sense_radius >= 5.0 && genes.movement.sense_radius <= 150.0);
 
         // Test energy genes
-        assert!(genes.energy.efficiency >= 0.5 && genes.energy.efficiency <= 2.0);
-        assert!(genes.energy.loss_rate >= 0.1 && genes.energy.loss_rate <= 1.0);
-        assert!(genes.energy.gain_rate >= 0.5 && genes.energy.gain_rate <= 3.0);
-        assert!(genes.energy.size_factor >= 0.5 && genes.energy.size_factor <= 2.0);
+        assert!(genes.energy.efficiency >= 0.3 && genes.energy.efficiency <= 3.0);
+        assert!(genes.energy.loss_rate >= 0.05 && genes.energy.loss_rate <= 2.0);
+        assert!(genes.energy.gain_rate >= 0.2 && genes.energy.gain_rate <= 4.5);
+        assert!(genes.energy.size_factor >= 0.3 && genes.energy.size_factor <= 2.5);
 
         // Test reproduction genes
-        assert!(genes.reproduction.rate >= 0.001 && genes.reproduction.rate <= 0.1);
+        assert!(genes.reproduction.rate >= 0.0005 && genes.reproduction.rate <= 0.15);
         assert!(
-            genes.reproduction.mutation_rate >= 0.01 && genes.reproduction.mutation_rate <= 0.1
+            genes.reproduction.mutation_rate >= 0.005 && genes.reproduction.mutation_rate <= 0.15
         );
 
         // Test appearance genes
         assert!(genes.appearance.hue >= 0.0 && genes.appearance.hue <= 1.0);
-        assert!(genes.appearance.saturation >= 0.3 && genes.appearance.saturation <= 1.0);
+        assert!(genes.appearance.saturation >= 0.2 && genes.appearance.saturation <= 1.0);
     }
 
     #[test]
@@ -210,26 +209,26 @@ mod tests {
         let mutated_genes = original_genes.mutate(&mut rng);
 
         // Test that genes are within valid ranges after mutation
-        assert!(mutated_genes.movement.speed >= 0.1 && mutated_genes.movement.speed <= 2.0);
+        assert!(mutated_genes.movement.speed >= 0.05 && mutated_genes.movement.speed <= 3.0);
         assert!(
-            mutated_genes.movement.sense_radius >= 5.0
-                && mutated_genes.movement.sense_radius <= 120.0
+            mutated_genes.movement.sense_radius >= 2.0
+                && mutated_genes.movement.sense_radius <= 180.0
         );
-        assert!(mutated_genes.energy.efficiency >= 0.3 && mutated_genes.energy.efficiency <= 3.0);
-        assert!(mutated_genes.energy.loss_rate >= 0.05 && mutated_genes.energy.loss_rate <= 2.0);
-        assert!(mutated_genes.energy.gain_rate >= 0.2 && mutated_genes.energy.gain_rate <= 4.0);
-        assert!(mutated_genes.energy.size_factor >= 0.2 && mutated_genes.energy.size_factor <= 3.0);
+        assert!(mutated_genes.energy.efficiency >= 0.2 && mutated_genes.energy.efficiency <= 4.0);
+        assert!(mutated_genes.energy.loss_rate >= 0.02 && mutated_genes.energy.loss_rate <= 3.0);
+        assert!(mutated_genes.energy.gain_rate >= 0.1 && mutated_genes.energy.gain_rate <= 5.0);
+        assert!(mutated_genes.energy.size_factor >= 0.1 && mutated_genes.energy.size_factor <= 3.5);
         assert!(
-            mutated_genes.reproduction.rate >= 0.0001 && mutated_genes.reproduction.rate <= 0.2
+            mutated_genes.reproduction.rate >= 0.0001 && mutated_genes.reproduction.rate <= 0.25
         );
         assert!(
-            mutated_genes.reproduction.mutation_rate >= 0.005
-                && mutated_genes.reproduction.mutation_rate <= 0.15
+            mutated_genes.reproduction.mutation_rate >= 0.001
+                && mutated_genes.reproduction.mutation_rate <= 0.25
         );
         assert!(mutated_genes.appearance.hue >= 0.0 && mutated_genes.appearance.hue <= 1.0);
         assert!(
-            mutated_genes.appearance.saturation >= 0.2
-                && mutated_genes.appearance.saturation <= 1.1
+            mutated_genes.appearance.saturation >= 0.1
+                && mutated_genes.appearance.saturation <= 1.0
         );
     }
 
@@ -279,10 +278,10 @@ mod tests {
         // Energy gain should be positive and reasonable
         assert!(energy_gain > 0.0);
         // The formula is: other_energy * gain_rate * 0.3 * (1 + size_ratio * 0.3).min(1.5)
-        // With max gain_rate of 3.0, max size_ratio of 1.25, the theoretical max is:
-        // 50 * 3.0 * 0.3 * 1.5 = 67.5
-        // But in practice, we expect values around 20-40
-        assert!(energy_gain <= 70.0); // Allow for the full range of possible values
+        // With max gain_rate of 4.5, max size_ratio of 1.25, the theoretical max is:
+        // 50 * 4.5 * 0.3 * 1.5 = 101.25
+        // But in practice, we expect values around 20-60
+        assert!(energy_gain <= 110.0); // Allow for the full range of possible values
     }
 
     #[test]

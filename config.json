@@ -1,7 +1,7 @@
 {
   "entity_scale": 0.5,
   "max_population": 2000,
-  "initial_entities": 500,
+  "initial_entities": 1000,
   "max_velocity": 2.0,
   "max_entity_radius": 20.0,
   "min_entity_radius": 1.0,
