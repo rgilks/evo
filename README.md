@@ -1,36 +1,37 @@
 # Evolution Simulation
 
-A beautiful and performant evolution simulation written in Rust, featuring an Entity Component System (ECS) with parallel processing and GPU-accelerated graphics.
+A beautiful and performant evolution simulation written in Rust, featuring an Entity Component System (ECS) with parallel processing and GPU-accelerated graphics. Watch as complex behaviors emerge naturally from simple genetic rules!
 
 ## Features
 
 - **Entity Component System**: Uses the `hecs` crate for efficient entity management
-- **Parallel Processing**: Leverages `rayon` to maximize performance on multi-core systems (especially M1 Macs)
+- **Parallel Processing**: Leverages `rayon` to maximize performance on multi-core systems
 - **GPU Graphics**: Beautiful real-time visualization using `wgpu`
 - **Headless Mode**: Run simulations without UI for testing and analysis
-- **Evolution Mechanics**:
-  - Entities have genes controlling behavior
-  - Energy-based survival system
-  - Size changes based on energy levels
-  - Reproduction with mutations
-  - Predator-prey relationships
-  - Resource growth over time
+- **Emergent Behaviors**: Complex predator-prey dynamics emerge from simple genetic rules
+- **Population Balance**: Sophisticated population control mechanisms prevent explosions
+- **Stable Physics**: Advanced boundary handling and drift correction
 
-## Entity Types
+## Evolution Mechanics
 
-1. **Resources (Green)**: Plants that grow slowly over time, don't move, and provide energy to herbivores
-2. **Herbivores (Orange)**: Eat resources to gain energy, reproduce when energy is high
-3. **Predators (Red)**: Hunt herbivores for energy, faster and more aggressive
+### Gene-Based Behaviors
+Instead of predefined entity types, all behaviors emerge from genes:
 
-## Genes
+- **Speed**: Movement velocity and hunting effectiveness
+- **Sense Radius**: Detection range for food and threats
+- **Energy Efficiency**: How efficiently energy is used and stored
+- **Reproduction Rate**: Likelihood of successful reproduction
+- **Mutation Rate**: How much genes change in offspring
+- **Size Factor**: How size relates to energy requirements
+- **Energy Loss Rate**: Base energy consumption per tick
+- **Energy Gain Rate**: Efficiency of consuming other entities
+- **Color**: Visual representation of genetic traits (HSV-based)
 
-Each living entity has genes that control:
-
-- **Speed**: How fast the entity moves
-- **Sense Radius**: How far it can detect food/prey
-- **Energy Efficiency**: How efficiently it uses energy
-- **Reproduction Threshold**: Energy level required to reproduce
-- **Mutation Rate**: How likely genes are to mutate in offspring
+### Emergent Interactions
+- **Predation**: Based on relative speed and size advantages
+- **Energy Transfer**: Efficient energy gain with diminishing returns
+- **Population Control**: Density-based reproduction and death rates
+- **Size Constraints**: Natural limits prevent oversized entities
 
 ## Usage
 
@@ -52,14 +53,50 @@ cargo run -- --headless --steps 1000 --world-size 1000
 - `--steps <number>`: Number of simulation steps in headless mode (default: 1000)
 - `--world-size <number>`: Size of the simulation world (default: 1000)
 
-## Performance
+## Performance Optimizations
 
-The simulation is optimized for:
+The simulation is heavily optimized for performance:
 
-- **M1 Mac Performance Cores**: Uses rayon for parallel processing
-- **Spatial Grid Optimization**: O(n²) → O(n) complexity for entity interactions
-- **GPU Acceleration**: WGPU for smooth real-time graphics
+- **Rayon Parallelization**: 
+  - Entity updates processed in parallel
+  - Spatial grid data extraction parallelized
+  - Metrics collection parallelized
+  - Update preparation parallelized
+- **Spatial Grid**: O(n²) → O(n) complexity for entity interactions
 - **Efficient ECS**: Hecs for fast entity queries and updates
+- **GPU Acceleration**: WGPU for smooth real-time graphics
+
+## Simulation Rules
+
+### Core Mechanics
+1. **Energy System**: All entities consume energy over time based on size and activity
+2. **Movement**: Entities move toward targets within their sense radius
+3. **Predation**: Larger/faster entities can consume smaller/slower ones
+4. **Reproduction**: High-energy entities reproduce with genetic mutations
+5. **Population Control**: Density-based reproduction suppression and death rates
+6. **Size Constraints**: Entities are limited to reasonable size ranges
+
+### Advanced Features
+- **Boundary Handling**: Smart boundary detection with centering forces
+- **Drift Prevention**: Position validation and correction mechanisms
+- **Stable Spawning**: Uniform distribution prevents initial bias
+- **Balanced Growth**: Multiple mechanisms prevent population explosions
+
+## Technical Architecture
+
+### ECS Components
+- **Position**: 2D coordinates with boundary validation
+- **Energy**: Current and maximum energy levels
+- **Size**: Radius-based size with constraints
+- **Velocity**: Movement vector with physics validation
+- **Color**: RGB color derived from genetic traits
+- **Genes**: Inheritable traits that define behavior
+
+### Key Systems
+- **Spatial Grid**: Efficient neighbor finding and collision detection
+- **Parallel Processing**: Rayon-based parallel entity updates
+- **Boundary Management**: Advanced boundary handling with drift correction
+- **Population Control**: Multi-layered population balance mechanisms
 
 ## Building
 
@@ -76,30 +113,35 @@ cargo build --release
 cargo run --release
 ```
 
-## Simulation Rules
+## Recent Improvements
 
-1. **Energy System**: All entities have energy that decreases over time
-2. **Size**: Entity size is proportional to current energy
-3. **Movement**: Entities move toward nearest food/prey within their sense radius
-4. **Eating**: Collision detection triggers energy transfer and entity removal
-5. **Reproduction**: High energy entities split into two with mutated genes
-6. **Death**: Entities die when energy reaches zero
-7. **Resources**: Plants grow slowly and don't need to eat
+### 🎯 **Simplified Architecture**
+- Removed artificial entity types in favor of gene-based behaviors
+- Streamlined gene system from 15 to 10 core traits
+- Eliminated redundant mutation logic
 
-## Technical Details
+### 🚀 **Enhanced Parallelism**
+- Optimized Rayon usage throughout the codebase
+- Parallel entity processing and data collection
+- Efficient spatial grid operations
 
-- **ECS Framework**: Hecs for component-based architecture
-- **Spatial Grid System**: Optimized O(n²) → O(n) collision detection and interactions
-- **Parallel Processing**: Rayon for multi-threaded updates
-- **Graphics**: WGPU for cross-platform GPU rendering
-- **Window Management**: Winit for window and event handling
-- **Random Generation**: Rand for stochastic evolution
+### ⚖️ **Population Balance**
+- Implemented strict predation rules
+- Added size constraints and energy limits
+- Introduced density-based population control
+- Reduced initial population and maximum caps
+
+### 🎯 **Drift Correction**
+- Fixed boundary handling with better comparisons
+- Added centering forces to prevent accumulation
+- Implemented position validation
+- Eliminated initial spawning bias
 
 ## Future Enhancements
 
-- More complex gene interactions
-- Environmental factors (temperature, terrain)
+- Environmental factors (terrain, resources)
 - Social behaviors and group dynamics
 - Advanced visualization options
 - Data export and analysis tools
 - WebAssembly support for browser deployment
+- More complex gene interactions and epigenetics

@@ -216,13 +216,14 @@ impl Simulation {
 
     fn spawn_initial_entities(world: &mut World, rng: &mut ThreadRng, world_size: f32) {
         let total_entities = (500.0 * ENTITY_SCALE) as usize; // Reduced initial population
-        let spawn_radius = world_size * 0.3;
+        let spawn_radius = world_size * 0.25; // Reduced spawn area to prevent boundary bias
 
         for _ in 0..total_entities {
+            // Use uniform distribution within spawn radius to avoid bias
             let angle = rng.gen_range(0.0..std::f32::consts::TAU);
             let distance = rng.gen_range(0.0..spawn_radius);
-            let x = distance * angle.cos() + rng.gen_range(-10.0..10.0);
-            let y = distance * angle.sin() + rng.gen_range(-10.0..10.0);
+            let x = distance * angle.cos();
+            let y = distance * angle.sin();
 
             let genes = Genes::new_random(rng);
             let energy = rng.gen_range(25.0..55.0);
@@ -476,6 +477,14 @@ impl Simulation {
         new_pos.x += new_velocity.x;
         new_pos.y += new_velocity.y;
 
+        // Validate position to prevent NaN or infinite values
+        if new_pos.x.is_nan() || new_pos.x.is_infinite() {
+            new_pos.x = 0.0;
+        }
+        if new_pos.y.is_nan() || new_pos.y.is_infinite() {
+            new_pos.y = 0.0;
+        }
+
         // Movement cost based on genes
         let movement_distance =
             (new_velocity.x * new_velocity.x + new_velocity.y * new_velocity.y).sqrt();
@@ -518,22 +527,29 @@ impl Simulation {
 
     fn handle_boundaries(&self, pos: &mut Position, velocity: &mut Velocity) {
         let half_world = self.world_size / 2.0;
+        let margin = 5.0; // Small margin to prevent entities from getting stuck exactly on boundary
 
-        if pos.x < -half_world {
-            pos.x = -half_world;
-            velocity.x = -velocity.x * 0.9;
-        } else if pos.x > half_world {
-            pos.x = half_world;
-            velocity.x = -velocity.x * 0.9;
+        // Use <= and >= to handle edge cases better
+        if pos.x <= -half_world + margin {
+            pos.x = -half_world + margin;
+            velocity.x = velocity.x.abs() * 0.8; // Push away from boundary
+        } else if pos.x >= half_world - margin {
+            pos.x = half_world - margin;
+            velocity.x = -velocity.x.abs() * 0.8; // Push away from boundary
         }
 
-        if pos.y < -half_world {
-            pos.y = -half_world;
-            velocity.y = -velocity.y * 0.9;
-        } else if pos.y > half_world {
-            pos.y = half_world;
-            velocity.y = -velocity.y * 0.9;
+        if pos.y <= -half_world + margin {
+            pos.y = -half_world + margin;
+            velocity.y = velocity.y.abs() * 0.8; // Push away from boundary
+        } else if pos.y >= half_world - margin {
+            pos.y = half_world - margin;
+            velocity.y = -velocity.y.abs() * 0.8; // Push away from boundary
         }
+
+        // Add small centering force to prevent long-term drift
+        let center_force = 0.01;
+        velocity.x += -pos.x * center_force;
+        velocity.y += -pos.y * center_force;
     }
 
     fn handle_interactions(
