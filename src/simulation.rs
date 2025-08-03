@@ -26,17 +26,17 @@ pub struct Size {
 
 #[derive(Clone)]
 pub struct Genes {
-    pub speed: f32,                    // Movement speed
-    pub sense_radius: f32,             // How far they can sense food/predators
-    pub energy_efficiency: f32,        // How efficiently they use energy
-    pub reproduction_threshold: f32,   // Energy level required to reproduce
-    pub mutation_rate: f32,            // How likely genes are to mutate
-    pub color_r: f32,                  // Red component of color
-    pub color_g: f32,                  // Green component of color
-    pub color_b: f32,                  // Blue component of color
-    pub size_factor: f32,              // How size relates to energy
-    pub energy_loss_rate: f32,         // How quickly they lose energy
-    pub energy_gain_rate: f32,         // How much energy they gain from eating
+    pub speed: f32,                  // Movement speed
+    pub sense_radius: f32,           // How far they can sense food/predators
+    pub energy_efficiency: f32,      // How efficiently they use energy
+    pub reproduction_threshold: f32, // Energy level required to reproduce
+    pub mutation_rate: f32,          // How likely genes are to mutate
+    pub color_r: f32,                // Red component of color
+    pub color_g: f32,                // Green component of color
+    pub color_b: f32,                // Blue component of color
+    pub size_factor: f32,            // How size relates to energy
+    pub energy_loss_rate: f32,       // How quickly they lose energy
+    pub energy_gain_rate: f32,       // How much energy they gain from eating
 }
 
 impl Genes {
@@ -58,22 +58,26 @@ impl Genes {
 
     fn mutate(&self, rng: &mut ThreadRng) -> Self {
         let mut new_genes = self.clone();
-        
+
         // Apply mutations based on mutation rate
         if rng.gen::<f32>() < self.mutation_rate {
             new_genes.speed = (self.speed + rng.gen_range(-0.2..0.2)).clamp(0.1, 3.0);
         }
         if rng.gen::<f32>() < self.mutation_rate {
-            new_genes.sense_radius = (self.sense_radius + rng.gen_range(-5.0..5.0)).clamp(5.0, 100.0);
+            new_genes.sense_radius =
+                (self.sense_radius + rng.gen_range(-5.0..5.0)).clamp(5.0, 100.0);
         }
         if rng.gen::<f32>() < self.mutation_rate {
-            new_genes.energy_efficiency = (self.energy_efficiency + rng.gen_range(-0.1..0.1)).clamp(0.1, 3.0);
+            new_genes.energy_efficiency =
+                (self.energy_efficiency + rng.gen_range(-0.1..0.1)).clamp(0.1, 3.0);
         }
         if rng.gen::<f32>() < self.mutation_rate {
-            new_genes.reproduction_threshold = (self.reproduction_threshold + rng.gen_range(-0.1..0.1)).clamp(0.3, 0.95);
+            new_genes.reproduction_threshold =
+                (self.reproduction_threshold + rng.gen_range(-0.1..0.1)).clamp(0.3, 0.95);
         }
         if rng.gen::<f32>() < self.mutation_rate {
-            new_genes.mutation_rate = (self.mutation_rate + rng.gen_range(-0.02..0.02)).clamp(0.001, 0.2);
+            new_genes.mutation_rate =
+                (self.mutation_rate + rng.gen_range(-0.02..0.02)).clamp(0.001, 0.2);
         }
         if rng.gen::<f32>() < self.mutation_rate {
             new_genes.color_r = (self.color_r + rng.gen_range(-0.1..0.1)).clamp(0.0, 1.0);
@@ -88,12 +92,14 @@ impl Genes {
             new_genes.size_factor = (self.size_factor + rng.gen_range(-0.2..0.2)).clamp(0.2, 3.0);
         }
         if rng.gen::<f32>() < self.mutation_rate {
-            new_genes.energy_loss_rate = (self.energy_loss_rate + rng.gen_range(-0.1..0.1)).clamp(0.05, 2.0);
+            new_genes.energy_loss_rate =
+                (self.energy_loss_rate + rng.gen_range(-0.1..0.1)).clamp(0.05, 2.0);
         }
         if rng.gen::<f32>() < self.mutation_rate {
-            new_genes.energy_gain_rate = (self.energy_gain_rate + rng.gen_range(-0.2..0.2)).clamp(0.2, 3.0);
+            new_genes.energy_gain_rate =
+                (self.energy_gain_rate + rng.gen_range(-0.2..0.2)).clamp(0.2, 3.0);
         }
-        
+
         new_genes
     }
 }
@@ -117,7 +123,7 @@ impl EntityType {
         let is_resource = genes.color_g > 0.7 && genes.color_r < 0.3;
         let is_predator = genes.color_r > 0.7 && genes.color_g < 0.3;
         let is_herbivore = !is_resource && !is_predator;
-        
+
         Self {
             is_resource,
             is_herbivore,
@@ -218,7 +224,7 @@ impl Simulation {
     }
 
     fn spawn_initial_entities(world: &mut World, rng: &mut ThreadRng, world_size: f32) {
-        let num_resources = (500.0 * ENTITY_SCALE) as usize; // Half as many resources
+        let num_resources = (250.0 * ENTITY_SCALE) as usize; // Quarter as many resources
         let num_herbivores = (500.0 * ENTITY_SCALE) as usize;
         let num_predators = (200.0 * ENTITY_SCALE) as usize;
 
@@ -230,7 +236,7 @@ impl Simulation {
             let distance = rng.gen_range(0.0..spawn_radius);
             let x = distance * angle.cos();
             let y = distance * angle.sin();
-            
+
             let mut genes = Genes::new_random(rng);
             // Make them green and resource-like
             genes.color_r = rng.gen_range(0.0..0.2);
@@ -238,9 +244,9 @@ impl Simulation {
             genes.color_b = rng.gen_range(0.0..0.3);
             genes.speed = rng.gen_range(0.0..0.5); // Resources move very slowly
             genes.energy_loss_rate = rng.gen_range(-0.2..0.1); // Negative means they gain energy
-            genes.energy_gain_rate = rng.gen_range(0.1..0.3); // How much they gain per step
+            genes.energy_gain_rate = rng.gen_range(0.01..0.05); // Much slower growth
             genes.reproduction_threshold = rng.gen_range(0.7..0.9);
-            
+
             let energy = rng.gen_range(20.0..40.0);
             let entity_type = EntityType::new_from_genes(&genes);
             let color = Color::from_genes(&genes);
@@ -248,7 +254,10 @@ impl Simulation {
 
             world.spawn((
                 Position { x, y },
-                Energy { current: energy, max: energy * 1.5 },
+                Energy {
+                    current: energy,
+                    max: energy * 1.5,
+                },
                 Size { radius },
                 Genes { ..genes },
                 EntityType { ..entity_type },
@@ -263,7 +272,7 @@ impl Simulation {
             let distance = rng.gen_range(0.0..spawn_radius);
             let x = distance * angle.cos();
             let y = distance * angle.sin();
-            
+
             let mut genes = Genes::new_random(rng);
             // Make them brown/orange
             genes.color_r = rng.gen_range(0.6..1.0);
@@ -272,7 +281,7 @@ impl Simulation {
             genes.speed = rng.gen_range(0.5..2.0);
             genes.energy_loss_rate = rng.gen_range(0.2..0.8);
             genes.reproduction_threshold = rng.gen_range(0.6..0.8);
-            
+
             let energy = rng.gen_range(30.0..50.0);
             let entity_type = EntityType::new_from_genes(&genes);
             let color = Color::from_genes(&genes);
@@ -280,7 +289,10 @@ impl Simulation {
 
             world.spawn((
                 Position { x, y },
-                Energy { current: energy, max: energy * 1.2 },
+                Energy {
+                    current: energy,
+                    max: energy * 1.2,
+                },
                 Size { radius },
                 Genes { ..genes },
                 EntityType { ..entity_type },
@@ -295,7 +307,7 @@ impl Simulation {
             let distance = rng.gen_range(0.0..spawn_radius);
             let x = distance * angle.cos();
             let y = distance * angle.sin();
-            
+
             let mut genes = Genes::new_random(rng);
             // Make them red
             genes.color_r = rng.gen_range(0.7..1.0);
@@ -304,7 +316,7 @@ impl Simulation {
             genes.speed = rng.gen_range(1.0..3.0);
             genes.energy_loss_rate = rng.gen_range(0.4..1.0);
             genes.reproduction_threshold = rng.gen_range(0.7..0.9);
-            
+
             let energy = rng.gen_range(40.0..60.0);
             let entity_type = EntityType::new_from_genes(&genes);
             let color = Color::from_genes(&genes);
@@ -312,7 +324,10 @@ impl Simulation {
 
             world.spawn((
                 Position { x, y },
-                Energy { current: energy, max: energy * 1.1 },
+                Energy {
+                    current: energy,
+                    max: energy * 1.1,
+                },
                 Size { radius },
                 Genes { ..genes },
                 EntityType { ..entity_type },
@@ -381,23 +396,33 @@ impl Simulation {
         // Collect all entity data for parallel processing
         let entity_data: Vec<_> = self
             .world
-            .query::<(&Position, &Energy, &Size, &Genes, &EntityType, &Color, &Velocity)>()
+            .query::<(
+                &Position,
+                &Energy,
+                &Size,
+                &Genes,
+                &EntityType,
+                &Color,
+                &Velocity,
+            )>()
             .iter()
-            .map(|(entity, (pos, energy, size, genes, entity_type, color, velocity))| {
-                (
-                    entity,
-                    pos.x,
-                    pos.y,
-                    energy.current,
-                    energy.max,
-                    size.radius,
-                    genes.clone(),
-                    entity_type.clone(),
-                    color.clone(),
-                    velocity.x,
-                    velocity.y,
-                )
-            })
+            .map(
+                |(entity, (pos, energy, size, genes, entity_type, color, velocity))| {
+                    (
+                        entity,
+                        pos.x,
+                        pos.y,
+                        energy.current,
+                        energy.max,
+                        size.radius,
+                        genes.clone(),
+                        entity_type.clone(),
+                        color.clone(),
+                        velocity.x,
+                        velocity.y,
+                    )
+                },
+            )
             .collect();
 
         // Process entities in parallel
@@ -407,51 +432,143 @@ impl Simulation {
             .flat_map(|chunk| {
                 chunk
                     .iter()
-                    .filter_map(|(entity, x, y, energy, max_energy, radius, genes, entity_type, color, vel_x, vel_y)| {
-                        if *energy <= 0.0 {
-                            return None; // Entity is dead
-                        }
+                    .filter_map(
+                        |(
+                            entity,
+                            x,
+                            y,
+                            energy,
+                            max_energy,
+                            radius,
+                            genes,
+                            entity_type,
+                            color,
+                            vel_x,
+                            vel_y,
+                        )| {
+                            if *energy <= 0.0 {
+                                return None; // Entity is dead
+                            }
 
-                        let mut rng = rand::thread_rng();
-                        let mut new_x = *x;
-                        let mut new_y = *y;
-                        let mut new_energy = *energy;
-                        let mut new_vel_x = *vel_x;
-                        let mut new_vel_y = *vel_y;
-                        let mut eaten_entity = None;
-                        let mut should_reproduce = false;
+                            let mut rng = rand::thread_rng();
+                            let mut new_x = *x;
+                            let mut new_y = *y;
+                            let mut new_energy = *energy;
+                            let mut new_vel_x = *vel_x;
+                            let mut new_vel_y = *vel_y;
+                            let mut eaten_entity = None;
+                            let mut should_reproduce = false;
 
-                        // Find nearby entities using spatial grid
-                        let nearby_entities = self.grid.get_nearby_entities(*x, *y, genes.sense_radius);
-                        let max_nearby_to_check = 20;
-                        let nearby_entities_to_check = if nearby_entities.len() > max_nearby_to_check {
-                            nearby_entities.iter().take(max_nearby_to_check).copied().collect::<Vec<_>>()
-                        } else {
-                            nearby_entities
-                        };
+                            // Find nearby entities using spatial grid
+                            let nearby_entities =
+                                self.grid.get_nearby_entities(*x, *y, genes.sense_radius);
+                            let max_nearby_to_check = 20;
+                            let nearby_entities_to_check =
+                                if nearby_entities.len() > max_nearby_to_check {
+                                    nearby_entities
+                                        .iter()
+                                        .take(max_nearby_to_check)
+                                        .copied()
+                                        .collect::<Vec<_>>()
+                                } else {
+                                    nearby_entities
+                                };
 
-                        // Movement based on genes and entity type
-                        if entity_type.is_resource {
-                            // Resources move very slowly or not at all
-                            let angle = rng.gen_range(0.0..std::f32::consts::TAU);
-                            let speed = genes.speed * 0.1; // Very slow movement
-                            new_x += angle.cos() * speed;
-                            new_y += angle.sin() * speed;
-                        } else {
-                            // Herbivores and predators move towards food
-                            let mut target_x = *x;
-                            let mut target_y = *y;
-                            let mut found_target = false;
+                            // Movement based on genes and entity type
+                            if entity_type.is_resource {
+                                // Resources move very slowly or not at all
+                                let angle = rng.gen_range(0.0..std::f32::consts::TAU);
+                                let speed = genes.speed * 0.1; // Very slow movement
+                                new_x += angle.cos() * speed;
+                                new_y += angle.sin() * speed;
+                            } else {
+                                // Herbivores and predators move towards food
+                                let mut target_x = *x;
+                                let mut target_y = *y;
+                                let mut found_target = false;
 
+                                for nearby_entity in &nearby_entities_to_check {
+                                    if let Ok(nearby_pos) =
+                                        self.world.get::<&Position>(*nearby_entity)
+                                    {
+                                        if let Ok(nearby_entity_type) =
+                                            self.world.get::<&EntityType>(*nearby_entity)
+                                        {
+                                            if let Ok(nearby_energy) =
+                                                self.world.get::<&Energy>(*nearby_entity)
+                                            {
+                                                if nearby_energy.current > 0.0 {
+                                                    let distance = ((nearby_pos.x - *x).powi(2)
+                                                        + (nearby_pos.y - *y).powi(2))
+                                                    .sqrt();
+
+                                                    // Check if this is a valid target
+                                                    let is_valid_target = if entity_type.is_predator
+                                                    {
+                                                        nearby_entity_type.is_herbivore
+                                                    } else if entity_type.is_herbivore {
+                                                        nearby_entity_type.is_resource
+                                                    } else {
+                                                        false
+                                                    };
+
+                                                    if is_valid_target
+                                                        && distance < genes.sense_radius
+                                                        && !found_target
+                                                    {
+                                                        target_x = nearby_pos.x;
+                                                        target_y = nearby_pos.y;
+                                                        found_target = true;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // Move towards target or randomly
+                                if found_target {
+                                    let dx = target_x - *x;
+                                    let dy = target_y - *y;
+                                    let distance = (dx * dx + dy * dy).sqrt();
+                                    if distance > 0.0 {
+                                        new_vel_x = (dx / distance) * genes.speed;
+                                        new_vel_y = (dy / distance) * genes.speed;
+                                    }
+                                } else {
+                                    // Random movement with some persistence
+                                    let angle = rng.gen_range(0.0..std::f32::consts::TAU);
+                                    new_vel_x = new_vel_x * 0.8 + angle.cos() * genes.speed * 0.2;
+                                    new_vel_y = new_vel_y * 0.8 + angle.sin() * genes.speed * 0.2;
+                                }
+
+                                new_x += new_vel_x;
+                                new_y += new_vel_y;
+                            }
+
+                            // Keep within bounds
+                            let half_world = self.world_size / 2.0;
+                            new_x = new_x.clamp(-half_world, half_world);
+                            new_y = new_y.clamp(-half_world, half_world);
+
+                            // Check for interactions (eating)
                             for nearby_entity in &nearby_entities_to_check {
-                                if let Ok(nearby_pos) = self.world.get::<&Position>(*nearby_entity) {
-                                    if let Ok(nearby_entity_type) = self.world.get::<&EntityType>(*nearby_entity) {
-                                        if let Ok(nearby_energy) = self.world.get::<&Energy>(*nearby_entity) {
-                                            if nearby_energy.current > 0.0 {
-                                                let distance = ((nearby_pos.x - *x).powi(2) + (nearby_pos.y - *y).powi(2)).sqrt();
-                                                
-                                                // Check if this is a valid target
-                                                let is_valid_target = if entity_type.is_predator {
+                                if let Ok(nearby_pos) = self.world.get::<&Position>(*nearby_entity)
+                                {
+                                    if let Ok(nearby_entity_type) =
+                                        self.world.get::<&EntityType>(*nearby_entity)
+                                    {
+                                        if let Ok(nearby_energy) =
+                                            self.world.get::<&Energy>(*nearby_entity)
+                                        {
+                                            let distance = ((nearby_pos.x - new_x).powi(2)
+                                                + (nearby_pos.y - new_y).powi(2))
+                                            .sqrt();
+
+                                            if distance < (*radius + 5.0)
+                                                && nearby_energy.current > 0.0
+                                            {
+                                                let can_eat = if entity_type.is_predator {
                                                     nearby_entity_type.is_herbivore
                                                 } else if entity_type.is_herbivore {
                                                     nearby_entity_type.is_resource
@@ -459,10 +576,13 @@ impl Simulation {
                                                     false
                                                 };
 
-                                                if is_valid_target && distance < genes.sense_radius && !found_target {
-                                                    target_x = nearby_pos.x;
-                                                    target_y = nearby_pos.y;
-                                                    found_target = true;
+                                                if can_eat {
+                                                    eaten_entity = Some(*nearby_entity);
+                                                    let energy_gained = nearby_energy.current
+                                                        * genes.energy_gain_rate;
+                                                    new_energy = (new_energy + energy_gained)
+                                                        .min(*max_energy);
+                                                    break;
                                                 }
                                             }
                                         }
@@ -470,96 +590,45 @@ impl Simulation {
                                 }
                             }
 
-                            // Move towards target or randomly
-                            if found_target {
-                                let dx = target_x - *x;
-                                let dy = target_y - *y;
-                                let distance = (dx * dx + dy * dy).sqrt();
-                                if distance > 0.0 {
-                                    new_vel_x = (dx / distance) * genes.speed;
-                                    new_vel_y = (dy / distance) * genes.speed;
-                                }
+                            // Energy changes based on genes and entity type
+                            if entity_type.is_resource {
+                                // Resources gain energy over time
+                                new_energy = (new_energy + genes.energy_gain_rate).min(*max_energy);
                             } else {
-                                // Random movement with some persistence
-                                let angle = rng.gen_range(0.0..std::f32::consts::TAU);
-                                new_vel_x = new_vel_x * 0.8 + angle.cos() * genes.speed * 0.2;
-                                new_vel_y = new_vel_y * 0.8 + angle.sin() * genes.speed * 0.2;
+                                // Other entities lose energy over time
+                                new_energy -= genes.energy_loss_rate;
                             }
 
-                            new_x += new_vel_x;
-                            new_y += new_vel_y;
-                        }
-
-                        // Keep within bounds
-                        let half_world = self.world_size / 2.0;
-                        new_x = new_x.clamp(-half_world, half_world);
-                        new_y = new_y.clamp(-half_world, half_world);
-
-                        // Check for interactions (eating)
-                        for nearby_entity in &nearby_entities_to_check {
-                            if let Ok(nearby_pos) = self.world.get::<&Position>(*nearby_entity) {
-                                if let Ok(nearby_entity_type) = self.world.get::<&EntityType>(*nearby_entity) {
-                                    if let Ok(nearby_energy) = self.world.get::<&Energy>(*nearby_entity) {
-                                        let distance = ((nearby_pos.x - new_x).powi(2) + (nearby_pos.y - new_y).powi(2)).sqrt();
-                                        
-                                        if distance < (*radius + 5.0) && nearby_energy.current > 0.0 {
-                                            let can_eat = if entity_type.is_predator {
-                                                nearby_entity_type.is_herbivore
-                                            } else if entity_type.is_herbivore {
-                                                nearby_entity_type.is_resource
-                                            } else {
-                                                false
-                                            };
-
-                                            if can_eat {
-                                                eaten_entity = Some(*nearby_entity);
-                                                let energy_gained = nearby_energy.current * genes.energy_gain_rate;
-                                                new_energy = (new_energy + energy_gained).min(*max_energy);
-                                                break;
-                                            }
-                                        }
-                                    }
+                            // Check for reproduction
+                            if new_energy > *max_energy * genes.reproduction_threshold {
+                                let reproduction_chance =
+                                    if entity_type.is_resource { 0.01 } else { 0.05 };
+                                if rng.gen::<f32>() < reproduction_chance {
+                                    should_reproduce = true;
+                                    new_energy *= 0.6; // Parent loses energy
                                 }
                             }
-                        }
 
-                        // Energy changes based on genes and entity type
-                        if entity_type.is_resource {
-                            // Resources gain energy over time
-                            new_energy = (new_energy + genes.energy_gain_rate).min(*max_energy);
-                        } else {
-                            // Other entities lose energy over time
-                            new_energy -= genes.energy_loss_rate;
-                        }
+                            // Calculate new size based on energy and genes
+                            let new_radius = (new_energy / 10.0 * genes.size_factor).max(1.0);
 
-                        // Check for reproduction
-                        if new_energy > *max_energy * genes.reproduction_threshold {
-                            let reproduction_chance = if entity_type.is_resource { 0.01 } else { 0.05 };
-                            if rng.gen::<f32>() < reproduction_chance {
-                                should_reproduce = true;
-                                new_energy *= 0.6; // Parent loses energy
-                            }
-                        }
-
-                        // Calculate new size based on energy and genes
-                        let new_radius = (new_energy / 10.0 * genes.size_factor).max(1.0);
-
-                        Some((
-                            *entity,
-                            new_x,
-                            new_y,
-                            new_energy,
-                            *max_energy,
-                            new_radius,
-                            genes.clone(),
-                            entity_type.clone(),
-                            color.clone(),
-                            new_vel_x,
-                            new_vel_y,
-                            should_reproduce,
-                            eaten_entity,
-                        ))
-                    })
+                            Some((
+                                *entity,
+                                new_x,
+                                new_y,
+                                new_energy,
+                                *max_energy,
+                                new_radius,
+                                genes.clone(),
+                                entity_type.clone(),
+                                color.clone(),
+                                new_vel_x,
+                                new_vel_y,
+                                should_reproduce,
+                                eaten_entity,
+                            ))
+                        },
+                    )
                     .collect::<Vec<_>>()
             })
             .collect();
@@ -577,14 +646,32 @@ impl Simulation {
         }
 
         // Apply updates and handle reproduction
-        for (entity, x, y, energy, max_energy, radius, genes, entity_type, color, vel_x, vel_y, should_reproduce, _) in updates {
+        for (
+            entity,
+            x,
+            y,
+            energy,
+            max_energy,
+            radius,
+            genes,
+            entity_type,
+            color,
+            vel_x,
+            vel_y,
+            should_reproduce,
+            _,
+        ) in updates
+        {
             let _ = self.world.despawn(entity);
-            
+
             if energy > 0.0 {
                 // Spawn updated entity
                 self.world.spawn((
                     Position { x, y },
-                    Energy { current: energy, max: max_energy },
+                    Energy {
+                        current: energy,
+                        max: max_energy,
+                    },
                     Size { radius },
                     Genes { ..genes },
                     EntityType { ..entity_type },
@@ -606,11 +693,21 @@ impl Simulation {
                     let child_y = y + rng.gen_range(-15.0..15.0);
 
                     self.world.spawn((
-                        Position { x: child_x, y: child_y },
-                        Energy { current: child_energy, max: max_energy },
-                        Size { radius: child_radius },
+                        Position {
+                            x: child_x,
+                            y: child_y,
+                        },
+                        Energy {
+                            current: child_energy,
+                            max: max_energy,
+                        },
+                        Size {
+                            radius: child_radius,
+                        },
                         Genes { ..child_genes },
-                        EntityType { ..child_entity_type },
+                        EntityType {
+                            ..child_entity_type
+                        },
                         Color { ..child_color },
                         Velocity { x: 0.0, y: 0.0 },
                     ));
