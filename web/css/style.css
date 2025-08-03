@@ -20,19 +20,28 @@ body {
     height: 100vh;
 }
 
-header {
+.ui-panel {
     position: absolute;
     top: 10px;
-    left: 50%;
-    transform: translateX(-50%);
+    right: 10px;
+    background: rgba(255,255,255,0.1);
+    padding: 16px;
+    border-radius: 12px;
+    min-width: 200px;
+    backdrop-filter: blur(10px);
     z-index: 100;
-    text-align: center;
     transition: opacity 0.3s ease;
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+header {
+    text-align: center;
+    margin-bottom: 16px;
 }
 
 h1 {
-    font-size: 1.2rem;
-    margin: 0 0 8px 0;
+    font-size: 1.1rem;
+    margin: 0 0 12px 0;
     text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
     opacity: 0.9;
 }
@@ -88,16 +97,8 @@ main {
 }
 
 .stats-panel {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    background: rgba(255,255,255,0.1);
-    padding: 12px;
-    border-radius: 8px;
-    min-width: 120px;
-    backdrop-filter: blur(10px);
-    z-index: 100;
-    transition: opacity 0.3s ease;
+    padding: 0;
+    min-width: auto;
 }
 
 .ui-toggle-corner {
@@ -164,8 +165,7 @@ main {
     transition: all 0.1s ease;
 }
 
-.ui-hidden header,
-.ui-hidden .stats-panel {
+.ui-hidden .ui-panel {
     opacity: 0;
     pointer-events: none;
 }

@@ -8,14 +8,6 @@
   </head>
   <body>
     <div class="container ui-hidden">
-      <header>
-        <h1>Evolution Simulation</h1>
-        <div class="controls">
-          <button id="reset">Reset</button>
-          <button id="toggle-ui" title="Show UI (H)">Show UI</button>
-        </div>
-      </header>
-
       <div id="ui-toggle-corner" class="ui-toggle-corner">
         <button id="show-ui-btn" title="Show UI (H)">⋮</button>
       </div>
@@ -23,12 +15,22 @@
       <main>
         <canvas id="simulation-canvas"></canvas>
 
-        <div class="stats-panel">
-          <h3>Stats</h3>
-          <div id="stats-display">
-            <div>Pop: <span id="population">0</span></div>
-            <div>Step: <span id="step-count">0</span></div>
-            <div>FPS: <span id="fps">0</span></div>
+        <div class="ui-panel">
+          <header>
+            <h1>Evolution Simulation</h1>
+            <div class="controls">
+              <button id="reset">Reset</button>
+              <button id="toggle-ui" title="Show UI (H)">Show UI</button>
+            </div>
+          </header>
+
+          <div class="stats-panel">
+            <h3>Stats</h3>
+            <div id="stats-display">
+              <div>Pop: <span id="population">0</span></div>
+              <div>Step: <span id="step-count">0</span></div>
+              <div>FPS: <span id="fps">0</span></div>
+            </div>
           </div>
         </div>
       </main>
