@@ -29,6 +29,7 @@ impl MovementSystem {
         }
 
         self.update_position(new_pos, new_velocity);
+        self.apply_center_pressure(new_pos, new_velocity, config);
         self.validate_position(new_pos);
         self.apply_movement_cost(new_velocity, new_energy, genes, config);
     }
@@ -96,6 +97,28 @@ impl MovementSystem {
         }
         if new_pos.y.is_nan() || new_pos.y.is_infinite() {
             new_pos.y = 0.0;
+        }
+    }
+
+    fn apply_center_pressure(
+        &self,
+        pos: &Position,
+        velocity: &mut Velocity,
+        config: &SimulationConfig,
+    ) {
+        // Calculate distance from center
+        let distance_from_center = (pos.x * pos.x + pos.y * pos.y).sqrt();
+        
+        // Only apply pressure if entity is away from center
+        if distance_from_center > 10.0 {
+            // Calculate direction towards center
+            let center_dx = -pos.x / distance_from_center;
+            let center_dy = -pos.y / distance_from_center;
+            
+            // Apply subtle pressure towards center
+            let pressure_strength = config.physics.center_pressure_strength;
+            velocity.x += center_dx * pressure_strength;
+            velocity.y += center_dy * pressure_strength;
         }
     }
 
