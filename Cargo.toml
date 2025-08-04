@@ -34,30 +34,10 @@ tempfile = "3.8"
 # WebAssembly support
 wasm-bindgen = "0.2"
 wasm-bindgen-rayon = "1.2"
-js-sys = "0.3"
 web-sys = { version = "0.3", features = [
-    "console",
-    "Document",
-    "Element",
     "HtmlCanvasElement",
-    "Window",
     "CanvasRenderingContext2d",
-    "Performance",
-    "Blob",
-    "Url",
-    "Worker",
-    "WorkerGlobalScope",
-    "MessageEvent",
-    "DedicatedWorkerGlobalScope",
 ] }
-serde-wasm-bindgen = "0.6"
-console_error_panic_hook = "0.1"
-
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-wasm-bindgen = "0.2"
-wasm-bindgen-rayon = "1.2"
-js-sys = "0.3"
-web-sys = { version = "0.3", features = ["console"] }
 serde-wasm-bindgen = "0.6"
 console_error_panic_hook = "0.1"
 

@@ -9,7 +9,7 @@ import { dirname } from "path";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 // When running from project root, we need to serve files from the web directory
-const webDir = __dirname;
+const webDir = join(__dirname, "web");
 
 // MIME types for different file extensions
 const mimeTypes = {

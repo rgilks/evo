@@ -42,10 +42,10 @@ This project uses npm scripts for web deployment and standard Rust commands for 
    ```bash
    # macOS (with Homebrew)
    brew install node
-   
+
    # Ubuntu/Debian
    sudo apt install nodejs npm
-   
+
    # Windows
    # Download from https://nodejs.org/
    ```
@@ -71,7 +71,7 @@ cargo run --release
 
 #### Web Application
 
-```bash
+````bash
 # Run in your web browser
 npm run dev
 
@@ -86,7 +86,7 @@ Then open your browser to `http://localhost:8000`
 ```bash
 # Run without graphics (faster for testing)
 cargo run --release -- --headless
-```
+````
 
 ### Development Commands
 
@@ -127,7 +127,7 @@ npm run dev:worker
 
 The application is live at: [https://evo.tre.systems/](https://evo.tre.systems/)
 
-For detailed deployment instructions, see [DEPLOYMENT.md](DEPLOYMENT.md).
+For detailed deployment instructions, see [DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ### Build Process
 
@@ -271,8 +271,8 @@ cargo run -- --config my_config.json
 
    ```bash
    # Use the provided Node.js server (recommended)
-   node web/server.js
-   
+   node server.js
+
    # Or use npm scripts
    npm run dev
    ```
