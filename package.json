@@ -6,12 +6,14 @@
   "license": "MIT",
   "scripts": {
     "build": "wasm-pack build --target web --out-dir pkg",
+    "build:web": "./scripts/build-web.sh",
     "dev": "node web/server.js",
     "serve": "npx serve web",
-    "deploy": "wrangler deploy",
-    "deploy:staging": "wrangler deploy --env staging",
-    "deploy:production": "wrangler deploy --env production",
-    "dev:worker": "wrangler dev"
+    "deploy": "npm run build:web && wrangler deploy",
+    "deploy:staging": "npm run build:web && wrangler deploy --env staging",
+    "deploy:production": "npm run build:web && wrangler deploy --env production",
+    "dev:worker": "npm run build:web && wrangler dev",
+    "setup": "./scripts/setup.sh"
   },
   "devDependencies": {
     "wasm-pack": "^0.12.0",

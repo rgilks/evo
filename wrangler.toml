@@ -6,7 +6,7 @@ compatibility_date = "2024-01-01"
 bucket = "./web"
 
 [build]
-command = "just build-web"
+command = "npm run build:web"
 
 # Uncomment and configure these if you need KV storage
 # [[kv_namespaces]]

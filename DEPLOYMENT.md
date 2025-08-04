@@ -33,7 +33,7 @@ Edit `wrangler.toml` and update the following:
 ### 4. Build the Project
 
 ```bash
-just build-web
+npm run build:web
 ```
 
 This will:
@@ -46,7 +46,7 @@ This will:
 ### Quick Deploy
 
 ```bash
-just deploy
+npm run deploy
 ```
 
 This will:
@@ -58,10 +58,10 @@ This will:
 
 ```bash
 # Deploy to staging
-just deploy-staging
+npm run deploy:staging
 
 # Deploy to production
-just deploy-production
+npm run deploy:production
 ```
 
 ### Local Development
@@ -69,7 +69,7 @@ just deploy-production
 Test the worker locally before deploying:
 
 ```bash
-just dev-worker
+npm run dev:worker
 ```
 
 This will start a local development server that mimics the Cloudflare Workers environment.
@@ -82,7 +82,7 @@ The main configuration file contains:
 
 - **Worker settings**: Name, compatibility date, etc.
 - **Site configuration**: Points to the `./web` directory for static assets
-- **Build command**: Automatically runs `just build-web` before deployment
+- **Build command**: Automatically runs `npm run build:web` before deployment
 - **Environment settings**: Separate configs for staging and production
 
 ### Environment Variables
@@ -101,7 +101,7 @@ To use a custom domain:
 
 1. Add your domain to Cloudflare
 2. Update the `route` in `wrangler.toml`
-3. Deploy with `just deploy-production`
+3. Deploy with `npm run deploy:production`
 
 ## File Structure
 

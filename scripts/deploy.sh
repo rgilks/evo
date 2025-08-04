@@ -24,7 +24,7 @@ fi
 
 # Build the web application
 echo "🔨 Building web application..."
-just build-web
+npm run build:web
 
 # Check if build was successful
 if [ ! -f "pkg/evo_bg.wasm" ]; then
