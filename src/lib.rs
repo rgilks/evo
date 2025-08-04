@@ -1,4 +1,5 @@
 use wasm_bindgen::prelude::*;
+use serde::{Deserialize, Serialize};
 
 mod components;
 mod config;
@@ -13,6 +14,16 @@ mod web;
 
 // Re-export the thread pool initialization
 pub use wasm_bindgen_rayon::init_thread_pool;
+
+#[derive(Serialize, Deserialize)]
+struct EntityData {
+    x: f32,
+    y: f32,
+    radius: f32,
+    r: f32,
+    g: f32,
+    b: f32,
+}
 
 #[wasm_bindgen]
 pub struct WebSimulation {
@@ -37,7 +48,11 @@ impl WebSimulation {
     }
 
     pub fn get_entities(&self) -> JsValue {
-        let entities = self.simulation.get_entities();
+        let entity_tuples = self.simulation.get_entities();
+        let entities: Vec<EntityData> = entity_tuples
+            .into_iter()
+            .map(|(x, y, radius, r, g, b)| EntityData { x, y, radius, r, g, b })
+            .collect();
         serde_wasm_bindgen::to_value(&entities).unwrap_or(JsValue::NULL)
     }
 

@@ -1,17 +1,10 @@
-
-Minimize special cases
-Keep systems focused on specific component sets
 Group related components near each other
 Organize code by domain, not technical concerns
 
 ## Rayon Parallelism
 Use Rayon for CPU-intensive operations on large datasets
-Apply to operations that don't depend on each other's results
 Prefer par_iter() over manual thread spawning
 Use par_iter_mut() for mutable operations
-Avoid nested parallelism
-Keep parallel blocks focused
-Use join() for divide-and-conquer algorithms
 
 ## Hecs ECS Design
 Keep components small and focused on one aspect

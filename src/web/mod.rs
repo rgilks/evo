@@ -1,5 +1,16 @@
 use wasm_bindgen::prelude::*;
 use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement};
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize)]
+struct EntityData {
+    x: f32,
+    y: f32,
+    radius: f32,
+    r: f32,
+    g: f32,
+    b: f32,
+}
 
 #[wasm_bindgen]
 pub struct WebRenderer {
@@ -32,7 +43,7 @@ impl WebRenderer {
 
     pub fn render(&self, entities: &JsValue) -> Result<(), JsValue> {
         // Parse entities from JS
-        let entities: Vec<(f32, f32, f32, f32, f32, f32)> =
+        let entities: Vec<EntityData> =
             serde_wasm_bindgen::from_value(entities.clone())?;
 
         // Clear canvas
@@ -44,21 +55,21 @@ impl WebRenderer {
         let center_y = self.height as f64 / 2.0;
 
         // Render each entity
-        for (x, y, radius, r, g, b) in entities {
+        for entity in entities {
             self.ctx.begin_path();
             self.ctx.arc(
-                center_x + x as f64,
-                center_y + y as f64,
-                (radius * 0.1) as f64, // Make entities 10x smaller
+                center_x + entity.x as f64,
+                center_y + entity.y as f64,
+                (entity.radius * 0.1) as f64, // Make entities 10x smaller
                 0.0,
                 2.0 * std::f64::consts::PI,
             )?;
 
             let fill_style = format!(
                 "rgba({}, {}, {}, 0.8)",
-                (r * 255.0) as u8,
-                (g * 255.0) as u8,
-                (b * 255.0) as u8
+                (entity.r * 255.0) as u8,
+                (entity.g * 255.0) as u8,
+                (entity.b * 255.0) as u8
             );
             self.ctx.set_fill_style(&JsValue::from_str(&fill_style));
             self.ctx.fill();

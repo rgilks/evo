@@ -6,7 +6,7 @@
   "license": "MIT",
   "scripts": {
     "build": "wasm-pack build --target web --out-dir pkg",
-    "dev": "python3 web/server.py",
+    "dev": "node web/server.js",
     "serve": "npx serve web"
   },
   "devDependencies": {

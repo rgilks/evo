@@ -1,26 +1,15 @@
 #!/bin/bash
 
-# Evolution Simulation Web Build Script
-# This script builds the WASM package and serves the web application
-
 set -e  # Exit on any error
 
 echo "🚀 Building Evolution Simulation for Web..."
 
-# Check if wasm-pack is installed
-if ! command -v wasm-pack &> /dev/null; then
-    echo "❌ wasm-pack not found. Installing..."
-    cargo install wasm-pack
-fi
+# Clean previous build
+echo "🧹 Cleaning previous build..."
+rm -rf pkg/
 
-# Check if we're using the correct Rust toolchain
-if ! rustup show | grep -q "nightly-2024-08-02"; then
-    echo "⚠️  Warning: Not using nightly-2024-08-02 toolchain"
-    echo "   Consider running: rustup default nightly-2024-08-02"
-fi
-
-# Build the WASM package
-echo "📦 Building WASM package..."
+# Build WASM package
+echo "🔨 Building WASM package..."
 wasm-pack build --target web --out-dir pkg
 
 if [ $? -eq 0 ]; then
@@ -30,25 +19,58 @@ else
     exit 1
 fi
 
-# Fix worker import paths
-./scripts/fix-worker-imports.sh
+# Fix worker import paths for wasm-bindgen-rayon
+echo "🔧 Fixing worker import paths..."
+WORKER_FILE=$(find pkg/snippets -name "workerHelpers.js" -type f 2>/dev/null | head -n 1)
 
-# Check if pkg directory exists and has files
-if [ ! -d "pkg" ] || [ -z "$(ls -A pkg)" ]; then
-    echo "❌ pkg directory is empty or missing"
+if [ -n "$WORKER_FILE" ]; then
+    echo "📁 Found worker file: $WORKER_FILE"
+    
+    # Fix the import path from '../../../index.js' to '../../../evo.js'
+    sed -i '' 's/await import('\''\.\.\/\.\.\/\.\.\/index\.js'\'');/await import('\''\.\.\/\.\.\/\.\.\/evo\.js'\'');/g' "$WORKER_FILE"
+    
+    if [ $? -eq 0 ]; then
+        echo "✅ Worker import path fixed successfully"
+    else
+        echo "❌ Failed to fix worker import path"
+        exit 1
+    fi
+else
+    echo "⚠️  No worker helpers file found (this is normal if not using rayon)"
+fi
+
+# Copy files to web directory first
+echo "📁 Copying WASM files to web directory..."
+cp -r pkg web/
+
+# Fix worker import paths in web directory as well
+WEB_WORKER_FILE=$(find web/js/pkg/snippets -name "workerHelpers.js" -type f 2>/dev/null | head -n 1)
+
+if [ -n "$WEB_WORKER_FILE" ]; then
+    echo "📁 Found web worker file: $WEB_WORKER_FILE"
+    
+    # Fix the import path from '../../../index.js' to '../../../evo.js'
+    sed -i '' 's/await import('\''\.\.\/\.\.\/\.\.\/index\.js'\'');/await import('\''\.\.\/\.\.\/\.\.\/evo\.js'\'');/g' "$WEB_WORKER_FILE"
+    
+    if [ $? -eq 0 ]; then
+        echo "✅ Web worker import path fixed successfully"
+    else
+        echo "❌ Failed to fix web worker import path"
+        exit 1
+    fi
+else
+    echo "⚠️  No web worker helpers file found"
+fi
+
+# Verify the build
+echo "🔍 Verifying build..."
+if [ -f "pkg/evo.js" ] && [ -f "pkg/evo_bg.wasm" ]; then
+    echo "✅ Build verification passed"
+else
+    echo "❌ Build verification failed - missing required files"
     exit 1
 fi
 
-# Copy WASM package to web/js/ for the web application
-echo "📁 Copying WASM package to web/js/..."
-rm -rf web/js/pkg
-cp -r pkg web/js/
-echo "✅ WASM package copied successfully!"
-
-echo "🌐 Starting development server..."
-echo "   Open your browser to: http://localhost:8000"
-echo "   Press Ctrl+C to stop the server"
-echo ""
-
-# Start the Python server
-python3 web/server.py 
+echo "🎉 Build complete! Run 'node web/server.js' to start the server."
+echo "📁 Built files:"
+ls -la pkg/ 

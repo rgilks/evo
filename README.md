@@ -15,88 +15,127 @@ A beautiful and performant evolution simulation written in Rust, featuring an En
 
 ## Quick Start
 
+This project uses [Just](https://github.com/casey/just) for build commands. Install it with `cargo install just`, then use commands like `just web` to run the web version or `just desktop` for the desktop application.
+
 ### Prerequisites
 
 1. **Install Rust** (if not already installed):
+
    ```bash
    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
    ```
 
 2. **Install Rust nightly toolchain** (required for WebAssembly):
+
    ```bash
    rustup toolchain install nightly-2024-08-02
    ```
 
 3. **Install wasm-pack** (for web builds):
+
    ```bash
    cargo install wasm-pack
    ```
 
-4. **Python 3** (for web server):
+4. **Install Just** (for build commands):
+
+   ```bash
+   cargo install just
+   ```
+
+5. **Node.js** (for web server and wasm-pack):
+
    ```bash
    # macOS (with Homebrew)
-   brew install python@3
+   brew install node
    
    # Ubuntu/Debian
-   sudo apt install python3
+   sudo apt install nodejs npm
    
    # Windows
-   # Download from https://www.python.org/downloads/
+   # Download from https://nodejs.org/
    ```
 
 ### First Time Setup
 
 ```bash
 # Install dependencies and set up environment
-./setup.sh
+just setup
 ```
 
 ### Running the Simulation
 
 #### Desktop Application (Recommended)
+
 ```bash
 # Run with beautiful GPU-accelerated graphics
-./run.sh desktop
+just desktop
 
 # Or manually:
 cargo run --release
 ```
 
 #### Web Application
+
 ```bash
 # Run in your web browser
-./run.sh web
+just web
 
 # Or manually:
-wasm-pack build --target web --out-dir pkg
-python3 web/server.py
-```
+just build-web
+node web/server.js
+
 Then open your browser to `http://localhost:8000`
 
 #### Headless Mode (Console Only)
+
 ```bash
 # Run without graphics (faster for testing)
-./run.sh headless --steps 1000
+just headless
 
 # Or manually:
-cargo run --release -- --headless --steps 1000
+cargo run --release -- --headless
 ```
 
 ### Development Commands
 
 ```bash
 # Run tests
-./run.sh test
+just test
+
+# Check code without building
+just check
+
+# Format code
+just fmt
+
+# Run linter
+just clippy
 
 # Build only (no run)
-./run.sh build
+just build-web    # Web build
+just build-desktop # Desktop build
+just build-all     # Both builds
 
 # Clean build artifacts
-./run.sh clean
+just clean
 
-# Show all commands
-./run.sh help
+# Show all available commands
+just
 ```
+
+> **Note**: Some tests may fail due to the nightly toolchain configuration. This is normal and doesn't affect the build process.
+
+### Build Process
+
+The web build process uses `just build-web` which:
+
+1. **Cleans previous builds** to ensure a fresh start
+2. **Builds the WASM package** using `wasm-pack`
+3. **Fixes worker import paths** for `wasm-bindgen-rayon` (required for parallel processing in web browsers)
+4. **Verifies the build** to ensure everything worked correctly
+
+The worker import fix is necessary because `wasm-bindgen-rayon` generates worker helpers that expect to import the main WASM module using relative paths that don't work in our simple web setup without a bundler.
 
 ## Project Structure
 
@@ -133,24 +172,29 @@ evo/
 All behaviors emerge from genes organized into logical groups:
 
 #### Movement Genes
+
 - **Speed**: Movement velocity and hunting effectiveness (0.1-2.5)
 - **Sense Radius**: Detection range for food and threats (5.0-150.0)
 
 #### Energy Genes
+
 - **Efficiency**: How efficiently energy is used and stored (0.3-3.0)
 - **Loss Rate**: Base energy consumption per tick (0.05-2.0)
 - **Gain Rate**: Efficiency of consuming other entities (0.2-4.5)
 - **Size Factor**: How size relates to energy requirements (0.3-2.5)
 
 #### Reproduction Genes
+
 - **Rate**: Likelihood of successful reproduction (0.0005-0.15)
 - **Mutation Rate**: How much genes change in offspring (0.005-0.15)
 
 #### Appearance Genes
+
 - **Hue**: Color hue (0.0-1.0)
 - **Saturation**: Color saturation (0.2-1.0)
 
 ### Emergent Interactions
+
 - **Predation**: Based on relative speed and size advantages
 - **Energy Transfer**: Efficient energy gain with diminishing returns
 - **Population Control**: Density-based reproduction and death rates
@@ -159,16 +203,19 @@ All behaviors emerge from genes organized into logical groups:
 ## Configuration
 
 Create a custom configuration:
+
 ```bash
 cargo run -- --create-config my_config.json
 ```
 
 Run with custom configuration:
+
 ```bash
 cargo run -- --config my_config.json
 ```
 
 ### Key Configuration Parameters
+
 - **initial_entities**: Number of entities at simulation start (default: 1000)
 - **max_population**: Maximum number of entities allowed
 - **entity_scale**: Global scaling factor for entity counts
@@ -186,12 +233,14 @@ cargo run -- --config my_config.json
 ## Performance Optimizations
 
 ### Desktop Optimizations
+
 - **Rayon Parallelization**: Entity updates processed in parallel
 - **Spatial Grid**: O(n²) → O(n) complexity for entity interactions
 - **Efficient ECS**: Hecs for fast entity queries and updates
 - **GPU Acceleration**: WGPU for smooth real-time graphics
 
 ### Web Optimizations
+
 - **WebAssembly Performance**: Runs Rust code directly in browser
 - **Parallel Processing**: Uses `wasm-bindgen-rayon` with Web Workers
 - **Memory Management**: Optimized WASM memory usage
@@ -202,21 +251,27 @@ cargo run -- --config my_config.json
 ### Common Issues
 
 1. **Build errors with `-Zbuild-std requires --target`**:
+
    ```bash
    cargo run --release --target x86_64-apple-darwin  # macOS Intel
    cargo run --release --target aarch64-apple-darwin # macOS Apple Silicon
    ```
 
 2. **WebAssembly build fails**:
+
    ```bash
    rustup default nightly-2024-08-02
    rustup target add wasm32-unknown-unknown
    ```
 
 3. **Web server issues**:
+
    ```bash
-   # Use the provided Python server (recommended)
-   python3 web/server.py
+   # Use the provided Node.js server (recommended)
+   node web/server.js
+   
+   # Or use npm scripts
+   npm run dev
    ```
 
 4. **Performance issues**:
@@ -225,6 +280,7 @@ cargo run -- --config my_config.json
    - Lower frame rate using the speed slider
 
 ### Browser Requirements
+
 - **WebAssembly Support**: Modern browsers (Chrome 57+, Firefox 52+, Safari 11+)
 - **SharedArrayBuffer Support**: Required for parallel processing
 - **Web Workers Support**: For multi-threading
@@ -232,12 +288,14 @@ cargo run -- --config my_config.json
 ## Development
 
 ### Architecture
+
 - **ECS Components**: Position, Energy, Size, Velocity, Color, Genes
 - **Systems**: Movement, Interaction, Energy, Reproduction
 - **Spatial Optimization**: Grid-based neighbor finding
 - **Parallel Processing**: Rayon-based entity updates
 
 ### Key Modules
+
 - **`components.rs`**: ECS components
 - **`genes.rs`**: Genetic system with grouped traits
 - **`systems.rs`**: Simulation systems
@@ -247,6 +305,7 @@ cargo run -- --config my_config.json
 - **`web/`**: Web-specific modules
 
 ### Testing
+
 ```bash
 # Run all tests
 cargo test
@@ -261,6 +320,7 @@ cargo test -- --nocapture
 ## Recent Updates
 
 ### Enhanced Entity Diversity
+
 - **Doubled Population**: Initial entities increased from 500 to 1000
 - **Expanded Gene Ranges**: All genetic traits now have wider ranges for greater variation
 - **Enhanced Initial Conditions**: More diverse starting energy levels (15-75 vs 25-55)

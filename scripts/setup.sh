@@ -41,15 +41,15 @@ fi
 echo "🎯 Adding WASM target..."
 rustup target add wasm32-unknown-unknown
 
-# Check if Python 3 is installed
-if ! command -v python3 &> /dev/null; then
-    echo "❌ Python 3 not found. Please install Python 3:"
-    echo "   macOS: brew install python@3"
-    echo "   Ubuntu/Debian: sudo apt install python3"
-    echo "   Windows: Download from https://www.python.org/downloads/"
+# Check if Node.js is installed
+if ! command -v node &> /dev/null; then
+    echo "❌ Node.js not found. Please install Node.js:"
+    echo "   macOS: brew install node"
+    echo "   Ubuntu/Debian: sudo apt install nodejs npm"
+    echo "   Windows: Download from https://nodejs.org/"
     exit 1
 else
-    echo "✅ Python 3 is already installed"
+    echo "✅ Node.js is already installed"
 fi
 
 # Test build
@@ -60,9 +60,9 @@ echo ""
 echo "🎉 Setup complete!"
 echo ""
 echo "Quick start commands:"
-echo "  ./run.sh desktop     - Run desktop application"
-echo "  ./run.sh web         - Run web application"
-echo "  ./run.sh headless    - Run headless simulation"
-echo "  ./run.sh help        - Show all commands"
+echo "  just desktop         - Run desktop application"
+echo "  just web             - Run web application"
+echo "  just headless        - Run headless simulation"
+echo "  just                 - Show all commands"
 echo ""
 echo "For more information, see README.md" 
