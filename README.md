@@ -63,7 +63,7 @@ npm run setup
 
 ```bash
 # Run with beautiful GPU-accelerated graphics
-just desktop
+npm run dev:desktop
 
 # Or manually:
 cargo run --release
@@ -77,7 +77,7 @@ npm run dev
 
 # Or manually:
 npm run build:web
-node web/server.js
+node server.js
 
 Then open your browser to `http://localhost:8000`
 
@@ -104,11 +104,30 @@ cargo fmt
 cargo clippy
 
 # Build only (no run)
-npm run build:web    # Web build
-cargo build --release # Desktop build
+npm run build:web     # Web build
+npm run build:desktop # Desktop build
+cargo build --release # Desktop build (manual)
 
 # Clean build artifacts
 cargo clean
+```
+
+### Available npm Scripts
+
+```bash
+# Setup and build
+npm run setup              # Set up development environment
+npm run build:web          # Build web/WASM version
+npm run build:desktop      # Build desktop version with platform detection
+
+# Development servers
+npm run dev                # Run web development server
+npm run dev:desktop        # Run desktop app with graphics
+npm run dev:desktop:headless # Run desktop app without graphics (faster)
+
+# Deployment
+npm run deploy             # Deploy to Cloudflare Workers
+npm run dev:worker         # Test Cloudflare Worker locally
 ```
 
 > **Note**: Some tests may fail due to the nightly toolchain configuration. This is normal and doesn't affect the build process.
@@ -159,11 +178,10 @@ evo/
 │   ├── index.html         # Main HTML page
 │   ├── css/style.css      # Stylesheets
 │   ├── js/app.js          # JavaScript application
-│   ├── assets/            # Static assets
-│   └── server.py          # Development server
+│   └── pkg/               # WebAssembly files
+├── server.js              # Development server
 ├── scripts/                # Build and utility scripts
 ├── pkg/                    # Generated WebAssembly files
-├── config.json             # Default configuration
 ├── config.json            # Configuration file
 └── README.md              # This documentation
 ```
