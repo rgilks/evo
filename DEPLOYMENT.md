@@ -99,6 +99,8 @@ ENVIRONMENT = "production"
 
 ### Custom Domains
 
+The application is deployed with a custom domain at [https://evo.tre.systems/](https://evo.tre.systems/).
+
 To use a custom domain:
 
 1. Add your domain to Cloudflare

@@ -7,18 +7,3 @@ bucket = "./web"
 
 [build]
 command = "npm run build:web"
-
-# Uncomment and configure these if you need KV storage
-# [[kv_namespaces]]
-# binding = "CACHE"
-# id = "your-kv-namespace-id"
-# preview_id = "your-preview-kv-namespace-id"
-
-# Uncomment and configure these if you have custom domains
-# [env.production]
-# name = "evo-simulation"
-# route = "your-domain.com/*"
-
-# [env.staging]
-# name = "evo-simulation-staging"
-# route = "staging.your-domain.com/*"

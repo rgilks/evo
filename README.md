@@ -125,7 +125,7 @@ npm run deploy
 npm run dev:worker
 ```
 
-The application is live at: [https://evo-simulation.rob-gilks.workers.dev/](https://evo-simulation.rob-gilks.workers.dev/)
+The application is live at: [https://evo.tre.systems/](https://evo.tre.systems/)
 
 For detailed deployment instructions, see [DEPLOYMENT.md](DEPLOYMENT.md).
 
