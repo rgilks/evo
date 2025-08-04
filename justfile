@@ -26,6 +26,23 @@ run-headless: # Run headless simulation (faster for testing)
     @echo "🖥️  Starting headless simulation..."
     cargo run --release -- --headless
 
+# Cloudflare deployment commands
+deploy: build-web # Build and deploy to Cloudflare
+    @echo "🚀 Deploying to Cloudflare..."
+    ./scripts/deploy.sh
+
+deploy-staging: build-web # Deploy to staging environment
+    @echo "🚀 Deploying to Cloudflare staging..."
+    wrangler deploy --env staging
+
+deploy-production: build-web # Deploy to production environment
+    @echo "🚀 Deploying to Cloudflare production..."
+    wrangler deploy --env production
+
+dev-worker: build-web # Run Cloudflare worker locally
+    @echo "🔧 Starting Cloudflare worker locally..."
+    npm run dev:worker
+
 # Development commands
 test: # Run all tests
     @echo "🧪 Running tests..."

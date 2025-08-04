@@ -7,9 +7,17 @@
   "scripts": {
     "build": "wasm-pack build --target web --out-dir pkg",
     "dev": "node web/server.js",
-    "serve": "npx serve web"
+    "serve": "npx serve web",
+    "deploy": "wrangler deploy",
+    "deploy:staging": "wrangler deploy --env staging",
+    "deploy:production": "wrangler deploy --env production",
+    "dev:worker": "wrangler dev"
   },
   "devDependencies": {
-    "wasm-pack": "^0.12.0"
+    "wasm-pack": "^0.12.0",
+    "wrangler": "^3.0.0"
+  },
+  "dependencies": {
+    "@cloudflare/kv-asset-handler": "^0.4.0"
   }
 }
