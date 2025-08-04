@@ -56,12 +56,14 @@ This will:
 
 ### Environment-Specific Deployments
 
+For staging and production environments, you can modify the `wrangler.toml` file and use:
+
 ```bash
 # Deploy to staging
-npm run deploy:staging
+wrangler deploy --env staging
 
 # Deploy to production
-npm run deploy:production
+wrangler deploy --env production
 ```
 
 ### Local Development
@@ -101,7 +103,7 @@ To use a custom domain:
 
 1. Add your domain to Cloudflare
 2. Update the `route` in `wrangler.toml`
-3. Deploy with `npm run deploy:production`
+3. Deploy with `wrangler deploy --env production`
 
 ## File Structure
 

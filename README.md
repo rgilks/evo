@@ -15,7 +15,7 @@ A beautiful and performant evolution simulation written in Rust, featuring an En
 
 ## Quick Start
 
-This project uses [Just](https://github.com/casey/just) for build commands. Install it with `cargo install just`, then use commands like `just web` to run the web version or `just desktop` for the desktop application.
+This project uses npm scripts for web deployment and standard Rust commands for desktop development.
 
 ### Prerequisites
 
@@ -37,13 +37,7 @@ This project uses [Just](https://github.com/casey/just) for build commands. Inst
    cargo install wasm-pack
    ```
 
-4. **Install Just** (for build commands):
-
-   ```bash
-   cargo install just
-   ```
-
-5. **Node.js** (for web server and wasm-pack):
+4. **Node.js** (for web server and wasm-pack):
 
    ```bash
    # macOS (with Homebrew)
@@ -60,7 +54,7 @@ This project uses [Just](https://github.com/casey/just) for build commands. Inst
 
 ```bash
 # Install dependencies and set up environment
-just setup
+npm run setup
 ```
 
 ### Running the Simulation
@@ -79,10 +73,10 @@ cargo run --release
 
 ```bash
 # Run in your web browser
-just web
+npm run dev
 
 # Or manually:
-just build-web
+npm run build:web
 node web/server.js
 
 Then open your browser to `http://localhost:8000`
@@ -91,9 +85,6 @@ Then open your browser to `http://localhost:8000`
 
 ```bash
 # Run without graphics (faster for testing)
-just headless
-
-# Or manually:
 cargo run --release -- --headless
 ```
 
@@ -101,34 +92,46 @@ cargo run --release -- --headless
 
 ```bash
 # Run tests
-just test
+cargo test
 
 # Check code without building
-just check
+cargo check
 
 # Format code
-just fmt
+cargo fmt
 
 # Run linter
-just clippy
+cargo clippy
 
 # Build only (no run)
-just build-web    # Web build
-just build-desktop # Desktop build
-just build-all     # Both builds
+npm run build:web    # Web build
+cargo build --release # Desktop build
 
 # Clean build artifacts
-just clean
-
-# Show all available commands
-just
+cargo clean
 ```
 
 > **Note**: Some tests may fail due to the nightly toolchain configuration. This is normal and doesn't affect the build process.
 
+### Web Deployment
+
+The project is configured for easy deployment to Cloudflare Workers:
+
+```bash
+# Deploy to Cloudflare Workers
+npm run deploy
+
+# Test worker locally before deploying
+npm run dev:worker
+```
+
+The application is live at: [https://evo-simulation.rob-gilks.workers.dev/](https://evo-simulation.rob-gilks.workers.dev/)
+
+For detailed deployment instructions, see [DEPLOYMENT.md](DEPLOYMENT.md).
+
 ### Build Process
 
-The web build process uses `just build-web` which:
+The web build process uses `npm run build:web` which:
 
 1. **Cleans previous builds** to ensure a fresh start
 2. **Builds the WASM package** using `wasm-pack`
