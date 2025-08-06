@@ -3,7 +3,7 @@ import init, {
   WebSimulation,
   WebRenderer,
   init_panic_hook,
-} from "./pkg/evo.js?v=4";
+} from "../pkg/evo.js?v=94f2347";
 
 // Shared configuration object - matches the new Rust SimulationConfig structure
 const DEFAULT_CONFIG = {

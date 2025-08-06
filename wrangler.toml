@@ -7,3 +7,10 @@ bucket = "./web"
 
 [build]
 command = "npm run build:web"
+
+# Custom domain configuration
+[env.production]
+name = "evo-simulation"
+routes = [
+  "evo.tre.systems/*"
+]

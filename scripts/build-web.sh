@@ -4,6 +4,17 @@ set -e  # Exit on any error
 
 echo "🚀 Building Evolution Simulation for Web..."
 
+# Generate cache busting version number
+if command -v git &> /dev/null && git rev-parse --git-dir > /dev/null 2>&1; then
+    # Use git commit hash (first 8 characters) if in a git repository
+    CACHE_VERSION=$(git rev-parse --short HEAD)
+    echo "🔢 Generated cache version from git: $CACHE_VERSION"
+else
+    # Fall back to timestamp if not in git repository
+    CACHE_VERSION=$(date +%s)
+    echo "🔢 Generated cache version from timestamp: $CACHE_VERSION"
+fi
+
 # Clean previous build
 echo "🧹 Cleaning previous build..."
 rm -rf pkg/
@@ -26,8 +37,8 @@ WORKER_FILE=$(find pkg/snippets -name "workerHelpers.js" -type f 2>/dev/null | h
 if [ -n "$WORKER_FILE" ]; then
     echo "📁 Found worker file: $WORKER_FILE"
     
-    # Fix the import path from '../../../index.js' to '../../../evo.js'
-    sed -i '' 's/await import('\''\.\.\/\.\.\/\.\.\/index\.js'\'');/await import('\''\.\.\/\.\.\/\.\.\/evo\.js'\'');/g' "$WORKER_FILE"
+    # Fix the import path from '../../..' to '../../../evo.js'
+    sed -i '' 's/await import('\''\.\.\/\.\.\/\.\.'\'');/await import('\''\.\.\/\.\.\/\.\.\/evo\.js'\'');/g' "$WORKER_FILE"
     
     if [ $? -eq 0 ]; then
         echo "✅ Worker import path fixed successfully"
@@ -44,13 +55,13 @@ echo "📁 Copying WASM files to web directory..."
 cp -r pkg web/
 
 # Fix worker import paths in web directory as well
-WEB_WORKER_FILE=$(find web/js/pkg/snippets -name "workerHelpers.js" -type f 2>/dev/null | head -n 1)
+WEB_WORKER_FILE=$(find web/pkg/snippets -name "workerHelpers.js" -type f 2>/dev/null | head -n 1)
 
 if [ -n "$WEB_WORKER_FILE" ]; then
     echo "📁 Found web worker file: $WEB_WORKER_FILE"
     
-    # Fix the import path from '../../../index.js' to '../../../evo.js'
-    sed -i '' 's/await import('\''\.\.\/\.\.\/\.\.\/index\.js'\'');/await import('\''\.\.\/\.\.\/\.\.\/evo\.js'\'');/g' "$WEB_WORKER_FILE"
+    # Fix the import path from '../../..' to '../../../evo.js'
+    sed -i '' 's/await import('\''\.\.\/\.\.\/\.\.'\'');/await import('\''\.\.\/\.\.\/\.\.\/evo\.js'\'');/g' "$WEB_WORKER_FILE"
     
     if [ $? -eq 0 ]; then
         echo "✅ Web worker import path fixed successfully"
@@ -61,6 +72,14 @@ if [ -n "$WEB_WORKER_FILE" ]; then
 else
     echo "⚠️  No web worker helpers file found"
 fi
+
+# Update cache busting version in app.js
+echo "🔄 Updating cache busting version in app.js..."
+sed -i '' "s/from \"\.\.\/pkg\/evo\.js?v=[0-9]*\"/from \"..\/pkg\/evo.js?v=$CACHE_VERSION\"/g" web/js/app.js
+
+# Update cache busting version in index.html
+echo "🔄 Updating cache busting version in index.html..."
+sed -i '' "s/src=\"js\/app\.js?v=[0-9]*\"/src=\"js\/app.js?v=$CACHE_VERSION\"/g" web/index.html
 
 # Verify the build
 echo "🔍 Verifying build..."
@@ -73,4 +92,5 @@ fi
 
 echo "🎉 Build complete! Run 'node server.js' to start the server."
 echo "📁 Built files:"
-ls -la pkg/ 
+ls -la pkg/
+echo "🔢 Cache version: $CACHE_VERSION" 

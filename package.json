@@ -11,7 +11,8 @@
     "dev": "node server.js",
     "dev:desktop": "./scripts/build-desktop.sh",
     "dev:desktop:headless": "./scripts/build-desktop.sh --no-run && cargo run --release --target aarch64-apple-darwin -- --headless",
-    "deploy": "npm run build:web && wrangler deploy",
+    "deploy": "npm run build:web && wrangler deploy --env production",
+    "deploy:dev": "npm run build:web && wrangler deploy",
     "dev:worker": "npm run build:web && wrangler dev",
     "setup": "./scripts/setup.sh"
   },
