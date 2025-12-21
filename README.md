@@ -2,6 +2,8 @@
 
 A beautiful and performant evolution simulation written in Rust, featuring an Entity Component System (ECS) with parallel processing and GPU-accelerated graphics. Watch as complex behaviors emerge naturally from simple genetic rules!
 
+![Evolution Simulation Screenshot](screenshot.png)
+
 ## Features
 
 - **Entity Component System**: Uses the `hecs` crate for efficient entity management
