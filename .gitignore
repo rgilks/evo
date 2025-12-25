@@ -61,4 +61,8 @@ temp/
 
 # Cloudflare Workers
 .wrangler/
-wrangler.toml.bak 
+wrangler.toml.bak
+
+# Release artifacts
+pkg/
+web/pkg/
