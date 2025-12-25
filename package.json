@@ -5,14 +5,10 @@
   "description": "Evolution Simulation Web Application",
   "license": "MIT",
   "scripts": {
-    "build:web": "./scripts/build-web.sh",
-    "build:desktop": "./scripts/build-desktop.sh",
+    "build": "./scripts/build-web.sh",
     "dev": "wrangler pages dev web",
-    "dev:desktop": "./scripts/build-desktop.sh",
-    "dev:desktop:headless": "./scripts/build-desktop.sh --no-run && cargo run --release --target aarch64-apple-darwin -- --headless",
-    "deploy": "npm run build:web && wrangler pages deploy web --project-name evo",
+    "deploy": "npm run build && wrangler pages deploy web --project-name evo",
     "setup": "./scripts/setup.sh",
-    "deps:update": "npx npm-check-updates -u",
     "prepare": "husky"
   },
   "devDependencies": {
