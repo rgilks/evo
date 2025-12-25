@@ -78,7 +78,7 @@ class EvolutionApp {
       try {
         if (navigator.gpu) {
           console.log("WebGPU available, initializing WebGPU renderer...");
-          this.renderer = await WebGpuRenderer.new("simulation-canvas");
+          this.renderer = await WebGpuRenderer.create("simulation-canvas");
           this.useWebGPU = true;
           console.log("WebGPU renderer initialized successfully!");
         } else {

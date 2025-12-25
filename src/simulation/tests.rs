@@ -381,3 +381,74 @@ fn test_drift_direction_analysis() {
         }
     }
 }
+
+#[test]
+fn test_entity_data_format() {
+    let sim = Simulation::new(100.0);
+    let entities = sim.get_entities();
+
+    // Each entity should have 6 components: x, y, radius, r, g, b
+    for (x, y, radius, r, g, b) in &entities {
+        // Position should be within world bounds
+        assert!(*x >= -50.0 && *x <= 50.0, "x={} out of bounds", x);
+        assert!(*y >= -50.0 && *y <= 50.0, "y={} out of bounds", y);
+
+        // Radius should be positive
+        assert!(*radius > 0.0, "radius should be positive");
+
+        // Colors should be in 0-1 range
+        assert!(*r >= 0.0 && *r <= 1.0, "r={} out of color range", r);
+        assert!(*g >= 0.0 && *g <= 1.0, "g={} out of color range", g);
+        assert!(*b >= 0.0 && *b <= 1.0, "b={} out of color range", b);
+    }
+}
+
+#[test]
+fn test_entity_buffer_conversion() {
+    // Test the buffer format used by WebGPU renderer
+    // Simulates what update_entity_buffer does in lib.rs
+    let sim = Simulation::new(100.0);
+    let entities = sim.get_entities();
+
+    // Convert to flat buffer (same as update_entity_buffer)
+    let mut buffer: Vec<f32> = Vec::with_capacity(entities.len() * 6);
+    for (x, y, radius, r, g, b) in entities.iter() {
+        buffer.push(*x);
+        buffer.push(*y);
+        buffer.push(*radius);
+        buffer.push(*r);
+        buffer.push(*g);
+        buffer.push(*b);
+    }
+
+    // Buffer length should be 6 * entity count
+    assert_eq!(buffer.len(), entities.len() * 6);
+
+    // Entity count calculation should match
+    let entity_count = buffer.len() / 6;
+    assert_eq!(entity_count, entities.len());
+
+    // Verify data integrity by reading back
+    for (i, (x, y, radius, r, g, b)) in entities.iter().enumerate() {
+        let base = i * 6;
+        assert_eq!(buffer[base], *x);
+        assert_eq!(buffer[base + 1], *y);
+        assert_eq!(buffer[base + 2], *radius);
+        assert_eq!(buffer[base + 3], *r);
+        assert_eq!(buffer[base + 4], *g);
+        assert_eq!(buffer[base + 5], *b);
+    }
+}
+
+#[test]
+fn test_update_config() {
+    let mut sim = Simulation::new(100.0);
+    let original_velocity = sim.config.physics.max_velocity;
+
+    let mut new_config = sim.config.clone();
+    new_config.physics.max_velocity = 5.0;
+    sim.update_config(new_config);
+
+    assert_ne!(sim.config.physics.max_velocity, original_velocity);
+    assert_eq!(sim.config.physics.max_velocity, 5.0);
+}

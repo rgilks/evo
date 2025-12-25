@@ -26,8 +26,7 @@ pub struct WebGpuRenderer {
 
 #[wasm_bindgen]
 impl WebGpuRenderer {
-    #[wasm_bindgen(constructor)]
-    pub async fn new(canvas_id: &str) -> Result<WebGpuRenderer, JsValue> {
+    pub async fn create(canvas_id: &str) -> Result<WebGpuRenderer, JsValue> {
         let window = web_sys::window().ok_or("No window")?;
         let document = window.document().ok_or("No document")?;
         let canvas = document
