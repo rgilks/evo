@@ -1,7 +1,6 @@
 import init, {
   initThreadPool,
   WebSimulation,
-  WebRenderer,
   WebGpuRenderer,
   init_panic_hook,
 } from "../pkg/evo.js?v=94f2347";
@@ -43,12 +42,12 @@ class EvolutionApp {
   constructor() {
     this.simulation = null;
     this.renderer = null;
-    this.useWebGPU = false;
+    this.canvas = null;
     this.animationId = null;
     this.lastTime = 0;
     this.frameCount = 0;
     this.fps = 0;
-    this.targetFPS = 60; // Higher target FPS with WebGPU
+    this.targetFPS = 60;
 
     this.init();
   }
@@ -63,38 +62,30 @@ class EvolutionApp {
       await initThreadPool(navigator.hardwareConcurrency);
 
       // Get canvas and make it full-screen
-      const canvas = document.getElementById("simulation-canvas");
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
+      this.canvas = document.getElementById("simulation-canvas");
+      this.canvas.width = window.innerWidth;
+      this.canvas.height = window.innerHeight;
 
       const configJson = JSON.stringify(DEFAULT_CONFIG);
       console.log("Config being passed to WebSimulation:", configJson);
       this.simulation = new WebSimulation(
-        Math.max(canvas.width, canvas.height),
+        Math.max(this.canvas.width, this.canvas.height),
         configJson
       );
 
-      // Try WebGPU first, fall back to Canvas 2D
-      try {
-        if (navigator.gpu) {
-          console.log("WebGPU available, initializing WebGPU renderer...");
-          this.renderer = await WebGpuRenderer.create("simulation-canvas");
-          this.useWebGPU = true;
-          console.log("WebGPU renderer initialized successfully!");
-        } else {
-          throw new Error("WebGPU not available");
-        }
-      } catch (gpuError) {
-        console.warn("WebGPU not available, falling back to Canvas 2D:", gpuError);
-        this.renderer = new WebRenderer("simulation-canvas");
-        this.useWebGPU = false;
+      // Initialize WebGPU renderer (required - no fallback)
+      if (!navigator.gpu) {
+        throw new Error("WebGPU is required but not available in this browser");
       }
+      console.log("Initializing WebGPU renderer...");
+      this.renderer = await WebGpuRenderer.create(this.canvas);
+      console.log("WebGPU renderer initialized successfully!");
 
       this.setupEventListeners();
       this.startRenderLoop();
     } catch (error) {
       console.error("Failed to initialize:", error);
-      this.showError("Failed to initialize simulation");
+      this.showError("Failed to initialize simulation: " + error.message);
     }
   }
 
@@ -219,16 +210,9 @@ class EvolutionApp {
 
   render() {
     if (this.simulation && this.renderer) {
-      if (this.useWebGPU) {
-        // WebGPU path: get buffer pointer and render directly
-        const entityPtr = this.simulation.update_entity_buffer();
-        const entityCount = this.simulation.entity_count();
-        this.renderer.render(entityPtr, entityCount);
-      } else {
-        // Canvas 2D fallback: use JSON serialization
-        const entities = this.simulation.get_entities();
-        this.renderer.render(entities);
-      }
+      const entityPtr = this.simulation.update_entity_buffer();
+      const entityCount = this.simulation.entity_count();
+      this.renderer.render(entityPtr, entityCount);
     }
   }
 
@@ -275,7 +259,8 @@ window.addEventListener("load", () => {
     const canvas = document.getElementById("simulation-canvas");
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
-    // Recreate renderer with new canvas size
-    app.renderer = new WebRenderer("simulation-canvas");
+    if (app.renderer) {
+      app.renderer.resize(canvas.width, canvas.height);
+    }
   });
 });

@@ -10,7 +10,7 @@ repository = "https://github.com/rgilks/evo"
 wasm-opt = false
 
 [lib]
-crate-type = ["cdylib", "rlib"]
+crate-type = ["cdylib"]
 
 [dependencies]
 # Core simulation
@@ -20,34 +20,34 @@ rand = { version = "0.8", features = ["getrandom"] }
 getrandom = { version = "0.2", features = ["js"] }
 indexmap = "=2.2.6" # Pin version to avoid E0658 with our toolchain
 
-# Graphics and UI
-wgpu = "0.19"
-winit = "0.29"
-pollster = "0.3"
+# Graphics - match galacto version
+wgpu = { version = "24.0", features = ["webgl"] }
 bytemuck = { version = "1.14", features = ["derive"] }
 
 # Utilities
-clap = { version = "4.4", features = ["derive"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-tempfile = "3.8"
 
 # WebAssembly support
 wasm-bindgen = "0.2"
 wasm-bindgen-rayon = "1.2"
 wasm-bindgen-futures = "0.4"
+js-sys = "0.3"
 web-sys = { version = "0.3", features = [
     "HtmlCanvasElement",
-    "CanvasRenderingContext2d",
     "Window",
     "Document",
     "Element",
+    "console",
 ] }
 serde-wasm-bindgen = "0.6"
 console_error_panic_hook = "0.1"
+raw-window-handle = { version = "0.6", features = ["wasm-bindgen-0-2"] }
 
 [profile.release]
-opt-level = "s"   # Optimize for size in WASM
+opt-level = 3
 lto = true
 codegen-units = 1
-panic = "abort"
+
+[dev-dependencies]
+tempfile = "3.8"

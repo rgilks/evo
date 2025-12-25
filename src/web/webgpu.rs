@@ -26,27 +26,33 @@ pub struct WebGpuRenderer {
 
 #[wasm_bindgen]
 impl WebGpuRenderer {
-    pub async fn create(canvas_id: &str) -> Result<WebGpuRenderer, JsValue> {
-        let window = web_sys::window().ok_or("No window")?;
-        let document = window.document().ok_or("No document")?;
-        let canvas = document
-            .get_element_by_id(canvas_id)
-            .ok_or("Canvas not found")?
-            .dyn_into::<web_sys::HtmlCanvasElement>()?;
-
+    pub async fn create(canvas: web_sys::HtmlCanvasElement) -> Result<WebGpuRenderer, JsValue> {
         let width = canvas.width();
         let height = canvas.height();
 
         // Create wgpu instance with WebGPU backend
-        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
             backends: wgpu::Backends::BROWSER_WEBGPU,
-            ..Default::default()
+            flags: wgpu::InstanceFlags::default(),
+            backend_options: wgpu::BackendOptions::default(),
         });
 
-        // Create surface from canvas
-        let surface = instance
-            .create_surface(wgpu::SurfaceTarget::Canvas(canvas))
-            .map_err(|e| JsValue::from_str(&format!("Failed to create surface: {:?}", e)))?;
+        // Create surface using raw-window-handle (matching galacto)
+        let canvas_handle = unsafe {
+            raw_window_handle::WebCanvasWindowHandle::new(std::ptr::NonNull::new_unchecked(
+                &canvas as *const _ as *mut std::ffi::c_void,
+            ))
+        };
+        let surface = unsafe {
+            instance
+                .create_surface_unsafe(wgpu::SurfaceTargetUnsafe::RawHandle {
+                    raw_display_handle: raw_window_handle::RawDisplayHandle::Web(
+                        raw_window_handle::WebDisplayHandle::new(),
+                    ),
+                    raw_window_handle: raw_window_handle::RawWindowHandle::WebCanvas(canvas_handle),
+                })
+                .map_err(|e| JsValue::from_str(&format!("Failed to create surface: {:?}", e)))?
+        };
 
         // Request adapter
         let adapter = instance
@@ -69,8 +75,8 @@ impl WebGpuRenderer {
         let surface_format = surface_caps
             .formats
             .iter()
+            .find(|f| !f.is_srgb())
             .copied()
-            .find(|f| f.is_srgb())
             .unwrap_or(surface_caps.formats[0]);
 
         let config = wgpu::SurfaceConfiguration {
@@ -78,7 +84,7 @@ impl WebGpuRenderer {
             format: surface_format,
             width,
             height,
-            present_mode: wgpu::PresentMode::AutoVsync,
+            present_mode: surface_caps.present_modes[0],
             alpha_mode: surface_caps.alpha_modes[0],
             view_formats: vec![],
             desired_maximum_frame_latency: 2,
@@ -104,7 +110,7 @@ impl WebGpuRenderer {
             layout: Some(&render_pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &shader,
-                entry_point: "vs_main",
+                entry_point: Some("vs_main"),
                 buffers: &[wgpu::VertexBufferLayout {
                     array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
                     step_mode: wgpu::VertexStepMode::Vertex,
@@ -134,15 +140,17 @@ impl WebGpuRenderer {
                         },
                     ],
                 }],
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
-                entry_point: "fs_main",
+                entry_point: Some("fs_main"),
                 targets: &[Some(wgpu::ColorTargetState {
                     format: config.format,
                     blend: Some(wgpu::BlendState::ALPHA_BLENDING),
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
             }),
             primitive: wgpu::PrimitiveState {
                 topology: wgpu::PrimitiveTopology::TriangleList,
@@ -160,6 +168,7 @@ impl WebGpuRenderer {
                 alpha_to_coverage_enabled: false,
             },
             multiview: None,
+            cache: None,
         });
 
         // Create initial vertex buffer
