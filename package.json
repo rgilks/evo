@@ -15,12 +15,12 @@
     "deploy:dev": "npm run build:web && wrangler pages deploy web",
     "dev:worker": "npm run build:web && wrangler pages dev web",
     "setup": "./scripts/setup.sh",
-    "deps:update": "npx npm-check-updates -u"
+    "deps:update": "npx npm-check-updates -u",
+    "prepare": "husky"
   },
   "devDependencies": {
+    "husky": "^9.1.7",
     "wasm-pack": "^0.13.1",
     "wrangler": "^4.54.0"
-  },
-  "dependencies": {
   }
 }
