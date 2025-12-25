@@ -38,8 +38,8 @@ WORKER_FILE=$(find pkg/snippets -name "workerHelpers.js" -type f 2>/dev/null | h
 if [ -n "$WORKER_FILE" ]; then
     echo "📁 Found worker file: $WORKER_FILE"
     
-    # Fix the import path from '../../..' to '../../../evo.js'
-    sed -i.bak 's/await import('\''\.\.\/\.\.\/\.\.'\'');/await import('\''\.\.\/\.\.\/\.\.\/evo\.js'\'');/g' "$WORKER_FILE"
+    # Fix the import path and add cache busting
+    sed -i.bak "s|await import('\.\./\.\./\.\.');|await import('../../../evo.js?v=$CACHE_VERSION');|g" "$WORKER_FILE"
     rm "${WORKER_FILE}.bak"
     
     if [ $? -eq 0 ]; then
@@ -62,8 +62,8 @@ WEB_WORKER_FILE=$(find web/pkg/snippets -name "workerHelpers.js" -type f 2>/dev/
 if [ -n "$WEB_WORKER_FILE" ]; then
     echo "📁 Found web worker file: $WEB_WORKER_FILE"
     
-    # Fix the import path from '../../..' to '../../../evo.js'
-    sed -i.bak 's/await import('\''\.\.\/\.\.\/\.\.'\'');/await import('\''\.\.\/\.\.\/\.\.\/evo\.js'\'');/g' "$WEB_WORKER_FILE"
+    # Fix the import path and add cache busting
+    sed -i.bak "s|await import('\.\./\.\./\.\.');|await import('../../../evo.js?v=$CACHE_VERSION');|g" "$WEB_WORKER_FILE"
     rm "${WEB_WORKER_FILE}.bak"
     
     if [ $? -eq 0 ]; then
