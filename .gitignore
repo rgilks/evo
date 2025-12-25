@@ -1,19 +1,16 @@
-# Rust build artifacts
+# Rust
 /target/
 **/*.rs.bk
 *.pdb
 
-# Cargo
-
-
-# IDE files
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
-# OS generated files
+# OS
 .DS_Store
 .DS_Store?
 ._*
@@ -22,47 +19,26 @@
 ehthumbs.db
 Thumbs.db
 
-# Logs
+# Logs and runtime
 *.log
-
-# Runtime data
-pids
 *.pid
 *.seed
 *.pid.lock
 
-# Coverage directory used by tools like istanbul
-coverage/
-
-# nyc test coverage
-.nyc_output
-
-# Dependency directories
+# Node
 node_modules/
-
-# Optional npm cache directory
 .npm
 
-# Optional REPL history
-.node_repl_history
-
-# Output of 'npm pack'
-*.tgz
-
-# Yarn Integrity file
-.yarn-integrity
-
-# dotenv environment variables file
+# Environment
 .env
 
-# Temporary folders
+# Temporary
 tmp/
 temp/
 
-# Cloudflare Workers
+# Cloudflare
 .wrangler/
-wrangler.toml.bak
 
-# Release artifacts
+# Build output
 pkg/
 web/pkg/
