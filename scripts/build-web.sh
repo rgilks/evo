@@ -85,6 +85,11 @@ rm web/js/app.js.bak
 echo "🔄 Updating cache busting version for WASM fetch in evo.js..."
 sed -i.bak "s/'evo_bg\.wasm'/'evo_bg.wasm?v=$CACHE_VERSION'/g" pkg/evo.js
 sed -i.bak "s/'evo_bg\.wasm'/'evo_bg.wasm?v=$CACHE_VERSION'/g" web/pkg/evo.js
+
+# Update cache-busting version for workerHelpers.js import in evo.js
+echo "🔄 Updating cache busting version for workerHelpers.js import in evo.js..."
+sed -i.bak "s|from './snippets/|from './snippets/|g; s|workerHelpers.js'|workerHelpers.js?v=$CACHE_VERSION'|g" pkg/evo.js
+sed -i.bak "s|from './snippets/|from './snippets/|g; s|workerHelpers.js'|workerHelpers.js?v=$CACHE_VERSION'|g" web/pkg/evo.js
 rm pkg/evo.js.bak web/pkg/evo.js.bak
 
 # Update cache-busting version in index.html
