@@ -3,7 +3,7 @@ import init, {
   WebSimulation,
   WebGpuRenderer,
   init_panic_hook,
-} from "../pkg/evo.js?v=94f2347";
+} from "../pkg/evo.js?v=a9cb4d0";
 
 // Shared configuration object - matches the new Rust SimulationConfig structure
 const DEFAULT_CONFIG = {
@@ -54,6 +54,13 @@ class EvolutionApp {
 
   async init() {
     try {
+      // Check for SharedArrayBuffer support (required for wasm-bindgen-rayon)
+      if (!window.SharedArrayBuffer) {
+        throw new Error(
+          "SharedArrayBuffer is not supported. Ensure Cross-Origin Isolation (COOP/COEP) headers are set correctly."
+        );
+      }
+
       // Initialize WASM
       await init();
       init_panic_hook();

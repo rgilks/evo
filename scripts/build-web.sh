@@ -76,14 +76,20 @@ else
     echo "⚠️  No web worker helpers file found"
 fi
 
-# Update cache busting version in app.js
+# Update cache-busting version in app.js
 echo "🔄 Updating cache busting version in app.js..."
-sed -i.bak "s/from \"\.\.\/pkg\/evo\.js?v=[0-9]*\"/from \"..\/pkg\/evo.js?v=$CACHE_VERSION\"/g" web/js/app.js
+sed -i.bak "s/from \"\.\.\/pkg\/evo\.js?v=[0-9a-f]*\"/from \"..\/pkg\/evo.js?v=$CACHE_VERSION\"/g" web/js/app.js
 rm web/js/app.js.bak
 
-# Update cache busting version in index.html
+# Update cache-busting version for WASM fetch in evo.js
+echo "🔄 Updating cache busting version for WASM fetch in evo.js..."
+sed -i.bak "s/'evo_bg\.wasm'/'evo_bg.wasm?v=$CACHE_VERSION'/g" pkg/evo.js
+sed -i.bak "s/'evo_bg\.wasm'/'evo_bg.wasm?v=$CACHE_VERSION'/g" web/pkg/evo.js
+rm pkg/evo.js.bak web/pkg/evo.js.bak
+
+# Update cache-busting version in index.html
 echo "🔄 Updating cache busting version in index.html..."
-sed -i.bak "s/src=\"js\/app\.js?v=[0-9]*\"/src=\"js\/app.js?v=$CACHE_VERSION\"/g" web/index.html
+sed -i.bak "s/src=\"js\/app\.js?v=[0-9a-f]*\"/src=\"js\/app.js?v=$CACHE_VERSION\"/g" web/index.html
 rm web/index.html.bak
 
 # Verify the build
