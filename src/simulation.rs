@@ -10,6 +10,19 @@ use rayon::prelude::*;
 use std::collections::HashMap;
 
 // Simulation state
+pub struct EntityUpdate {
+    pub entity: Entity,
+    pub pos: Position,
+    pub energy: Energy,
+    pub size: Size,
+    pub genes: Genes,
+    pub color: Color,
+    pub velocity: Velocity,
+    pub movement_style: crate::components::MovementStyle,
+    pub should_reproduce: bool,
+    pub eaten_entity: Option<Entity>,
+}
+
 pub struct Simulation {
     world: World,
     world_size: f32,
@@ -23,6 +36,17 @@ pub struct Simulation {
     interaction_system: InteractionSystem,
     energy_system: EnergySystem,
     reproduction_system: ReproductionSystem,
+}
+
+struct ProcessEntityParams<'a> {
+    entity: Entity,
+    pos: &'a Position,
+    energy: &'a Energy,
+    size: &'a Size,
+    genes: &'a Genes,
+    color: &'a Color,
+    velocity: &'a Velocity,
+    movement_style: &'a crate::components::MovementStyle,
 }
 
 impl Simulation {
@@ -142,20 +166,7 @@ impl Simulation {
         }
     }
 
-    fn process_entities_parallel(
-        &self,
-    ) -> Vec<(
-        Entity,
-        Position,
-        Energy,
-        Size,
-        Genes,
-        Color,
-        Velocity,
-        crate::components::MovementStyle,
-        bool,
-        Option<Entity>,
-    )> {
+    fn process_entities_parallel(&self) -> Vec<EntityUpdate> {
         self.world
             .query::<(
                 &Position,
@@ -174,7 +185,7 @@ impl Simulation {
                         return None;
                     }
 
-                    self.process_entity(
+                    self.process_entity(ProcessEntityParams {
                         entity,
                         pos,
                         energy,
@@ -183,34 +194,24 @@ impl Simulation {
                         color,
                         velocity,
                         movement_style,
-                    )
+                    })
                 },
             )
             .collect()
     }
 
-    fn process_entity(
-        &self,
-        entity: Entity,
-        pos: &Position,
-        energy: &Energy,
-        size: &Size,
-        genes: &Genes,
-        color: &Color,
-        velocity: &Velocity,
-        movement_style: &crate::components::MovementStyle,
-    ) -> Option<(
-        Entity,
-        Position,
-        Energy,
-        Size,
-        Genes,
-        Color,
-        Velocity,
-        crate::components::MovementStyle,
-        bool,
-        Option<Entity>,
-    )> {
+    fn process_entity(&self, params: ProcessEntityParams) -> Option<EntityUpdate> {
+        let ProcessEntityParams {
+            entity,
+            pos,
+            energy,
+            size,
+            genes,
+            color,
+            velocity,
+            movement_style,
+        } = params;
+
         let nearby_entities = self.get_nearby_entities_for_entity(pos, genes);
 
         let mut new_pos = pos.clone();
@@ -272,23 +273,23 @@ impl Simulation {
             self.energy_system
                 .calculate_new_size(new_energy, genes, &self.config);
 
-        Some((
+        Some(EntityUpdate {
             entity,
-            new_pos,
-            Energy {
+            pos: new_pos,
+            energy: Energy {
                 current: new_energy,
                 max: energy.max,
             },
-            Size {
+            size: Size {
                 radius: new_size_radius,
             },
-            genes.clone(),
-            color.clone(),
-            new_velocity,
-            movement_style.clone(),
+            genes: genes.clone(),
+            color: color.clone(),
+            velocity: new_velocity,
+            movement_style: movement_style.clone(),
             should_reproduce,
             eaten_entity,
-        ))
+        })
     }
 
     fn get_nearby_entities_for_entity(&self, pos: &Position, genes: &Genes) -> Vec<Entity> {
@@ -307,17 +308,18 @@ impl Simulation {
         pos: &Position,
         nearby_entities: &[Entity],
     ) {
-        self.movement_system.update_movement(
-            genes,
-            new_pos,
-            new_velocity,
-            new_energy,
-            pos,
-            nearby_entities,
-            &self.world,
-            &self.config,
-            self.world_size,
-        );
+        self.movement_system
+            .update_movement(crate::systems::MovementUpdateParams {
+                genes,
+                new_pos,
+                new_velocity,
+                new_energy,
+                pos,
+                nearby_entities,
+                world: &self.world,
+                config: &self.config,
+                world_size: self.world_size,
+            });
     }
 
     fn apply_interactions_to_entity(
@@ -329,16 +331,17 @@ impl Simulation {
         genes: &Genes,
         nearby_entities: &[Entity],
     ) {
-        self.interaction_system.handle_interactions(
-            new_energy,
-            eaten_entity,
-            new_pos,
-            size,
-            genes,
-            nearby_entities,
-            &self.world,
-            &self.config,
-        );
+        self.interaction_system
+            .handle_interactions(crate::systems::InteractionParams {
+                new_energy,
+                eaten_entity,
+                new_pos,
+                size,
+                genes,
+                nearby_entities,
+                world: &self.world,
+                config: &self.config,
+            });
     }
 
     fn calculate_population_density(&self) -> f32 {
@@ -362,25 +365,11 @@ impl Simulation {
         )
     }
 
-    fn apply_entity_updates(
-        &mut self,
-        updates: Vec<(
-            Entity,
-            Position,
-            Energy,
-            Size,
-            Genes,
-            Color,
-            Velocity,
-            crate::components::MovementStyle,
-            bool,
-            Option<Entity>,
-        )>,
-    ) {
+    fn apply_entity_updates(&mut self, updates: Vec<EntityUpdate>) {
         // Remove eaten entities in parallel
         let entities_to_remove: Vec<_> = updates
             .par_iter()
-            .filter_map(|(_, _, _, _, _, _, _, _, _, eaten_entity)| *eaten_entity)
+            .filter_map(|update| update.eaten_entity)
             .collect();
 
         // Despawn entities (this needs to be sequential due to Hecs limitations)
@@ -391,76 +380,63 @@ impl Simulation {
         // Prepare spawn data in parallel
         let spawn_data: Vec<_> = updates
             .par_iter()
-            .filter_map(
-                |(
-                    _entity,
-                    position,
-                    energy,
-                    size,
-                    genes,
-                    color,
-                    velocity,
-                    movement_style,
-                    should_reproduce,
-                    _,
-                )| {
-                    if energy.current <= 0.0 {
-                        return None;
-                    }
+            .filter_map(|update| {
+                if update.energy.current <= 0.0 {
+                    return None;
+                }
 
-                    // Store values before spawning to avoid move issues
-                    let energy_max = energy.max;
+                // Store values before spawning to avoid move issues
+                let energy_max = update.energy.max;
 
-                    let mut spawn_entities = vec![(
-                        position.clone(),
-                        energy.clone(),
-                        size.clone(),
-                        genes.clone(),
-                        color.clone(),
-                        velocity.clone(),
-                        movement_style.clone(),
-                    )];
+                let mut spawn_entities = vec![(
+                    update.pos.clone(),
+                    update.energy.clone(),
+                    update.size.clone(),
+                    update.genes.clone(),
+                    update.color.clone(),
+                    update.velocity.clone(),
+                    update.movement_style.clone(),
+                )];
 
-                    // Handle reproduction with stricter population control
-                    let max_population = (self.config.population.max_population as f32
-                        * self.config.population.entity_scale)
-                        as u32;
-                    if *should_reproduce && self.world.len() < max_population {
-                        let (
-                            child_pos,
-                            child_energy,
-                            child_size,
-                            child_genes,
-                            child_color,
-                            child_velocity,
-                            child_movement_style,
-                        ) = self.reproduction_system.create_offspring(
-                            genes,
-                            energy_max,
-                            position,
-                            &self.config,
-                        );
+                // Handle reproduction with stricter population control
+                let max_population = (self.config.population.max_population as f32
+                    * self.config.population.entity_scale)
+                    as u32;
+                if update.should_reproduce && self.world.len() < max_population {
+                    let (
+                        child_pos,
+                        child_energy,
+                        child_size,
+                        child_genes,
+                        child_color,
+                        child_velocity,
+                        child_movement_style,
+                    ) = self.reproduction_system.create_offspring(
+                        &update.genes,
+                        energy_max,
+                        &update.pos,
+                        &self.config,
+                    );
 
-                        spawn_entities.push((
-                            child_pos,
-                            child_energy,
-                            child_size,
-                            child_genes,
-                            child_color,
-                            child_velocity,
-                            child_movement_style,
-                        ));
-                    }
+                    spawn_entities.push((
+                        child_pos,
+                        child_energy,
+                        child_size,
+                        child_genes,
+                        child_color,
+                        child_velocity,
+                        child_movement_style,
+                    ));
+                }
 
-                    Some(spawn_entities)
-                },
-            )
+                Some(spawn_entities)
+            })
             .flatten()
             .collect();
 
         // Despawn old entities
-        for (entity, _, _, _, _, _, _, _, _, _) in updates {
-            let _ = self.world.despawn(entity);
+        for update in updates {
+            let _ = self.world.despawn(update.entity);
         }
 
         // Spawn new entities (this needs to be sequential due to Hecs limitations)
@@ -756,31 +732,31 @@ mod tests {
             },
         ));
 
-        let updates = vec![(
-            _entity,
-            Position { x: 10.0, y: 10.0 },
-            Energy {
+        let updates = vec![EntityUpdate {
+            entity: _entity,
+            pos: Position { x: 10.0, y: 10.0 },
+            energy: Energy {
                 current: 60.0,
                 max: 100.0,
             },
-            Size { radius: 6.0 },
-            Genes::new_random(&mut thread_rng()),
-            Color {
+            size: Size { radius: 6.0 },
+            genes: Genes::new_random(&mut thread_rng()),
+            color: Color {
                 r: 0.0,
                 g: 1.0,
                 b: 0.0,
             },
-            Velocity { x: 1.0, y: 1.0 },
-            crate::components::MovementStyle {
+            velocity: Velocity { x: 1.0, y: 1.0 },
+            movement_style: crate::components::MovementStyle {
                 style: crate::components::MovementType::Flocking,
                 flocking_strength: 0.7,
                 separation_distance: 12.0,
                 alignment_strength: 0.6,
                 cohesion_strength: 0.6,
             },
-            false,
-            None,
-        )];
+            should_reproduce: false,
+            eaten_entity: None,
+        }];
 
         sim.apply_entity_updates(updates);
 

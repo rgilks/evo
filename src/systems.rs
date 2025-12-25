@@ -7,19 +7,31 @@ use rand::prelude::*;
 /// Movement system - handles entity movement and boundary constraints
 pub struct MovementSystem;
 
+pub struct MovementUpdateParams<'a> {
+    pub genes: &'a Genes,
+    pub new_pos: &'a mut Position,
+    pub new_velocity: &'a mut Velocity,
+    pub new_energy: &'a mut f32,
+    pub pos: &'a Position,
+    pub nearby_entities: &'a [Entity],
+    pub world: &'a World,
+    pub config: &'a SimulationConfig,
+    pub world_size: f32,
+}
+
 impl MovementSystem {
-    pub fn update_movement(
-        &self,
-        genes: &Genes,
-        new_pos: &mut Position,
-        new_velocity: &mut Velocity,
-        new_energy: &mut f32,
-        pos: &Position,
-        nearby_entities: &[Entity],
-        world: &World,
-        config: &SimulationConfig,
-        world_size: f32,
-    ) {
+    pub fn update_movement(&self, params: MovementUpdateParams) {
+        let MovementUpdateParams {
+            genes,
+            new_pos,
+            new_velocity,
+            new_energy,
+            pos,
+            nearby_entities,
+            world,
+            config,
+            world_size,
+        } = params;
         // Find target for movement based on genes and movement style
         let target = self.find_movement_target(pos, genes, nearby_entities, world);
 
@@ -470,18 +482,29 @@ impl MovementSystem {
 /// Interaction system - handles entity interactions and predation
 pub struct InteractionSystem;
 
+pub struct InteractionParams<'a> {
+    pub new_energy: &'a mut f32,
+    pub eaten_entity: &'a mut Option<Entity>,
+    pub new_pos: &'a Position,
+    pub size: &'a Size,
+    pub genes: &'a Genes,
+    pub nearby_entities: &'a [Entity],
+    pub world: &'a World,
+    pub config: &'a SimulationConfig,
+}
+
 impl InteractionSystem {
-    pub fn handle_interactions(
-        &self,
-        new_energy: &mut f32,
-        eaten_entity: &mut Option<Entity>,
-        new_pos: &Position,
-        size: &Size,
-        genes: &Genes,
-        nearby_entities: &[Entity],
-        world: &World,
-        config: &SimulationConfig,
-    ) {
+    pub fn handle_interactions(&self, params: InteractionParams) {
+        let InteractionParams {
+            new_energy,
+            eaten_entity,
+            new_pos,
+            size,
+            genes,
+            nearby_entities,
+            world,
+            config,
+        } = params;
         for &entity in nearby_entities {
             if self.can_interact_with_entity(entity, new_pos, size, genes, world, config) {
                 self.process_interaction(entity, new_energy, eaten_entity, genes, world);
@@ -673,17 +696,17 @@ mod tests {
         let world = World::new();
         let config = SimulationConfig::default();
 
-        system.update_movement(
-            &genes,
-            &mut new_pos,
-            &mut new_velocity,
-            &mut new_energy,
-            &pos,
-            &nearby_entities,
-            &world,
-            &config,
-            100.0, // world_size for test
-        );
+        system.update_movement(MovementUpdateParams {
+            genes: &genes,
+            new_pos: &mut new_pos,
+            new_velocity: &mut new_velocity,
+            new_energy: &mut new_energy,
+            pos: &pos,
+            nearby_entities: &nearby_entities,
+            world: &world,
+            config: &config,
+            world_size: 100.0,
+        });
 
         // Position should have changed
         assert_ne!(new_pos.x, 0.0);
@@ -747,16 +770,16 @@ mod tests {
         let world = World::new();
         let config = SimulationConfig::default();
 
-        system.handle_interactions(
-            &mut new_energy,
-            &mut eaten_entity,
-            &new_pos,
-            &size,
-            &genes,
-            &nearby_entities,
-            &world,
-            &config,
-        );
+        system.handle_interactions(InteractionParams {
+            new_energy: &mut new_energy,
+            eaten_entity: &mut eaten_entity,
+            new_pos: &new_pos,
+            size: &size,
+            genes: &genes,
+            nearby_entities: &nearby_entities,
+            world: &world,
+            config: &config,
+        });
 
         // Energy should remain unchanged if no interactions
         assert_eq!(new_energy, 50.0);
@@ -875,17 +898,17 @@ mod tests {
 
         let config = SimulationConfig::default();
 
-        system.update_movement(
-            &genes,
-            &mut new_pos,
-            &mut new_velocity,
-            &mut new_energy,
-            &pos,
-            &nearby_entities,
-            &world,
-            &config,
-            100.0, // world_size for test
-        );
+        system.update_movement(MovementUpdateParams {
+            genes: &genes,
+            new_pos: &mut new_pos,
+            new_velocity: &mut new_velocity,
+            new_energy: &mut new_energy,
+            pos: &pos,
+            nearby_entities: &nearby_entities,
+            world: &world,
+            config: &config,
+            world_size: 100.0,
+        });
 
         // Should have moved (position changed) and used energy
         assert!(
@@ -954,17 +977,17 @@ mod tests {
         let mut energy = 100.0;
 
         // Run movement update with no nearby entities
-        movement_system.update_movement(
-            &Genes::new_random(&mut thread_rng()),
-            &mut pos,
-            &mut velocity,
-            &mut energy,
-            &Position { x: 0.0, y: 0.0 },
-            &[],
-            &world,
-            &config,
-            100.0, // world_size for test
-        );
+        movement_system.update_movement(MovementUpdateParams {
+            genes: &Genes::new_random(&mut thread_rng()),
+            new_pos: &mut pos,
+            new_velocity: &mut velocity,
+            new_energy: &mut energy,
+            pos: &Position { x: 0.0, y: 0.0 },
+            nearby_entities: &[],
+            world: &world,
+            config: &config,
+            world_size: 100.0,
+        });
 
         // Check if there's any systematic bias in velocity generation
         println!(
@@ -1057,17 +1080,17 @@ mod tests {
             let mut velocity = Velocity { x: 0.0, y: 0.0 };
             let mut energy = 100.0;
 
-            movement_system.update_movement(
-                &Genes::new_random(&mut thread_rng()),
-                &mut pos,
-                &mut velocity,
-                &mut energy,
-                &Position { x: 0.0, y: 0.0 },
-                &[],
-                &world,
-                &config,
-                100.0, // world_size for test
-            );
+            movement_system.update_movement(MovementUpdateParams {
+                genes: &Genes::new_random(&mut thread_rng()),
+                new_pos: &mut pos,
+                new_velocity: &mut velocity,
+                new_energy: &mut energy,
+                pos: &Position { x: 0.0, y: 0.0 },
+                nearby_entities: &[],
+                world: &world,
+                config: &config,
+                world_size: 100.0,
+            });
 
             x_velocities.push(velocity.x);
             y_velocities.push(velocity.y);
@@ -1157,17 +1180,17 @@ mod tests {
         let mut velocity = Velocity { x: 0.0, y: 0.0 };
         let mut energy = 100.0;
 
-        movement_system.update_movement(
-            &Genes::new_random(&mut thread_rng()),
-            &mut pos,
-            &mut velocity,
-            &mut energy,
-            &Position { x: 0.0, y: 0.0 },
-            &target_entities,
-            &world,
-            &config,
-            100.0, // world_size for test
-        );
+        movement_system.update_movement(MovementUpdateParams {
+            genes: &Genes::new_random(&mut thread_rng()),
+            new_pos: &mut pos,
+            new_velocity: &mut velocity,
+            new_energy: &mut energy,
+            pos: &Position { x: 0.0, y: 0.0 },
+            nearby_entities: &target_entities,
+            world: &world,
+            config: &config,
+            world_size: 100.0,
+        });
 
         println!(
             "Movement towards targets - Final velocity: ({}, {})",
@@ -1227,17 +1250,17 @@ mod tests {
         for step in 0..100 {
             let old_pos = pos.clone();
 
-            movement_system.update_movement(
-                &Genes::new_random(&mut thread_rng()),
-                &mut pos,
-                &mut velocity,
-                &mut energy,
-                &old_pos.clone(),
-                &[],
-                &world,
-                &config,
-                100.0, // world_size for test
-            );
+            movement_system.update_movement(MovementUpdateParams {
+                genes: &Genes::new_random(&mut thread_rng()),
+                new_pos: &mut pos,
+                new_velocity: &mut velocity,
+                new_energy: &mut energy,
+                pos: &old_pos.clone(),
+                nearby_entities: &[],
+                world: &world,
+                config: &config,
+                world_size: 100.0,
+            });
 
             // Handle boundaries
             movement_system.handle_boundaries(&mut pos, &mut velocity, 100.0, &config);
