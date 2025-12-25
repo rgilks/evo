@@ -24,4 +24,5 @@ Simplicity first - code should be concise and elegant
 Keep README file up to date
 Keep .gitignore file up to date
 Be rigorous in fixing warnings and errors
-When typing 'rcp': review changes, remove pointless comments, run checks/tests, update docs, git add/commit/push
+Code files should preferably be less than 200 lines long.
+Functions should preferably be less than 20 lines long.

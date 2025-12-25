@@ -1,4 +1,4 @@
 cargo fmt --check
 cargo clippy -- -D warnings
 cargo test
-cargo check --target wasm32-unknown-unknown
+CARGO_UNSTABLE_BUILD_STD=std,panic_abort cargo check --target wasm32-unknown-unknown

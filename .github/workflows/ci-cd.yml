@@ -47,7 +47,7 @@ jobs:
         run: cargo test
 
       - name: Check WASM build
-        run: cargo check --target wasm32-unknown-unknown
+        run: CARGO_UNSTABLE_BUILD_STD=std,panic_abort cargo check --target wasm32-unknown-unknown
 
   deploy:
     name: Deploy

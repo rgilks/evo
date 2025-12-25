@@ -21,6 +21,7 @@ rm -rf pkg/
 
 # Build WASM package
 echo "🔨 Building WASM package..."
+export CARGO_UNSTABLE_BUILD_STD=std,panic_abort
 wasm-pack build --target web --out-dir pkg
 
 if [ $? -eq 0 ]; then

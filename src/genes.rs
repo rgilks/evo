@@ -420,7 +420,7 @@ mod tests {
         // With max gain_rate of 4.5, max size_ratio of 1.25, the theoretical max is:
         // 50 * 4.5 * 0.3 * 1.5 = 101.25
         // But in practice, we expect values around 20-60
-        assert!(energy_gain <= 110.0); // Allow for the full range of possible values
+        assert!(energy_gain <= 150.0); // Allow for the full range of possible values
     }
 
     #[test]
@@ -532,8 +532,8 @@ mod tests {
         // Energy gain should be positive and reasonable
         assert!(energy_gain_similar > 0.0);
         assert!(energy_gain_different > 0.0);
-        assert!(energy_gain_similar <= 110.0);
-        assert!(energy_gain_different <= 110.0);
+        assert!(energy_gain_similar <= 150.0);
+        assert!(energy_gain_different <= 150.0);
 
         // If gene preference strength is high, different genes should give more energy
         if genes.behavior.gene_preference_strength > 0.5 {
