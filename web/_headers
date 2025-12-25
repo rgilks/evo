@@ -2,8 +2,10 @@
   Cross-Origin-Opener-Policy: same-origin
   Cross-Origin-Embedder-Policy: require-corp
 
-# Force revalidation for JS and WASM to avoid stale cache issues
-/*.js
+# Force revalidation for all assets to avoid stale cache issues
+/js/*
   Cache-Control: public, max-age=0, must-revalidate
-/*.wasm
+/pkg/*
+  Cache-Control: public, max-age=0, must-revalidate
+/index.html
   Cache-Control: public, max-age=0, must-revalidate
