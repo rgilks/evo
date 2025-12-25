@@ -219,7 +219,8 @@ impl MovementSystem {
                                         &nearby_genes,
                                         &nearby_size,
                                         &Size { radius: 1.0 },
-                                    ) && preference > best_preference {
+                                    ) && preference > best_preference
+                                    {
                                         best_prey_x = nearby_pos.x;
                                         best_prey_y = nearby_pos.y;
                                         best_preference = preference;

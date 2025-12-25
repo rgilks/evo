@@ -11,16 +11,16 @@
     "dev": "node server.js",
     "dev:desktop": "./scripts/build-desktop.sh",
     "dev:desktop:headless": "./scripts/build-desktop.sh --no-run && cargo run --release --target aarch64-apple-darwin -- --headless",
-    "deploy": "npm run build:web && wrangler deploy --env production",
-    "deploy:dev": "npm run build:web && wrangler deploy",
-    "dev:worker": "npm run build:web && wrangler dev",
-    "setup": "./scripts/setup.sh"
+    "deploy": "npm run build:web && wrangler pages deploy web --project-name evo",
+    "deploy:dev": "npm run build:web && wrangler pages deploy web",
+    "dev:worker": "npm run build:web && wrangler pages dev web",
+    "setup": "./scripts/setup.sh",
+    "deps:update": "npx npm-check-updates -u"
   },
   "devDependencies": {
-    "wasm-pack": "^0.12.0",
-    "wrangler": "^3.0.0"
+    "wasm-pack": "^0.13.1",
+    "wrangler": "^4.54.0"
   },
   "dependencies": {
-    "@cloudflare/kv-asset-handler": "^0.4.0"
   }
 }

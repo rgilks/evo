@@ -1,7 +1,7 @@
 use hecs::Entity;
-use std::collections::HashMap;
-use rand::thread_rng;
 use rand::seq::SliceRandom;
+use rand::thread_rng;
+use std::collections::HashMap;
 
 /// Optimized spatial grid for efficient neighbor finding
 #[derive(Default)]

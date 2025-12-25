@@ -33,7 +33,7 @@ pub struct AppearanceGenes {
 pub struct BehaviorGenes {
     pub movement_style: MovementStyle,
     pub gene_preference_strength: f32, // How strongly to prefer different genes (0.0 = no preference, 1.0 = strong preference)
-    pub social_tendency: f32,          // Tendency to be social vs solitary (0.0 = solitary, 1.0 = social)
+    pub social_tendency: f32, // Tendency to be social vs solitary (0.0 = solitary, 1.0 = social)
 }
 
 // Main genes structure that groups related traits
@@ -220,7 +220,8 @@ impl Genes {
         let loss_diff = (self.energy.loss_rate - other.energy.loss_rate).abs() / 3.0;
         let gain_diff = (self.energy.gain_rate - other.energy.gain_rate).abs() / 5.0;
         let size_factor_diff = (self.energy.size_factor - other.energy.size_factor).abs() / 3.5;
-        total_difference += efficiency_diff * 0.15 + loss_diff * 0.15 + gain_diff * 0.1 + size_factor_diff * 0.1;
+        total_difference +=
+            efficiency_diff * 0.15 + loss_diff * 0.15 + gain_diff * 0.1 + size_factor_diff * 0.1;
         total_weights += 0.5;
 
         // Appearance genes similarity (color-based)
@@ -230,15 +231,20 @@ impl Genes {
         total_weights += 0.5;
 
         // Behavior genes similarity
-        let flocking_diff = (self.behavior.movement_style.flocking_strength - other.behavior.movement_style.flocking_strength).abs();
+        let flocking_diff = (self.behavior.movement_style.flocking_strength
+            - other.behavior.movement_style.flocking_strength)
+            .abs();
         let social_diff = (self.behavior.social_tendency - other.behavior.social_tendency).abs();
-        let preference_diff = (self.behavior.gene_preference_strength - other.behavior.gene_preference_strength).abs();
+        let preference_diff = (self.behavior.gene_preference_strength
+            - other.behavior.gene_preference_strength)
+            .abs();
         total_difference += flocking_diff * 0.2 + social_diff * 0.2 + preference_diff * 0.1;
         total_weights += 0.5;
 
         // Movement type similarity
-        let type_similarity = if std::mem::discriminant(&self.behavior.movement_style.style) == 
-                                   std::mem::discriminant(&other.behavior.movement_style.style) {
+        let type_similarity = if std::mem::discriminant(&self.behavior.movement_style.style)
+            == std::mem::discriminant(&other.behavior.movement_style.style)
+        {
             0.0 // Same type
         } else {
             1.0 // Different type
@@ -252,12 +258,12 @@ impl Genes {
     // Get predation preference based on gene similarity
     pub fn get_predation_preference(&self, other_genes: &Genes) -> f32 {
         let gene_similarity = self.calculate_gene_similarity(other_genes);
-        
+
         // Higher preference for different genes (inverse of similarity)
         // Apply the gene preference strength to modulate this effect
         let base_preference = 1.0 - gene_similarity;
         let modulated_preference = base_preference * self.behavior.gene_preference_strength;
-        
+
         // Add a small base preference so entities can still eat similar ones if needed
         modulated_preference + (1.0 - self.behavior.gene_preference_strength) * 0.3
     }
@@ -275,10 +281,10 @@ impl Genes {
 
         // Bigger prey = more energy, but with stronger diminishing returns
         let size_bonus = base_gain * (1.0 + size_ratio * 0.3).min(1.5);
-        
+
         // Gene preference bonus - more energy from preferred prey
         let gene_bonus = self.get_predation_preference(other_genes);
-        
+
         size_bonus * (1.0 + gene_bonus * 0.5) // Up to 50% bonus for preferred prey
     }
 
@@ -440,12 +446,24 @@ mod tests {
 
         // Identical genes should have similarity of 0.0
         let similarity_identical = genes1.calculate_gene_similarity(&genes3);
-        assert!((similarity_identical - 0.0).abs() < 0.001, "Identical genes should have similarity 0.0, got: {}", similarity_identical);
+        assert!(
+            (similarity_identical - 0.0).abs() < 0.001,
+            "Identical genes should have similarity 0.0, got: {}",
+            similarity_identical
+        );
 
         // Different genes should have similarity > 0.0
         let similarity_different = genes1.calculate_gene_similarity(&genes2);
-        assert!(similarity_different > 0.0, "Different genes should have similarity > 0.0, got: {}", similarity_different);
-        assert!(similarity_different <= 1.0, "Gene similarity should be <= 1.0, got: {}", similarity_different);
+        assert!(
+            similarity_different > 0.0,
+            "Different genes should have similarity > 0.0, got: {}",
+            similarity_different
+        );
+        assert!(
+            similarity_different <= 1.0,
+            "Gene similarity should be <= 1.0, got: {}",
+            similarity_different
+        );
     }
 
     #[test]
@@ -462,25 +480,41 @@ mod tests {
         // The test should account for the fact that when gene_preference_strength is low,
         // the base preference (0.3) dominates, so we can't guarantee preference_different >= preference_similar
         // Instead, let's test that the logic works correctly in both cases
-        
+
         // For identical genes, similarity should be 0.0, so preference should be:
         // (1.0 - 0.0) * gene_preference_strength + (1.0 - gene_preference_strength) * 0.3
         // = gene_preference_strength + (1.0 - gene_preference_strength) * 0.3
-        let expected_similar = genes1.behavior.gene_preference_strength + (1.0 - genes1.behavior.gene_preference_strength) * 0.3;
-        assert!((preference_similar - expected_similar).abs() < 0.001, 
-                "Preference for identical genes should be {}, got: {}", expected_similar, preference_similar);
+        let expected_similar = genes1.behavior.gene_preference_strength
+            + (1.0 - genes1.behavior.gene_preference_strength) * 0.3;
+        assert!(
+            (preference_similar - expected_similar).abs() < 0.001,
+            "Preference for identical genes should be {}, got: {}",
+            expected_similar,
+            preference_similar
+        );
 
         // For different genes, similarity should be > 0.0, so preference should be higher than base
         let gene_similarity = genes1.calculate_gene_similarity(&genes2);
-        let expected_different = (1.0 - gene_similarity) * genes1.behavior.gene_preference_strength + (1.0 - genes1.behavior.gene_preference_strength) * 0.3;
-        assert!((preference_different - expected_different).abs() < 0.001, 
-                "Preference for different genes should be {}, got: {}", expected_different, preference_different);
+        let expected_different = (1.0 - gene_similarity) * genes1.behavior.gene_preference_strength
+            + (1.0 - genes1.behavior.gene_preference_strength) * 0.3;
+        assert!(
+            (preference_different - expected_different).abs() < 0.001,
+            "Preference for different genes should be {}, got: {}",
+            expected_different,
+            preference_different
+        );
 
         // Preference should be in valid range
-        assert!(preference_different >= 0.0 && preference_different <= 1.0, 
-                "Predation preference should be in [0,1], got: {}", preference_different);
-        assert!(preference_similar >= 0.0 && preference_similar <= 1.0, 
-                "Predation preference should be in [0,1], got: {}", preference_similar);
+        assert!(
+            preference_different >= 0.0 && preference_different <= 1.0,
+            "Predation preference should be in [0,1], got: {}",
+            preference_different
+        );
+        assert!(
+            preference_similar >= 0.0 && preference_similar <= 1.0,
+            "Predation preference should be in [0,1], got: {}",
+            preference_similar
+        );
     }
 
     #[test]
@@ -492,7 +526,8 @@ mod tests {
 
         // Test energy gain with different gene preferences
         let energy_gain_similar = genes.get_energy_gain(50.0, &other_size, &self_size, &genes);
-        let energy_gain_different = genes.get_energy_gain(50.0, &other_size, &self_size, &Genes::new_random(&mut rng));
+        let energy_gain_different =
+            genes.get_energy_gain(50.0, &other_size, &self_size, &Genes::new_random(&mut rng));
 
         // Energy gain should be positive and reasonable
         assert!(energy_gain_similar > 0.0);
@@ -502,8 +537,10 @@ mod tests {
 
         // If gene preference strength is high, different genes should give more energy
         if genes.behavior.gene_preference_strength > 0.5 {
-            assert!(energy_gain_different >= energy_gain_similar * 0.8, 
-                    "With high gene preference, different genes should give similar or more energy");
+            assert!(
+                energy_gain_different >= energy_gain_similar * 0.8,
+                "With high gene preference, different genes should give similar or more energy"
+            );
         }
     }
 
@@ -514,13 +551,28 @@ mod tests {
         let child_genes = parent_genes.mutate(&mut rng);
 
         // Movement style should be inherited and can mutate
-        assert_eq!(parent_genes.behavior.movement_style.style, parent_genes.behavior.movement_style.style);
-        
+        assert_eq!(
+            parent_genes.behavior.movement_style.style,
+            parent_genes.behavior.movement_style.style
+        );
+
         // Behavior genes should be within valid ranges
-        assert!(child_genes.behavior.gene_preference_strength >= 0.0 && child_genes.behavior.gene_preference_strength <= 1.0);
-        assert!(child_genes.behavior.social_tendency >= 0.0 && child_genes.behavior.social_tendency <= 1.0);
-        assert!(child_genes.behavior.movement_style.flocking_strength >= 0.0 && child_genes.behavior.movement_style.flocking_strength <= 1.0);
-        assert!(child_genes.behavior.movement_style.separation_distance >= 2.0 && child_genes.behavior.movement_style.separation_distance <= 30.0);
+        assert!(
+            child_genes.behavior.gene_preference_strength >= 0.0
+                && child_genes.behavior.gene_preference_strength <= 1.0
+        );
+        assert!(
+            child_genes.behavior.social_tendency >= 0.0
+                && child_genes.behavior.social_tendency <= 1.0
+        );
+        assert!(
+            child_genes.behavior.movement_style.flocking_strength >= 0.0
+                && child_genes.behavior.movement_style.flocking_strength <= 1.0
+        );
+        assert!(
+            child_genes.behavior.movement_style.separation_distance >= 2.0
+                && child_genes.behavior.movement_style.separation_distance <= 30.0
+        );
     }
 
     #[test]

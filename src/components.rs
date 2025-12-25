@@ -59,19 +59,19 @@ impl Color {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MovementStyle {
     pub style: MovementType,
-    pub flocking_strength: f32,      // How strongly to flock (0.0 = no flocking, 1.0 = strong flocking)
-    pub separation_distance: f32,    // Preferred distance from other flock members
-    pub alignment_strength: f32,     // How much to align with flock direction
-    pub cohesion_strength: f32,      // How much to move toward flock center
+    pub flocking_strength: f32, // How strongly to flock (0.0 = no flocking, 1.0 = strong flocking)
+    pub separation_distance: f32, // Preferred distance from other flock members
+    pub alignment_strength: f32, // How much to align with flock direction
+    pub cohesion_strength: f32, // How much to move toward flock center
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum MovementType {
-    Random,      // Random movement
-    Flocking,    // Flock with similar entities
-    Solitary,    // Avoid other entities
-    Predatory,   // Hunt for prey
-    Grazing,     // Move slowly and steadily
+    Random,    // Random movement
+    Flocking,  // Flock with similar entities
+    Solitary,  // Avoid other entities
+    Predatory, // Hunt for prey
+    Grazing,   // Move slowly and steadily
 }
 
 // Utility structs for better organization

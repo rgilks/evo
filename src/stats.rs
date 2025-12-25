@@ -2,8 +2,8 @@ use crate::components::{Energy, Position};
 use crate::genes::Genes;
 use hecs::World;
 use rayon::prelude::*;
-use std::collections::HashMap;
 use serde::Serialize;
+use std::collections::HashMap;
 
 /// Entity type classification based on dominant traits
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
@@ -425,7 +425,7 @@ mod tests {
         assert!(summary.contains("Blue:"));
     }
 
-        #[test]
+    #[test]
     fn test_format_detailed() {
         let world = create_test_world();
         let stats = SimulationStats::from_world(&world, 1000.0, 1.0);
@@ -433,10 +433,10 @@ mod tests {
 
         // Should contain step number
         assert!(detailed.contains("42"));
-        
+
         // Should contain entity count
         assert!(detailed.contains("10"));
-        
+
         // Should contain average metrics
         assert!(detailed.contains("AvgEnergy"));
         assert!(detailed.contains("AvgSpeed"));

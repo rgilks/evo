@@ -1,5 +1,5 @@
-use wasm_bindgen::prelude::*;
 use serde::{Deserialize, Serialize};
+use wasm_bindgen::prelude::*;
 
 mod components;
 mod config;
@@ -51,7 +51,14 @@ impl WebSimulation {
         let entity_tuples = self.simulation.get_entities();
         let entities: Vec<EntityData> = entity_tuples
             .into_iter()
-            .map(|(x, y, radius, r, g, b)| EntityData { x, y, radius, r, g, b })
+            .map(|(x, y, radius, r, g, b)| EntityData {
+                x,
+                y,
+                radius,
+                r,
+                g,
+                b,
+            })
             .collect();
         serde_wasm_bindgen::to_value(&entities).unwrap_or(JsValue::NULL)
     }

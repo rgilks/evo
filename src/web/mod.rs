@@ -1,6 +1,6 @@
+use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement};
-use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
 struct EntityData {
@@ -43,8 +43,7 @@ impl WebRenderer {
 
     pub fn render(&self, entities: &JsValue) -> Result<(), JsValue> {
         // Parse entities from JS
-        let entities: Vec<EntityData> =
-            serde_wasm_bindgen::from_value(entities.clone())?;
+        let entities: Vec<EntityData> = serde_wasm_bindgen::from_value(entities.clone())?;
 
         // Clear canvas
         self.ctx
