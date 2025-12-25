@@ -1,4 +1,3 @@
-use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
 mod components;
@@ -14,16 +13,6 @@ mod web;
 
 // Re-export the thread pool initialization
 pub use wasm_bindgen_rayon::init_thread_pool;
-
-#[derive(Serialize, Deserialize)]
-struct EntityData {
-    x: f32,
-    y: f32,
-    radius: f32,
-    r: f32,
-    g: f32,
-    b: f32,
-}
 
 #[wasm_bindgen]
 pub struct WebSimulation {
@@ -50,22 +39,6 @@ impl WebSimulation {
 
     pub fn update(&mut self) {
         self.simulation.update();
-    }
-
-    pub fn get_entities(&self) -> JsValue {
-        let entity_tuples = self.simulation.get_entities();
-        let entities: Vec<EntityData> = entity_tuples
-            .into_iter()
-            .map(|(x, y, radius, r, g, b)| EntityData {
-                x,
-                y,
-                radius,
-                r,
-                g,
-                b,
-            })
-            .collect();
-        serde_wasm_bindgen::to_value(&entities).unwrap_or(JsValue::NULL)
     }
 
     /// Update entity buffer and return pointer for WebGPU renderer
