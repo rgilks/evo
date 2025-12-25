@@ -2,8 +2,12 @@
 struct SimulationUniforms {
     world_size: f32,
     interpolation_factor: f32,
+    camera_zoom: f32,
+    camera_x: f32,
+    camera_y: f32,
     padding1: f32,
     padding2: f32,
+    padding3: f32,
 };
 
 @group(0) @binding(0)
@@ -49,11 +53,16 @@ fn vs_main(
     let world_size = uniforms.world_size;
     
     // GPU Coordinate Transformation
-    let screen_x = (world_pos.x + world_size / 2.0) / world_size * 2.0 - 1.0;
-    let screen_y = -((world_pos.y + world_size / 2.0) / world_size * 2.0 - 1.0);
+    // World to Screen transformation
+    let world_to_screen_x = (world_pos.x + world_size / 2.0) / world_size * 2.0 - 1.0;
+    let world_to_screen_y = -((world_pos.y + world_size / 2.0) / world_size * 2.0 - 1.0);
+    
+    // Apply camera transformation (pan and zoom)
+    let screen_x = (world_to_screen_x + uniforms.camera_x) * uniforms.camera_zoom;
+    let screen_y = (world_to_screen_y + uniforms.camera_y) * uniforms.camera_zoom;
     let screen_pos = vec2<f32>(screen_x, screen_y);
 
-    let screen_radius = (radius / world_size * 2.0 / 10.0); // Simplified scaling for vertex shader
+    let screen_radius = (radius / world_size * 2.0 / 10.0) * uniforms.camera_zoom; // Simplified scaling for vertex shader
 
     // Expand quad by radius with glow extension
     let glow_extension = screen_radius * 0.5;

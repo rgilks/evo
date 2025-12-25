@@ -3,7 +3,7 @@ import init, {
   WebSimulation,
   WebGpuRenderer,
   init_panic_hook,
-} from "../pkg/evo.js?v=a9cb4d0";
+} from "../pkg/evo.js?v=2b82e64";
 
 // Shared configuration object - matches the new Rust SimulationConfig structure
 const DEFAULT_CONFIG = {
@@ -48,6 +48,16 @@ class EvolutionApp {
     this.frameCount = 0;
     this.fps = 0;
     this.targetFPS = 60;
+
+    // Camera state
+    this.camera = {
+      zoom: 1.0,
+      x: 0.0,
+      y: 0.0,
+      isPanning: false,
+      lastMouseX: 0,
+      lastMouseY: 0,
+    };
 
     this.init();
   }
@@ -159,6 +169,43 @@ class EvolutionApp {
         this.reset();
       }
     });
+
+    // Mouse Controls (Zoom and Pan)
+    this.canvas.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      const zoomSpeed = 0.001;
+      const factor = Math.exp(-e.deltaY * zoomSpeed);
+      this.camera.zoom *= factor;
+      this.camera.zoom = Math.min(Math.max(this.camera.zoom, 0.1), 10.0);
+    });
+
+    this.canvas.addEventListener("mousedown", (e) => {
+      if (e.button === 0) {
+        // Left click to pan
+        this.camera.isPanning = true;
+        this.camera.lastMouseX = e.clientX;
+        this.camera.lastMouseY = e.clientY;
+      }
+    });
+
+    window.addEventListener("mousemove", (e) => {
+      if (this.camera.isPanning) {
+        const dx = (e.clientX - this.camera.lastMouseX) / (this.canvas.width / 2);
+        const dy = (e.clientY - this.camera.lastMouseY) / (this.canvas.height / 2);
+
+        this.camera.x += dx / this.camera.zoom;
+        this.camera.y -= dy / this.camera.zoom;
+
+        this.camera.lastMouseX = e.clientX;
+        this.camera.lastMouseY = e.clientY;
+      }
+    });
+
+    window.addEventListener("mouseup", (e) => {
+      if (e.button === 0) {
+        this.camera.isPanning = false;
+      }
+    });
   }
 
   toggleUI() {
@@ -226,7 +273,15 @@ class EvolutionApp {
       const currentTime = performance.now();
       const interpolationFactor = Math.min(1.0, (currentTime - this.lastUpdateTime) / targetInterval);
       
-      this.renderer.render(entityPtr, entityCount, worldSize, interpolationFactor);
+      this.renderer.render(
+        entityPtr,
+        entityCount,
+        worldSize,
+        interpolationFactor,
+        this.camera.zoom,
+        this.camera.x,
+        this.camera.y
+      );
     }
   }
 

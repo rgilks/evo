@@ -15,8 +15,12 @@ struct Instance {
 struct SimulationUniforms {
     world_size: f32,
     interpolation_factor: f32,
+    camera_zoom: f32,
+    camera_x: f32,
+    camera_y: f32,
     padding1: f32,
     padding2: f32,
+    padding3: f32,
 }
 
 #[wasm_bindgen]
@@ -105,8 +109,12 @@ impl WebGpuRenderer {
         let uniforms = SimulationUniforms {
             world_size: 1000.0, // Default, will be updated
             interpolation_factor: 0.0,
+            camera_zoom: 1.0,
+            camera_x: 0.0,
+            camera_y: 0.0,
             padding1: 0.0,
             padding2: 0.0,
+            padding3: 0.0,
         };
 
         let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -252,6 +260,9 @@ impl WebGpuRenderer {
         entity_count: u32,
         world_size: f32,
         interpolation_factor: f32,
+        camera_zoom: f32,
+        camera_x: f32,
+        camera_y: f32,
     ) {
         if entity_count == 0 {
             return;
@@ -261,8 +272,12 @@ impl WebGpuRenderer {
         let uniforms = SimulationUniforms {
             world_size,
             interpolation_factor,
+            camera_zoom,
+            camera_x,
+            camera_y,
             padding1: 0.0,
             padding2: 0.0,
+            padding3: 0.0,
         };
         self.queue
             .write_buffer(&self.uniform_buffer, 0, bytemuck::cast_slice(&[uniforms]));
