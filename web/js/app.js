@@ -90,6 +90,29 @@ class EvolutionApp {
     toggleUiBtn.addEventListener("click", () => this.toggleUI());
     showUiBtn.addEventListener("click", () => this.toggleUI());
 
+    // Parameter sliders
+    const velocitySlider = document.getElementById("max-velocity");
+    const pressureSlider = document.getElementById("center-pressure");
+    const deathSlider = document.getElementById("death-chance");
+
+    velocitySlider.addEventListener("input", (e) => {
+      const value = parseFloat(e.target.value);
+      document.getElementById("velocity-value").textContent = value.toFixed(1);
+      this.simulation.update_param("max_velocity", value);
+    });
+
+    pressureSlider.addEventListener("input", (e) => {
+      const value = parseFloat(e.target.value);
+      document.getElementById("pressure-value").textContent = value.toFixed(2);
+      this.simulation.update_param("center_pressure", value);
+    });
+
+    deathSlider.addEventListener("input", (e) => {
+      const value = parseFloat(e.target.value);
+      document.getElementById("death-value").textContent = value.toFixed(2);
+      this.simulation.update_param("death_chance", value);
+    });
+
     // Keyboard shortcuts
     document.addEventListener("keydown", (e) => {
       if (e.key === "h" || e.key === "H") {

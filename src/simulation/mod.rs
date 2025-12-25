@@ -502,6 +502,10 @@ impl Simulation {
     pub fn step(&self) -> u32 {
         self.step
     }
+
+    pub fn update_config(&mut self, config: SimulationConfig) {
+        self.config = config;
+    }
 }
 
 #[cfg(test)]

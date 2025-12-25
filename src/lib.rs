@@ -76,6 +76,16 @@ impl WebSimulation {
         self.simulation.world_size()
     }
 
+    pub fn update_param(&mut self, name: &str, value: f32) {
+        match name {
+            "max_velocity" => self.config.physics.max_velocity = value,
+            "center_pressure" => self.config.physics.center_pressure_strength = value,
+            "death_chance" => self.config.reproduction.death_chance_factor = value,
+            _ => {}
+        }
+        self.simulation.update_config(self.config.clone());
+    }
+
     pub fn get_step(&self) -> u32 {
         self.simulation.step()
     }
