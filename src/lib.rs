@@ -81,6 +81,9 @@ impl WebSimulation {
             "max_velocity" => self.config.physics.max_velocity = value,
             "center_pressure" => self.config.physics.center_pressure_strength = value,
             "death_chance" => self.config.reproduction.death_chance_factor = value,
+            "repro_threshold" => self.config.reproduction.reproduction_energy_threshold = value,
+            "energy_cost" => self.config.energy.size_energy_cost_factor = value,
+            "bounce_factor" => self.config.physics.velocity_bounce_factor = value,
             _ => {}
         }
         self.simulation.update_config(self.config.clone());

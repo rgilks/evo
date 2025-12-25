@@ -113,6 +113,29 @@ class EvolutionApp {
       this.simulation.update_param("death_chance", value);
     });
 
+    // New sliders
+    const reproSlider = document.getElementById("repro-threshold");
+    const energySlider = document.getElementById("energy-cost");
+    const bounceSlider = document.getElementById("bounce-factor");
+
+    reproSlider.addEventListener("input", (e) => {
+      const value = parseFloat(e.target.value);
+      document.getElementById("repro-value").textContent = value.toFixed(2);
+      this.simulation.update_param("repro_threshold", value);
+    });
+
+    energySlider.addEventListener("input", (e) => {
+      const value = parseFloat(e.target.value);
+      document.getElementById("energy-value").textContent = value.toFixed(2);
+      this.simulation.update_param("energy_cost", value);
+    });
+
+    bounceSlider.addEventListener("input", (e) => {
+      const value = parseFloat(e.target.value);
+      document.getElementById("bounce-value").textContent = value.toFixed(2);
+      this.simulation.update_param("bounce_factor", value);
+    });
+
     // Keyboard shortcuts
     document.addEventListener("keydown", (e) => {
       if (e.key === "h" || e.key === "H") {
