@@ -39,7 +39,8 @@ if [ -n "$WORKER_FILE" ]; then
     echo "📁 Found worker file: $WORKER_FILE"
     
     # Fix the import path from '../../..' to '../../../evo.js'
-    sed -i '' 's/await import('\''\.\.\/\.\.\/\.\.'\'');/await import('\''\.\.\/\.\.\/\.\.\/evo\.js'\'');/g' "$WORKER_FILE"
+    sed -i.bak 's/await import('\''\.\.\/\.\.\/\.\.'\'');/await import('\''\.\.\/\.\.\/\.\.\/evo\.js'\'');/g' "$WORKER_FILE"
+    rm "${WORKER_FILE}.bak"
     
     if [ $? -eq 0 ]; then
         echo "✅ Worker import path fixed successfully"
@@ -62,7 +63,8 @@ if [ -n "$WEB_WORKER_FILE" ]; then
     echo "📁 Found web worker file: $WEB_WORKER_FILE"
     
     # Fix the import path from '../../..' to '../../../evo.js'
-    sed -i '' 's/await import('\''\.\.\/\.\.\/\.\.'\'');/await import('\''\.\.\/\.\.\/\.\.\/evo\.js'\'');/g' "$WEB_WORKER_FILE"
+    sed -i.bak 's/await import('\''\.\.\/\.\.\/\.\.'\'');/await import('\''\.\.\/\.\.\/\.\.\/evo\.js'\'');/g' "$WEB_WORKER_FILE"
+    rm "${WEB_WORKER_FILE}.bak"
     
     if [ $? -eq 0 ]; then
         echo "✅ Web worker import path fixed successfully"
@@ -76,11 +78,13 @@ fi
 
 # Update cache busting version in app.js
 echo "🔄 Updating cache busting version in app.js..."
-sed -i '' "s/from \"\.\.\/pkg\/evo\.js?v=[0-9]*\"/from \"..\/pkg\/evo.js?v=$CACHE_VERSION\"/g" web/js/app.js
+sed -i.bak "s/from \"\.\.\/pkg\/evo\.js?v=[0-9]*\"/from \"..\/pkg\/evo.js?v=$CACHE_VERSION\"/g" web/js/app.js
+rm web/js/app.js.bak
 
 # Update cache busting version in index.html
 echo "🔄 Updating cache busting version in index.html..."
-sed -i '' "s/src=\"js\/app\.js?v=[0-9]*\"/src=\"js\/app.js?v=$CACHE_VERSION\"/g" web/index.html
+sed -i.bak "s/src=\"js\/app\.js?v=[0-9]*\"/src=\"js\/app.js?v=$CACHE_VERSION\"/g" web/index.html
+rm web/index.html.bak
 
 # Verify the build
 echo "🔍 Verifying build..."

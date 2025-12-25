@@ -41,6 +41,7 @@ impl WebRenderer {
         Ok(WebRenderer { ctx, width, height })
     }
 
+    #[allow(deprecated)]
     pub fn render(&self, entities: &JsValue) -> Result<(), JsValue> {
         // Parse entities from JS
         let entities: Vec<EntityData> = serde_wasm_bindgen::from_value(entities.clone())?;
