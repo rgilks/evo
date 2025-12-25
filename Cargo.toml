@@ -18,6 +18,7 @@ hecs = "0.9"
 rayon = "1.8"
 rand = { version = "0.8", features = ["getrandom"] }
 getrandom = { version = "0.2", features = ["js"] }
+indexmap = "=2.2.6" # Pin version to avoid E0658 with our toolchain
 
 # Graphics and UI
 wgpu = "0.19"
