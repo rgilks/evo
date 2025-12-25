@@ -2,12 +2,21 @@ use bytemuck::{Pod, Zeroable};
 use wasm_bindgen::prelude::*;
 use wgpu::util::DeviceExt;
 
-/// Instance data for each entity (16 bytes each, perfectly aligned)
+/// Instance data for each entity (32 bytes each)
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable)]
 struct Instance {
-    pos_radius: [f32; 4], // xy = screen position, z = screen radius, w = unused
-    color: [f32; 4],      // rgb = color, a = unused
+    prev_curr_pos: [f32; 4], // xy = prev_pos, zw = curr_pos
+    radius_color: [f32; 4],  // x = radius, yzw = color (rgb)
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug, Pod, Zeroable)]
+struct SimulationUniforms {
+    world_size: f32,
+    interpolation_factor: f32,
+    padding1: f32,
+    padding2: f32,
 }
 
 #[wasm_bindgen]
@@ -18,6 +27,8 @@ pub struct WebGpuRenderer {
     config: wgpu::SurfaceConfiguration,
     render_pipeline: wgpu::RenderPipeline,
     instance_buffer: wgpu::Buffer,
+    uniform_buffer: wgpu::Buffer,
+    bind_group: wgpu::BindGroup,
     num_instances: u32,
     width: u32,
     height: u32,
@@ -90,6 +101,43 @@ impl WebGpuRenderer {
         };
         surface.configure(&device, &config);
 
+        // Create uniforms
+        let uniforms = SimulationUniforms {
+            world_size: 1000.0, // Default, will be updated
+            interpolation_factor: 0.0,
+            padding1: 0.0,
+            padding2: 0.0,
+        };
+
+        let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Simulation Uniform Buffer"),
+            contents: bytemuck::cast_slice(&[uniforms]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
+        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("Simulation Bind Group Layout"),
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::VERTEX,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            }],
+        });
+
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Simulation Bind Group"),
+            layout: &bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: uniform_buffer.as_entire_binding(),
+            }],
+        });
+
         // Create shader
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Shader"),
@@ -100,7 +148,7 @@ impl WebGpuRenderer {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[],
+                bind_group_layouts: &[&bind_group_layout],
                 push_constant_ranges: &[],
             });
 
@@ -113,17 +161,17 @@ impl WebGpuRenderer {
                 entry_point: Some("vs_main"),
                 buffers: &[wgpu::VertexBufferLayout {
                     array_stride: std::mem::size_of::<Instance>() as wgpu::BufferAddress,
-                    step_mode: wgpu::VertexStepMode::Instance, // Key: instance stepping
+                    step_mode: wgpu::VertexStepMode::Instance,
                     attributes: &[
                         wgpu::VertexAttribute {
                             offset: 0,
                             shader_location: 0,
-                            format: wgpu::VertexFormat::Float32x4, // pos_radius
+                            format: wgpu::VertexFormat::Float32x4, // prev_curr_pos
                         },
                         wgpu::VertexAttribute {
                             offset: 16,
                             shader_location: 1,
-                            format: wgpu::VertexFormat::Float32x4, // color
+                            format: wgpu::VertexFormat::Float32x4, // radius_color
                         },
                     ],
                 }],
@@ -158,13 +206,13 @@ impl WebGpuRenderer {
             cache: None,
         });
 
-        // Create instance buffer (pre-allocate for 10000 entities)
+        // Create instance buffer (pre-allocate for 20000 entities)
         let initial_instances = vec![
             Instance {
-                pos_radius: [0.0, 0.0, 0.0, 0.0],
-                color: [0.0, 0.0, 0.0, 0.0],
+                prev_curr_pos: [0.0, 0.0, 0.0, 0.0],
+                radius_color: [0.0, 0.0, 0.0, 0.0],
             };
-            10000
+            20000
         ];
 
         let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -180,6 +228,8 @@ impl WebGpuRenderer {
             config,
             render_pipeline,
             instance_buffer,
+            uniform_buffer,
+            bind_group,
             num_instances: 0,
             width,
             height,
@@ -196,34 +246,41 @@ impl WebGpuRenderer {
         }
     }
 
-    pub fn render(&mut self, entities_ptr: *const f32, entity_count: u32) {
+    pub fn render(
+        &mut self,
+        entities_ptr: *const f32,
+        entity_count: u32,
+        world_size: f32,
+        interpolation_factor: f32,
+    ) {
         if entity_count == 0 {
             return;
         }
 
-        // Read entity data (6 floats per entity: x, y, radius, r, g, b)
+        // Update uniforms
+        let uniforms = SimulationUniforms {
+            world_size,
+            interpolation_factor,
+            padding1: 0.0,
+            padding2: 0.0,
+        };
+        self.queue
+            .write_buffer(&self.uniform_buffer, 0, bytemuck::cast_slice(&[uniforms]));
+
+        // Read entity data (8 floats per entity: prev_x, prev_y, cur_x, cur_y, radius, r, g, b)
         let entity_data =
-            unsafe { std::slice::from_raw_parts(entities_ptr, (entity_count * 6) as usize) };
+            unsafe { std::slice::from_raw_parts(entities_ptr, (entity_count * 8) as usize) };
 
-        // Convert to instances (1 instance per entity instead of 6 vertices!)
+        // Convert to instances (Parallel conversion would be nice but requires a buffer)
         let mut instances = Vec::with_capacity(entity_count as usize);
-        let world_size = self.width.max(self.height) as f32;
 
-        for chunk in entity_data.chunks(6) {
-            if chunk.len() < 6 {
+        for chunk in entity_data.chunks(8) {
+            if chunk.len() < 8 {
                 break;
             }
-            let (x, y, radius, r, g, b) =
-                (chunk[0], chunk[1], chunk[2], chunk[3], chunk[4], chunk[5]);
-
-            // Convert world coords to screen coords
-            let screen_x = (x + world_size / 2.0) / world_size * 2.0 - 1.0;
-            let screen_y = -((y + world_size / 2.0) / world_size * 2.0 - 1.0);
-            let screen_radius = (radius / world_size * 2.0 / 10.0).min(0.015);
-
             instances.push(Instance {
-                pos_radius: [screen_x, screen_y, screen_radius, 0.0],
-                color: [r, g, b, 1.0],
+                prev_curr_pos: [chunk[0], chunk[1], chunk[2], chunk[3]],
+                radius_color: [chunk[4], chunk[5], chunk[6], chunk[7]],
             });
         }
 
@@ -273,8 +330,8 @@ impl WebGpuRenderer {
             });
 
             render_pass.set_pipeline(&self.render_pipeline);
+            render_pass.set_bind_group(0, &self.bind_group, &[]);
             render_pass.set_vertex_buffer(0, self.instance_buffer.slice(..));
-            // Draw 6 vertices per instance (quad = 2 triangles)
             render_pass.draw(0..6, 0..self.num_instances);
         }
 

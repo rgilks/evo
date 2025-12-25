@@ -46,9 +46,11 @@ impl WebSimulation {
         let entity_tuples = self.simulation.get_entities();
         self.entity_buffer.clear();
 
-        for (x, y, radius, r, g, b) in entity_tuples {
-            self.entity_buffer.push(x);
-            self.entity_buffer.push(y);
+        for (px, py, cx, cy, radius, r, g, b) in entity_tuples {
+            self.entity_buffer.push(px);
+            self.entity_buffer.push(py);
+            self.entity_buffer.push(cx);
+            self.entity_buffer.push(cy);
             self.entity_buffer.push(radius);
             self.entity_buffer.push(r);
             self.entity_buffer.push(g);

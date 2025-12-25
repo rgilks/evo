@@ -278,13 +278,13 @@ fn test_simulation_clustering() {
             let mut max_x = f32::NEG_INFINITY;
             let mut max_y = f32::NEG_INFINITY;
 
-            for (x, y, _, _, _, _) in &entities {
-                total_x += x;
-                total_y += y;
-                min_x = min_x.min(*x);
-                min_y = min_y.min(*y);
-                max_x = max_x.max(*x);
-                max_y = max_y.max(*y);
+            for (_px, _py, cx, cy, _, _, _, _) in &entities {
+                total_x += cx;
+                total_y += cy;
+                min_x = min_x.min(*cx);
+                min_y = min_y.min(*cy);
+                max_x = max_x.max(*cx);
+                max_y = max_y.max(*cy);
             }
 
             let center_x = total_x / entities.len() as f32;
@@ -332,9 +332,9 @@ fn test_drift_direction_analysis() {
             let mut total_x = 0.0;
             let mut total_y = 0.0;
 
-            for (x, y, _, _, _, _) in &entities {
-                total_x += x;
-                total_y += y;
+            for (_px, _py, cx, cy, _, _, _, _) in &entities {
+                total_x += cx;
+                total_y += cy;
             }
 
             let center_x = total_x / entities.len() as f32;
@@ -387,11 +387,11 @@ fn test_entity_data_format() {
     let sim = Simulation::new(100.0);
     let entities = sim.get_entities();
 
-    // Each entity should have 6 components: x, y, radius, r, g, b
-    for (x, y, radius, r, g, b) in &entities {
+    // Each entity should have 8 components: prev_x, prev_y, cur_x, cur_y, radius, r, g, b
+    for (_px, _py, cx, cy, radius, r, g, b) in &entities {
         // Position should be within world bounds
-        assert!(*x >= -50.0 && *x <= 50.0, "x={} out of bounds", x);
-        assert!(*y >= -50.0 && *y <= 50.0, "y={} out of bounds", y);
+        assert!(*cx >= -50.0 && *cx <= 50.0, "cx={} out of bounds", cx);
+        assert!(*cy >= -50.0 && *cy <= 50.0, "cy={} out of bounds", cy);
 
         // Radius should be positive
         assert!(*radius > 0.0, "radius should be positive");
@@ -411,32 +411,36 @@ fn test_entity_buffer_conversion() {
     let entities = sim.get_entities();
 
     // Convert to flat buffer (same as update_entity_buffer)
-    let mut buffer: Vec<f32> = Vec::with_capacity(entities.len() * 6);
-    for (x, y, radius, r, g, b) in entities.iter() {
-        buffer.push(*x);
-        buffer.push(*y);
+    let mut buffer: Vec<f32> = Vec::with_capacity(entities.len() * 8);
+    for (px, py, cx, cy, radius, r, g, b) in entities.iter() {
+        buffer.push(*px);
+        buffer.push(*py);
+        buffer.push(*cx);
+        buffer.push(*cy);
         buffer.push(*radius);
         buffer.push(*r);
         buffer.push(*g);
         buffer.push(*b);
     }
 
-    // Buffer length should be 6 * entity count
-    assert_eq!(buffer.len(), entities.len() * 6);
+    // Buffer length should be 8 * entity count
+    assert_eq!(buffer.len(), entities.len() * 8);
 
     // Entity count calculation should match
-    let entity_count = buffer.len() / 6;
+    let entity_count = buffer.len() / 8;
     assert_eq!(entity_count, entities.len());
 
     // Verify data integrity by reading back
-    for (i, (x, y, radius, r, g, b)) in entities.iter().enumerate() {
-        let base = i * 6;
-        assert_eq!(buffer[base], *x);
-        assert_eq!(buffer[base + 1], *y);
-        assert_eq!(buffer[base + 2], *radius);
-        assert_eq!(buffer[base + 3], *r);
-        assert_eq!(buffer[base + 4], *g);
-        assert_eq!(buffer[base + 5], *b);
+    for (i, (px, py, cx, cy, radius, r, g, b)) in entities.iter().enumerate() {
+        let base = i * 8;
+        assert_eq!(buffer[base], *px);
+        assert_eq!(buffer[base + 1], *py);
+        assert_eq!(buffer[base + 2], *cx);
+        assert_eq!(buffer[base + 3], *cy);
+        assert_eq!(buffer[base + 4], *radius);
+        assert_eq!(buffer[base + 5], *r);
+        assert_eq!(buffer[base + 6], *g);
+        assert_eq!(buffer[base + 7], *b);
     }
 }
 

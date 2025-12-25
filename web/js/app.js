@@ -212,7 +212,14 @@ class EvolutionApp {
     if (this.simulation && this.renderer) {
       const entityPtr = this.simulation.update_entity_buffer();
       const entityCount = this.simulation.entity_count();
-      this.renderer.render(entityPtr, entityCount);
+      const worldSize = this.simulation.get_world_size();
+      
+      // Calculate interpolation factor
+      const targetInterval = 1000 / this.targetFPS;
+      const currentTime = performance.now();
+      const interpolationFactor = Math.min(1.0, (currentTime - this.lastUpdateTime) / targetInterval);
+      
+      this.renderer.render(entityPtr, entityCount, worldSize, interpolationFactor);
     }
   }
 

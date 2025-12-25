@@ -1,7 +1,18 @@
-// Instance data: position (xy), radius, color (rgb)
+// Uniforms for the simulation
+struct SimulationUniforms {
+    world_size: f32,
+    interpolation_factor: f32,
+    padding1: f32,
+    padding2: f32,
+};
+
+@group(0) @binding(0)
+var<uniform> uniforms: SimulationUniforms;
+
+// Instance data: prev_pos (xy), curr_pos (xy), radius, color (rgb)
 struct InstanceInput {
-    @location(0) pos_radius: vec4<f32>,  // xy = position, z = radius, w = unused
-    @location(1) color: vec4<f32>,       // rgb = color, a = unused
+    @location(0) prev_curr_pos: vec4<f32>, // xy = prev_pos, zw = curr_pos
+    @location(1) radius_color: vec4<f32>, // x = radius, yzw = color (rgb)
 }
 
 struct VertexOutput {
@@ -28,15 +39,28 @@ fn vs_main(
     var out: VertexOutput;
 
     let quad_pos = QUAD_VERTICES[vertex_index];
-    let screen_pos = instance.pos_radius.xy;
-    let radius = instance.pos_radius.z;
     
+    // GPU Interpolation
+    let prev_pos = instance.prev_curr_pos.xy;
+    let curr_pos = instance.prev_curr_pos.zw;
+    let world_pos = mix(prev_pos, curr_pos, uniforms.interpolation_factor);
+
+    let radius = instance.radius_color.x;
+    let world_size = uniforms.world_size;
+    
+    // GPU Coordinate Transformation
+    let screen_x = (world_pos.x + world_size / 2.0) / world_size * 2.0 - 1.0;
+    let screen_y = -((world_pos.y + world_size / 2.0) / world_size * 2.0 - 1.0);
+    let screen_pos = vec2<f32>(screen_x, screen_y);
+
+    let screen_radius = (radius / world_size * 2.0 / 10.0); // Simplified scaling for vertex shader
+
     // Expand quad by radius with glow extension
-    let glow_extension = radius * 0.5;
-    let quad_size = radius + glow_extension;
+    let glow_extension = screen_radius * 0.5;
+    let quad_size = screen_radius + glow_extension;
 
     out.position = vec4<f32>(screen_pos + quad_pos * quad_size, 0.0, 1.0);
-    out.color = instance.color.rgb;
+    out.color = instance.radius_color.yzw;
     out.uv = quad_pos;  // -1 to 1 range
 
     return out;

@@ -59,9 +59,9 @@ fn test_interaction_system_drift() {
             let mut total_x = 0.0;
             let mut total_y = 0.0;
 
-            for (x, y, _, _, _, _) in &entities {
-                total_x += x;
-                total_y += y;
+            for (_px, _py, cx, cy, _, _, _, _) in &entities {
+                total_x += cx;
+                total_y += cy;
             }
 
             let center_x = total_x / entities.len() as f32;
@@ -125,9 +125,9 @@ fn test_interaction_processing_order() {
             let mut total_x = 0.0;
             let mut total_y = 0.0;
 
-            for (x, y, _, _, _, _) in &entities {
-                total_x += x;
-                total_y += y;
+            for (_px, _py, cx, cy, _, _, _, _) in &entities {
+                total_x += cx;
+                total_y += cy;
             }
 
             let center_x = total_x / entities.len() as f32;
@@ -142,8 +142,8 @@ fn test_interaction_processing_order() {
             );
 
             // Store positions for analysis
-            for (x, y, _, _, _, _) in &entities {
-                eaten_positions.push((*x, *y));
+            for (_px, _py, cx, cy, _, _, _, _) in &entities {
+                eaten_positions.push((*cx, *cy));
             }
         }
     }
@@ -216,8 +216,8 @@ fn test_interaction_order_bias() {
 
     // Get initial positions
     let initial_entities = simulation.get_entities();
-    for (x, y, _, _, _, _) in &initial_entities {
-        initial_positions.push((*x, *y));
+    for (_px, _py, cx, cy, _, _, _, _) in &initial_entities {
+        initial_positions.push((*cx, *cy));
     }
 
     // Run simulation for a few steps
@@ -227,8 +227,8 @@ fn test_interaction_order_bias() {
         if step == 19 {
             // After 20 steps
             let final_entities = simulation.get_entities();
-            for (x, y, _, _, _, _) in &final_entities {
-                survivor_positions.push((*x, *y));
+            for (_px, _py, cx, cy, _, _, _, _) in &final_entities {
+                survivor_positions.push((*cx, *cy));
             }
         }
     }
@@ -255,8 +255,8 @@ fn test_interaction_order_bias() {
         let survivor_center_x = survivor_total_x / survivor_positions.len() as f32;
         let survivor_center_y = survivor_total_y / survivor_positions.len() as f32;
 
-        let drift_x = survivor_center_x - initial_center_x;
-        let drift_y = survivor_center_y - initial_center_y;
+        let drift_x: f32 = survivor_center_x - initial_center_x;
+        let drift_y: f32 = survivor_center_y - initial_center_y;
 
         println!(
             "Initial center: ({:.1}, {:.1})",

@@ -193,9 +193,9 @@ mod tests {
                 let mut total_x = 0.0;
                 let mut total_y = 0.0;
 
-                for (x, y, _, _, _, _) in &entities {
-                    total_x += x;
-                    total_y += y;
+                for (_px, _py, cx, cy, _, _, _, _) in &entities {
+                    total_x += cx;
+                    total_y += cy;
                 }
 
                 let center_x = total_x / entities.len() as f32;

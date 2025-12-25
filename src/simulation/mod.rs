@@ -446,12 +446,24 @@ impl Simulation {
         }
     }
 
-    pub fn get_entities(&self) -> Vec<(f32, f32, f32, f32, f32, f32)> {
+    pub fn get_entities(&self) -> Vec<(f32, f32, f32, f32, f32, f32, f32, f32)> {
         self.world
             .query::<(&Position, &Size, &Color)>()
             .iter()
             .par_bridge()
-            .map(|(_, (pos, size, color))| (pos.x, pos.y, size.radius, color.r, color.g, color.b))
+            .map(|(entity, (pos, size, color))| {
+                let prev_pos = self.previous_positions.get(&entity).unwrap_or(pos);
+                (
+                    prev_pos.x,
+                    prev_pos.y,
+                    pos.x,
+                    pos.y,
+                    size.radius,
+                    color.r,
+                    color.g,
+                    color.b,
+                )
+            })
             .collect()
     }
 
