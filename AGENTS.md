@@ -24,5 +24,5 @@ Simplicity first - code should be concise and elegant
 Keep README file up to date
 Keep .gitignore file up to date
 Be rigorous in fixing warnings and errors
-Code files should preferably be less than 200 lines long.
+Code files should preferably be less than 200 lines long. If the file contains many tests, then it is OK to have more lines.
 Functions should preferably be less than 20 lines long.

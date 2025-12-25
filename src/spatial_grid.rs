@@ -65,6 +65,10 @@ impl SpatialGrid {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::components::{Color, Energy, Position, Size, Velocity};
+    use crate::genes::Genes;
+    use hecs::World;
+    use rand::thread_rng;
 
     #[test]
     fn test_spatial_grid_creation() {
@@ -218,5 +222,153 @@ mod tests {
         // Search from different cell with zero radius
         let nearby = grid.get_nearby_entities(100.0, 100.0, 0.0);
         assert!(!nearby.contains(&entity));
+    }
+
+    #[test]
+    fn test_spatial_grid_bias() {
+        let mut grid = SpatialGrid::new(25.0);
+
+        // Create entities in a grid pattern
+        let grid_size = 10;
+        let world_size = 100.0;
+        let spacing = world_size / grid_size as f32;
+
+        let mut entities = Vec::new();
+
+        let mut world = World::new();
+        for i in 0..grid_size {
+            for j in 0..grid_size {
+                let x = (i as f32 - (grid_size as f32 - 1.0) / 2.0) * spacing;
+                let y = (j as f32 - (grid_size as f32 - 1.0) / 2.0) * spacing;
+
+                let entity = world.spawn((
+                    Position { x, y },
+                    Velocity { x: 0.0, y: 0.0 },
+                    Energy {
+                        current: 100.0,
+                        max: 100.0,
+                    },
+                    Size { radius: 5.0 },
+                    Genes::new_random(&mut thread_rng()),
+                    Color {
+                        r: 1.0,
+                        g: 0.0,
+                        b: 0.0,
+                    },
+                ));
+                entities.push((entity, x, y));
+                grid.insert(entity, x, y);
+            }
+        }
+
+        // Test neighbor detection from different positions
+        let test_positions = vec![
+            (0.0, 0.0),     // Center
+            (-25.0, -25.0), // Bottom-left
+            (25.0, 25.0),   // Top-right
+            (-25.0, 25.0),  // Top-left
+            (25.0, -25.0),  // Bottom-right
+        ];
+
+        for (test_x, test_y) in test_positions {
+            let nearby = grid.get_nearby_entities(test_x, test_y, 30.0);
+
+            // Calculate center of nearby entities
+            let mut total_x = 0.0;
+            let mut total_y = 0.0;
+            let mut count = 0;
+
+            for &entity in &nearby {
+                if let Some((_, x, y)) = entities.iter().find(|(e, _, _)| *e == entity) {
+                    total_x += x;
+                    total_y += y;
+                    count += 1;
+                }
+            }
+
+            if count > 0 {
+                let center_x = total_x / count as f32;
+                let center_y = total_y / count as f32;
+
+                println!(
+                    "Test pos ({:.1}, {:.1}): {} nearby, center ({:.1}, {:.1})",
+                    test_x, test_y, count, center_x, center_y
+                );
+
+                // Check for bias relative to test position
+                let bias_x = center_x - test_x;
+                let bias_y = center_y - test_y;
+
+                if bias_x.abs() > 5.0 || bias_y.abs() > 5.0 {
+                    println!("SPATIAL GRID BIAS DETECTED: ({:.1}, {:.1})", bias_x, bias_y);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_spatial_grid_order_bias() {
+        let mut grid = SpatialGrid::new(25.0);
+
+        let mut world = World::new();
+        // Create entities in a specific pattern to test order bias
+        let mut entities = Vec::new();
+
+        let positions = [
+            (-25.0, -25.0), // Bottom-left
+            (25.0, -25.0),  // Bottom-right
+            (-25.0, 25.0),  // Top-left
+            (25.0, 25.0),
+        ];
+
+        // Insert entities in a specific order
+        for (x, y) in positions.iter() {
+            let entity = world.spawn((
+                Position { x: *x, y: *y },
+                Velocity { x: 0.0, y: 0.0 },
+                Energy {
+                    current: 100.0,
+                    max: 100.0,
+                },
+                Size { radius: 5.0 },
+                Genes::new_random(&mut thread_rng()),
+                Color {
+                    r: 1.0,
+                    g: 0.0,
+                    b: 0.0,
+                },
+            ));
+            entities.push((entity, *x, *y));
+            grid.insert(entity, *x, *y);
+        }
+
+        // Test neighbor detection from center
+        let nearby = grid.get_nearby_entities(0.0, 0.0, 30.0);
+
+        println!("Nearby entities from center (0,0):");
+        for (i, &entity) in nearby.iter().enumerate() {
+            if let Some((_, x, y)) = entities.iter().find(|(e, _, _)| *e == entity) {
+                println!("  {}: ({:.1}, {:.1})", i, x, y);
+            }
+        }
+
+        // Check if there's a consistent order bias
+        if nearby.len() >= 4 {
+            let first_entity = nearby[0];
+            if let Some((_, x, y)) = entities.iter().find(|(e, _, _)| *e == first_entity) {
+                println!("First entity found: ({:.1}, {:.1})", x, y);
+
+                // Check if it's consistently from a particular quadrant
+                if *x < 0.0 && *y < 0.0 {
+                    println!("BIAS DETECTED: First entity is from bottom-left quadrant!");
+                } else if *x > 0.0 && *y < 0.0 {
+                    println!("BIAS DETECTED: First entity is from bottom-right quadrant!");
+                } else if *x < 0.0 && *y > 0.0 {
+                    println!("BIAS DETECTED: First entity is from top-left quadrant!");
+                } else {
+                    println!("BIAS DETECTED: First entity is from top-right quadrant!");
+                }
+            }
+        }
     }
 }
