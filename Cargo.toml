@@ -35,9 +35,13 @@ tempfile = "3.8"
 # WebAssembly support
 wasm-bindgen = "0.2"
 wasm-bindgen-rayon = "1.2"
+wasm-bindgen-futures = "0.4"
 web-sys = { version = "0.3", features = [
     "HtmlCanvasElement",
     "CanvasRenderingContext2d",
+    "Window",
+    "Document",
+    "Element",
 ] }
 serde-wasm-bindgen = "0.6"
 console_error_panic_hook = "0.1"

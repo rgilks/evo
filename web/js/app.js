@@ -2,6 +2,7 @@ import init, {
   initThreadPool,
   WebSimulation,
   WebRenderer,
+  WebGpuRenderer,
   init_panic_hook,
 } from "../pkg/evo.js?v=94f2347";
 
@@ -42,11 +43,12 @@ class EvolutionApp {
   constructor() {
     this.simulation = null;
     this.renderer = null;
+    this.useWebGPU = false;
     this.animationId = null;
     this.lastTime = 0;
     this.frameCount = 0;
     this.fps = 0;
-    this.targetFPS = 30;
+    this.targetFPS = 60; // Higher target FPS with WebGPU
 
     this.init();
   }
@@ -71,7 +73,22 @@ class EvolutionApp {
         Math.max(canvas.width, canvas.height),
         configJson
       );
-      this.renderer = new WebRenderer("simulation-canvas");
+
+      // Try WebGPU first, fall back to Canvas 2D
+      try {
+        if (navigator.gpu) {
+          console.log("WebGPU available, initializing WebGPU renderer...");
+          this.renderer = await WebGpuRenderer.new("simulation-canvas");
+          this.useWebGPU = true;
+          console.log("WebGPU renderer initialized successfully!");
+        } else {
+          throw new Error("WebGPU not available");
+        }
+      } catch (gpuError) {
+        console.warn("WebGPU not available, falling back to Canvas 2D:", gpuError);
+        this.renderer = new WebRenderer("simulation-canvas");
+        this.useWebGPU = false;
+      }
 
       this.setupEventListeners();
       this.startRenderLoop();
@@ -202,8 +219,16 @@ class EvolutionApp {
 
   render() {
     if (this.simulation && this.renderer) {
-      const entities = this.simulation.get_entities();
-      this.renderer.render(entities);
+      if (this.useWebGPU) {
+        // WebGPU path: get buffer pointer and render directly
+        const entityPtr = this.simulation.update_entity_buffer();
+        const entityCount = this.simulation.entity_count();
+        this.renderer.render(entityPtr, entityCount);
+      } else {
+        // Canvas 2D fallback: use JSON serialization
+        const entities = this.simulation.get_entities();
+        this.renderer.render(entities);
+      }
     }
   }
 

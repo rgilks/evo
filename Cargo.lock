@@ -580,6 +580,7 @@ dependencies = [
  "serde_json",
  "tempfile",
  "wasm-bindgen",
+ "wasm-bindgen-futures",
  "wasm-bindgen-rayon",
  "web-sys",
  "wgpu",

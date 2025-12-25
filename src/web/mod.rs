@@ -1,3 +1,6 @@
+mod webgpu;
+pub use webgpu::WebGpuRenderer;
+
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement};
@@ -12,6 +15,7 @@ struct EntityData {
     b: f32,
 }
 
+/// Legacy Canvas 2D renderer (fallback for browsers without WebGPU)
 #[wasm_bindgen]
 pub struct WebRenderer {
     ctx: CanvasRenderingContext2d,
@@ -43,24 +47,20 @@ impl WebRenderer {
 
     #[allow(deprecated)]
     pub fn render(&self, entities: &JsValue) -> Result<(), JsValue> {
-        // Parse entities from JS
         let entities: Vec<EntityData> = serde_wasm_bindgen::from_value(entities.clone())?;
 
-        // Clear canvas
         self.ctx
             .clear_rect(0.0, 0.0, self.width as f64, self.height as f64);
 
-        // Calculate center offset to center the simulation world
         let center_x = self.width as f64 / 2.0;
         let center_y = self.height as f64 / 2.0;
 
-        // Render each entity
         for entity in entities {
             self.ctx.begin_path();
             self.ctx.arc(
                 center_x + entity.x as f64,
                 center_y + entity.y as f64,
-                (entity.radius * 0.1) as f64, // Make entities 10x smaller
+                (entity.radius * 0.1) as f64,
                 0.0,
                 2.0 * std::f64::consts::PI,
             )?;

@@ -29,6 +29,7 @@ struct EntityData {
 pub struct WebSimulation {
     simulation: simulation::Simulation,
     config: config::SimulationConfig,
+    entity_buffer: Vec<f32>, // Reusable buffer for entity data
 }
 
 #[wasm_bindgen]
@@ -40,7 +41,11 @@ impl WebSimulation {
 
         let simulation = simulation::Simulation::new_with_config(world_size, config.clone());
 
-        Ok(WebSimulation { simulation, config })
+        Ok(WebSimulation {
+            simulation,
+            config,
+            entity_buffer: Vec::with_capacity(60000), // 10000 entities * 6 floats
+        })
     }
 
     pub fn update(&mut self) {
@@ -61,6 +66,27 @@ impl WebSimulation {
             })
             .collect();
         serde_wasm_bindgen::to_value(&entities).unwrap_or(JsValue::NULL)
+    }
+
+    /// Update entity buffer and return pointer for WebGPU renderer
+    pub fn update_entity_buffer(&mut self) -> *const f32 {
+        let entity_tuples = self.simulation.get_entities();
+        self.entity_buffer.clear();
+
+        for (x, y, radius, r, g, b) in entity_tuples {
+            self.entity_buffer.push(x);
+            self.entity_buffer.push(y);
+            self.entity_buffer.push(radius);
+            self.entity_buffer.push(r);
+            self.entity_buffer.push(g);
+            self.entity_buffer.push(b);
+        }
+
+        self.entity_buffer.as_ptr()
+    }
+
+    pub fn entity_count(&self) -> u32 {
+        (self.entity_buffer.len() / 6) as u32
     }
 
     pub fn get_stats(&self) -> JsValue {
