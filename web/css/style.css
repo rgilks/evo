@@ -75,10 +75,7 @@ button:active {
     transform: translateY(0);
 }
 
-input[type="range"] {
-    width: 60px;
-    height: 4px;
-}
+
 
 main {
     position: relative;
