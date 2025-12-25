@@ -95,7 +95,7 @@ else
     exit 1
 fi
 
-echo "🎉 Build complete! Run 'node server.js' to start the server."
+echo "🎉 Build complete! Run 'npm run dev' to start the server."
 echo "📁 Built files:"
 ls -la pkg/
 echo "🔢 Cache version: $CACHE_VERSION" 
