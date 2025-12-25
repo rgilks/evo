@@ -58,16 +58,9 @@ impl WebGpuRenderer {
             .await
             .ok_or("Failed to find adapter")?;
 
-        // Request device
+        // Request device - use default to avoid browser-incompatible limits
         let (device, queue) = adapter
-            .request_device(
-                &wgpu::DeviceDescriptor {
-                    required_features: wgpu::Features::empty(),
-                    required_limits: wgpu::Limits::downlevel_webgl2_defaults(),
-                    label: None,
-                },
-                None,
-            )
+            .request_device(&wgpu::DeviceDescriptor::default(), None)
             .await
             .map_err(|e| JsValue::from_str(&format!("Failed to get device: {:?}", e)))?;
 
