@@ -167,13 +167,13 @@ The worker import fix is necessary because `wasm-bindgen-rayon` generates worker
 evo/
 ├── src/                    # Rust source code
 │   ├── components.rs       # ECS components
-│   ├── genes.rs           # Genetic system
-│   ├── systems.rs         # Simulation systems
+│   ├── genes/             # Genetic system module
+│   ├── systems/           # Simulation systems modules
 │   ├── spatial_grid.rs    # Spatial optimization
-│   ├── stats.rs           # Analytics and statistics
-│   ├── simulation.rs      # Main simulation orchestration
-│   ├── config.rs          # Configuration management
-│   ├── ui.rs              # GPU-accelerated rendering (desktop)
+│   ├── stats/             # Analytics and statistics module
+│   ├── simulation/        # Main simulation orchestration module
+│   ├── config/            # Configuration management module
+│   ├── ui/                # GPU-accelerated rendering (desktop)
 │   ├── web/               # Web-specific modules
 │   └── main.rs            # Application entry point
 ├── web/                    # Web application
@@ -320,11 +320,11 @@ cargo run -- --config my_config.json
 ### Key Modules
 
 - **`components.rs`**: ECS components
-- **`genes.rs`**: Genetic system with grouped traits
-- **`systems.rs`**: Simulation systems
+- **`genes/`**: Genetic system with grouped traits
+- **`systems/`**: Simulation systems
 - **`spatial_grid.rs`**: Spatial optimization
-- **`simulation.rs`**: Main simulation orchestration
-- **`ui.rs`**: GPU-accelerated rendering (desktop)
+- **`simulation/`**: Main simulation orchestration
+- **`ui/`**: GPU-accelerated rendering (desktop)
 - **`web/`**: Web-specific modules
 
 ### Testing

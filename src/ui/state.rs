@@ -7,7 +7,7 @@ use wgpu::util::DeviceExt;
 struct Vertex {
     position: [f32; 2],
     color: [f32; 3],
-    center: [f32; 2], // Center position of the ball
+    center: [f32; 2],
     radius: f32,
 }
 
@@ -95,7 +95,7 @@ impl State {
                             offset: std::mem::size_of::<[f32; 2]>() as wgpu::BufferAddress
                                 + std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
                             shader_location: 2,
-                            format: wgpu::VertexFormat::Float32x2, // Changed to Float32x2 for center
+                            format: wgpu::VertexFormat::Float32x2,
                         },
                         wgpu::VertexAttribute {
                             offset: std::mem::size_of::<[f32; 2]>() as wgpu::BufferAddress
@@ -211,7 +211,6 @@ impl State {
             // Create a quad for each entity (will be rendered as a glowing ball)
             let color = [r, g, b];
 
-            // Quad vertices (two triangles to form a square)
             // Triangle 1
             vertices.push(Vertex {
                 position: [screen_x - quad_size, screen_y - quad_size],

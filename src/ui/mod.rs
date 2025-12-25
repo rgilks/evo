@@ -2,7 +2,7 @@ mod state;
 
 use crate::config::SimulationConfig;
 use crate::simulation::Simulation;
-use state::State; // Import logic from state.rs
+use state::State;
 
 use std::sync::Arc;
 use winit::{

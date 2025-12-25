@@ -222,7 +222,6 @@ impl Simulation {
         let mut new_energy = energy.current;
         let mut eaten_entity = None;
 
-        // Apply movement
         self.apply_movement_to_entity(
             genes,
             &mut new_pos,
@@ -232,7 +231,6 @@ impl Simulation {
             &nearby_entities,
         );
 
-        // Handle boundaries
         self.movement_system.handle_boundaries(
             &mut new_pos,
             &mut new_velocity,
@@ -240,7 +238,6 @@ impl Simulation {
             &self.config,
         );
 
-        // Handle interactions
         self.apply_interactions_to_entity(
             &mut new_energy,
             &mut eaten_entity,
@@ -250,11 +247,9 @@ impl Simulation {
             &nearby_entities,
         );
 
-        // Apply energy changes
         self.energy_system
             .update_energy(&mut new_energy, size, genes, &self.config);
 
-        // Check reproduction and death
         let population_density = self.calculate_population_density();
         let should_reproduce =
             self.check_reproduction_for_entity(new_energy, energy.max, genes, population_density);
@@ -496,7 +491,6 @@ impl Simulation {
             .collect()
     }
 
-    /// Get a reference to the world for stats calculation
     pub fn world(&self) -> &World {
         &self.world
     }
