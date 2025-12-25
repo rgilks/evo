@@ -4,66 +4,55 @@ This guide explains how to deploy the Evolution Simulation to Cloudflare Pages.
 
 ## Prerequisites
 
-1. **Cloudflare Account**: Sign up at [cloudflare.com](https://cloudflare.com)
-2. **Wrangler CLI**: Install the Cloudflare Workers/Pages CLI
-3. **Rust Toolchain**: Nightly toolchain with WASM support (see README.md)
+1. **Cloudflare Account**: [Sign up](https://cloudflare.com)
+2. **Wrangler CLI**: `npm install -g wrangler`
+3. **Rust Toolchain**: `rustup default nightly-2024-08-02 && rustup target add wasm32-unknown-unknown`
 
-## Deployment Steps
+## One-Command Deployment
 
-### 1. Install Dependencies
-
-```bash
-npm install
-```
-
-### 2. Login to Cloudflare
+The easiest way to deploy is using the npm script which handles building and deploying:
 
 ```bash
-npx wrangler login
-```
-
-### 3. Build the Project
-
-```bash
-npm run build:web
-```
-
-This commands compiles the Rust code to WebAssembly and places the output in the `pkg/` directory.
-
-### 4. Deploy to Cloudflare Pages
-
-```bash
-# Deploy to production
 npm run deploy
-
-# Or manually:
-npx wrangler pages deploy web --project-name evo
 ```
 
-This uploads the `web/` directory (which includes the index.html, CSS, JS, and the generated WASM in `web/pkg/`) to Cloudflare Pages.
+This command runs `build:web` (compiling Rust to WASM) and then `wrangler pages deploy`.
 
-## Local Development
+## Manual Steps
 
-Test the Pages build locally:
+If you prefer to run steps individually:
+
+1. **Build Web Assembly**:
+   ```bash
+   npm run build:web
+   ```
+   *Output*: Generates `pkg/` and ensures `web/pkg/` contains the latest WASM.
+
+2. **Deploy to Pages**:
+   ```bash
+   npx wrangler pages deploy web --project-name evo
+   ```
+
+## Local Testing
+
+To simulate the exact Cloudflare environment locally:
 
 ```bash
 npm run dev:worker
 ```
+*Note: This uses `wrangler pages dev` which respects the `_headers` file.*
 
-This builds the project and starts a local Pages server (using `wrangler pages dev`).
+## Critical Configuration: SharedArrayBuffer
 
-## Configuration
+This project uses multi-threading (`rayon`), which requires `SharedArrayBuffer`. This feature is only available in secure contexts with specific headers:
 
-### COOP/COEP Headers regarding SharedArrayBuffer
+- **Config File**: `web/_headers`
+- **Required Headers**:
+  ```
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Embedder-Policy: require-corp
+  ```
 
-The simulation uses `SharedArrayBuffer` for parallel processing (via `rayon`). This requires specific security headers to be served:
-
-- `Cross-Origin-Opener-Policy: same-origin`
-- `Cross-Origin-Embedder-Policy: require-corp`
-
-These are configured in the `web/_headers` file, which Cloudflare Pages uses to apply headers.
-
-## Troubleshooting
-
-### "SharedArrayBuffer is not defined"
-If you see this error in the browser console, it means the COOP/COEP headers are missing. Ensure `web/_headers` exists and is being deployed.
+**Troubleshooting:**
+- **Error**: "SharedArrayBuffer is not defined"
+- **Fix**: Ensure `web/_headers` exists and is deployed. Note that some local dev servers (like `python -m http.server`) do NOT send these headers. Use `npm run dev` (Node.js) or `npm run dev:worker` (Wrangler) for local testing.
