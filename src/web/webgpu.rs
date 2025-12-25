@@ -2,13 +2,12 @@ use bytemuck::{Pod, Zeroable};
 use wasm_bindgen::prelude::*;
 use wgpu::util::DeviceExt;
 
+/// Instance data for each entity (16 bytes each, perfectly aligned)
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable)]
-struct Vertex {
-    position: [f32; 2],
-    color: [f32; 3],
-    center: [f32; 2],
-    radius: f32,
+struct Instance {
+    pos_radius: [f32; 4], // xy = screen position, z = screen radius, w = unused
+    color: [f32; 4],      // rgb = color, a = unused
 }
 
 #[wasm_bindgen]
@@ -18,8 +17,8 @@ pub struct WebGpuRenderer {
     surface: wgpu::Surface<'static>,
     config: wgpu::SurfaceConfiguration,
     render_pipeline: wgpu::RenderPipeline,
-    vertex_buffer: wgpu::Buffer,
-    num_vertices: u32,
+    instance_buffer: wgpu::Buffer,
+    num_instances: u32,
     width: u32,
     height: u32,
 }
@@ -37,7 +36,7 @@ impl WebGpuRenderer {
             backend_options: wgpu::BackendOptions::default(),
         });
 
-        // Create surface using raw-window-handle (matching galacto)
+        // Create surface using raw-window-handle
         let canvas_handle = unsafe {
             raw_window_handle::WebCanvasWindowHandle::new(std::ptr::NonNull::new_unchecked(
                 &canvas as *const _ as *mut std::ffi::c_void,
@@ -64,7 +63,7 @@ impl WebGpuRenderer {
             .await
             .ok_or("Failed to find adapter")?;
 
-        // Request device - use default to avoid browser-incompatible limits
+        // Request device
         let (device, queue) = adapter
             .request_device(&wgpu::DeviceDescriptor::default(), None)
             .await
@@ -97,7 +96,7 @@ impl WebGpuRenderer {
             source: wgpu::ShaderSource::Wgsl(include_str!("../shader.wgsl").into()),
         });
 
-        // Create pipeline
+        // Create pipeline layout
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
@@ -105,6 +104,7 @@ impl WebGpuRenderer {
                 push_constant_ranges: &[],
             });
 
+        // Create render pipeline with instanced rendering
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Render Pipeline"),
             layout: Some(&render_pipeline_layout),
@@ -112,31 +112,18 @@ impl WebGpuRenderer {
                 module: &shader,
                 entry_point: Some("vs_main"),
                 buffers: &[wgpu::VertexBufferLayout {
-                    array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
-                    step_mode: wgpu::VertexStepMode::Vertex,
+                    array_stride: std::mem::size_of::<Instance>() as wgpu::BufferAddress,
+                    step_mode: wgpu::VertexStepMode::Instance, // Key: instance stepping
                     attributes: &[
                         wgpu::VertexAttribute {
                             offset: 0,
                             shader_location: 0,
-                            format: wgpu::VertexFormat::Float32x2,
+                            format: wgpu::VertexFormat::Float32x4, // pos_radius
                         },
                         wgpu::VertexAttribute {
-                            offset: std::mem::size_of::<[f32; 2]>() as wgpu::BufferAddress,
+                            offset: 16,
                             shader_location: 1,
-                            format: wgpu::VertexFormat::Float32x3,
-                        },
-                        wgpu::VertexAttribute {
-                            offset: std::mem::size_of::<[f32; 2]>() as wgpu::BufferAddress
-                                + std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
-                            shader_location: 2,
-                            format: wgpu::VertexFormat::Float32x2,
-                        },
-                        wgpu::VertexAttribute {
-                            offset: std::mem::size_of::<[f32; 2]>() as wgpu::BufferAddress
-                                + std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress
-                                + std::mem::size_of::<[f32; 2]>() as wgpu::BufferAddress,
-                            shader_location: 3,
-                            format: wgpu::VertexFormat::Float32,
+                            format: wgpu::VertexFormat::Float32x4, // color
                         },
                     ],
                 }],
@@ -171,20 +158,18 @@ impl WebGpuRenderer {
             cache: None,
         });
 
-        // Create initial vertex buffer
-        let initial_vertices = vec![
-            Vertex {
-                position: [0.0, 0.0],
-                color: [0.0, 0.0, 0.0],
-                center: [0.0, 0.0],
-                radius: 0.0,
+        // Create instance buffer (pre-allocate for 10000 entities)
+        let initial_instances = vec![
+            Instance {
+                pos_radius: [0.0, 0.0, 0.0, 0.0],
+                color: [0.0, 0.0, 0.0, 0.0],
             };
-            60000 // Pre-allocate for 10000 entities (6 vertices each)
+            10000
         ];
 
-        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Vertex Buffer"),
-            contents: bytemuck::cast_slice(&initial_vertices),
+        let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Instance Buffer"),
+            contents: bytemuck::cast_slice(&initial_instances),
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
         });
 
@@ -194,8 +179,8 @@ impl WebGpuRenderer {
             surface,
             config,
             render_pipeline,
-            vertex_buffer,
-            num_vertices: 0,
+            instance_buffer,
+            num_instances: 0,
             width,
             height,
         })
@@ -216,12 +201,12 @@ impl WebGpuRenderer {
             return;
         }
 
-        // Read entity data from pointer (6 floats per entity: x, y, radius, r, g, b)
+        // Read entity data (6 floats per entity: x, y, radius, r, g, b)
         let entity_data =
             unsafe { std::slice::from_raw_parts(entities_ptr, (entity_count * 6) as usize) };
 
-        // Convert to vertices
-        let mut vertices = Vec::with_capacity(entity_count as usize * 6);
+        // Convert to instances (1 instance per entity instead of 6 vertices!)
+        let mut instances = Vec::with_capacity(entity_count as usize);
         let world_size = self.width.max(self.height) as f32;
 
         for chunk in entity_data.chunks(6) {
@@ -231,61 +216,23 @@ impl WebGpuRenderer {
             let (x, y, radius, r, g, b) =
                 (chunk[0], chunk[1], chunk[2], chunk[3], chunk[4], chunk[5]);
 
+            // Convert world coords to screen coords
             let screen_x = (x + world_size / 2.0) / world_size * 2.0 - 1.0;
             let screen_y = -((y + world_size / 2.0) / world_size * 2.0 - 1.0);
             let screen_radius = (radius / world_size * 2.0 / 10.0).min(0.015);
 
-            let glow_extension = screen_radius * 0.5;
-            let quad_size = screen_radius + glow_extension;
-            let color = [r, g, b];
-
-            // Triangle 1
-            vertices.push(Vertex {
-                position: [screen_x - quad_size, screen_y - quad_size],
-                color,
-                center: [screen_x, screen_y],
-                radius: screen_radius,
-            });
-            vertices.push(Vertex {
-                position: [screen_x + quad_size, screen_y - quad_size],
-                color,
-                center: [screen_x, screen_y],
-                radius: screen_radius,
-            });
-            vertices.push(Vertex {
-                position: [screen_x - quad_size, screen_y + quad_size],
-                color,
-                center: [screen_x, screen_y],
-                radius: screen_radius,
-            });
-
-            // Triangle 2
-            vertices.push(Vertex {
-                position: [screen_x + quad_size, screen_y - quad_size],
-                color,
-                center: [screen_x, screen_y],
-                radius: screen_radius,
-            });
-            vertices.push(Vertex {
-                position: [screen_x + quad_size, screen_y + quad_size],
-                color,
-                center: [screen_x, screen_y],
-                radius: screen_radius,
-            });
-            vertices.push(Vertex {
-                position: [screen_x - quad_size, screen_y + quad_size],
-                color,
-                center: [screen_x, screen_y],
-                radius: screen_radius,
+            instances.push(Instance {
+                pos_radius: [screen_x, screen_y, screen_radius, 0.0],
+                color: [r, g, b, 1.0],
             });
         }
 
-        self.num_vertices = vertices.len() as u32;
+        self.num_instances = instances.len() as u32;
 
-        // Update vertex buffer
-        if !vertices.is_empty() {
+        // Update instance buffer
+        if !instances.is_empty() {
             self.queue
-                .write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&vertices));
+                .write_buffer(&self.instance_buffer, 0, bytemuck::cast_slice(&instances));
         }
 
         // Render
@@ -326,8 +273,9 @@ impl WebGpuRenderer {
             });
 
             render_pass.set_pipeline(&self.render_pipeline);
-            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-            render_pass.draw(0..self.num_vertices, 0..1);
+            render_pass.set_vertex_buffer(0, self.instance_buffer.slice(..));
+            // Draw 6 vertices per instance (quad = 2 triangles)
+            render_pass.draw(0..6, 0..self.num_instances);
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));

@@ -154,19 +154,14 @@ impl Simulation {
     fn rebuild_spatial_grid(&mut self) {
         self.grid.clear();
 
-        // Use parallel processing for grid building
-        let grid_entities: Vec<_> = self
-            .world
+        // Parallel inserts directly into DashMap (thread-safe)
+        self.world
             .query::<(&Position,)>()
             .iter()
             .par_bridge()
-            .map(|(entity, (pos,))| (entity, pos.x, pos.y))
-            .collect();
-
-        // Insert entities into grid (this part needs to be sequential due to HashMap)
-        for (entity, x, y) in grid_entities {
-            self.grid.insert(entity, x, y);
-        }
+            .for_each(|(entity, (pos,))| {
+                self.grid.insert(entity, pos.x, pos.y);
+            });
     }
 
     fn process_entities_parallel(&self) -> Vec<EntityUpdate> {
