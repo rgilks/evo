@@ -87,6 +87,9 @@ impl Default for SimulationConfig {
     }
 }
 
+// File-based config I/O is exercised by tests and kept for a future native /
+// headless entry point; the wasm build receives config as JSON from JS.
+#[allow(dead_code)]
 impl SimulationConfig {
     pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<Self, Box<dyn std::error::Error>> {
         let content = fs::read_to_string(path)?;
