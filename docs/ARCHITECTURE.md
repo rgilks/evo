@@ -49,13 +49,15 @@ The simulation is built from a small set of recurring patterns. Naming them once
 
 **Command object (`EntityUpdate`).** The carrier between compute and apply (`simulation/mod.rs`). Every per-entity result — new position/velocity/energy/size, whether it reproduced, and any prey it ate — is packaged into one `EntityUpdate`, and the apply phase is its sole interpreter. This is what lets the compute phase stay pure and parallel.
 
-**Spatial hashing for neighbour queries.** `SpatialGrid` (`spatial_grid.rs`) buckets entities into fixed-size cells in a `DashMap`. A neighbour lookup scans only the cells within the query radius — never the whole population — turning O(N²) all-pairs into near-O(N). The grid is queried once per entity per tick and the result is shared by movement and interaction. Two deliberate refinements: cell order is shuffled per query to remove directional bias, and each entity considers at most 20 neighbours (`take(20)`), trading completeness for a bounded per-entity cost.
+**Spatial hashing for neighbour queries.** `SpatialGrid` (`spatial_grid.rs`) buckets entities into fixed-size cells in a `DashMap`. A neighbour lookup scans only the cells within the query radius — never the whole population — turning O(N²) all-pairs into near-O(N). The grid is queried once per entity per tick and the result is shared by movement and interaction. From the candidate cells each entity keeps its **nearest 20** neighbours (ranked by distance, ties broken by id) — deterministic, free of directional bias, and capped for a bounded per-entity cost.
 
 **System pipeline over a shared context.** All four systems implement one trait — `System::run(&mut EntityContext)` (`systems/`) — and the orchestrator runs them in a fixed order (movement → interaction → energy → reproduction) over a single `EntityContext` carrying the read-only inputs and the mutable `new_*` working state. The per-system `*Params` structs (`MovementUpdateParams`, `InteractionParams`) and the orchestrator's `ProcessEntityParams` are the parameter-object form used to pass many borrows without long argument lists.
 
 **Centralized archetype.** The creature component bundle is built in one place, `systems::creature_bundle`, used by both the initial spawn and reproduction so the archetype cannot drift between the two.
 
 **Grouped configuration.** `SimulationConfig` is a struct of domain sub-structs (`population`, `physics`, `energy`, `reproduction` — `config/mod.rs`), serde-(de)serializable, with a `Default`. It is threaded read-only as `&config` to every system, and individual fields are tunable live through `WebSimulation::update_param` via a typed `SimParam` enum. `Genes` mirrors this shape with one sub-struct per trait domain.
+
+**Deterministic, seeded simulation.** All randomness derives from a single `u64` seed through a counter-based per-entity RNG (`mix_seed(seed, entity_id, tick)` → `StdRng`). Each entity's stream depends only on the seed, its id, and the tick — not on thread scheduling — and neighbour selection (nearest-N) and structural mutation (sorted by id) are order-independent, so the same seed reproduces a run bit-for-bit. The native/test path uses a fixed default seed; the browser seeds from the wall clock and logs it for shareable, replayable runs.
 
 **Phenotype from genotype (derived data).** Visible and effective traits are computed from genes, never stored independently: `Color` via `Genes::get_color()` (HSV→RGB), edibility via `can_eat()`, prey choice via `get_predation_preference()`, plus flat accessor shims (`speed()`, `sense_radius()`, …) over the nested gene structs. Genes are the single source of truth; phenotype is a pure function of them.
 
@@ -87,7 +89,7 @@ Per-entity work (movement forces, predation targets, metabolism) is read-only ag
 
 ## Spatial Grid
 
-`src/spatial_grid.rs` partitions the world into a grid of cells and stores entity handles per cell in a `DashMap`. A neighbour query returns candidates from the cell containing an entity plus its surrounding cells, turning the O(N²) all-pairs scan into a near-O(N) local scan. Concurrent inserts during the build phase are why the map is a `DashMap`.
+`src/spatial_grid.rs` partitions the world into a grid of cells and stores entity handles per cell in a `DashMap`. A neighbour query returns candidates from the cell containing an entity plus its surrounding cells, turning the O(N²) all-pairs scan into a near-O(N) local scan; the caller then keeps the nearest 20 (by distance, ties broken by id) — a deterministic, bias-free selection. Concurrent inserts during the build phase are why the map is a `DashMap`.
 
 ## Rendering Pipeline
 
@@ -95,7 +97,7 @@ The CPU never builds vertex geometry per entity. Instead:
 
 1. `WebSimulation::update_entity_buffer()` ([src/lib.rs](../src/lib.rs)) flattens every entity into a packed `f32` buffer — **8 floats each**: `prev_x, prev_y, x, y, radius, r, g, b` — and returns a raw pointer into WASM linear memory (zero-copy).
 2. `entity_count()` returns `buffer.len() / 8`.
-3. The renderer ([src/web/webgpu.rs](../src/web/webgpu.rs)) reads that slice, builds one 32-byte `Instance` per entity, and issues a single instanced draw of a unit quad.
+3. The renderer ([src/web/webgpu.rs](../src/web/webgpu.rs)) reinterprets that slice directly as `&[Instance]` (`bytemuck::cast_slice` — the layouts are identical, so there's no per-frame copy), uploads it to a growable instance buffer, and issues a single instanced draw of a unit quad.
 4. `shader.wgsl` does the heavy lifting on the GPU: it interpolates between `prev` and current position for smooth motion between sim steps, applies the world→screen + camera (zoom/pan) transform, and draws a multi-layer glow in the fragment stage.
 
 ## Threading & WASM
@@ -123,5 +125,4 @@ The thread pool is initialised from JS via `wasm-bindgen-rayon`. The atomics-ena
 - **No server or persistence.** Everything runs client-side; there is no backend, database, or save/load.
 - **No GPU compute for the simulation.** Neighbour search and physics are CPU + rayon; only rendering uses the GPU. (GPU-side spatial processing is a backlog idea, not current behaviour.)
 - **No practical WebGL fallback.** The `wgpu` `webgl` feature is enabled, but the renderer targets WebGPU; non-WebGPU browsers are unsupported.
-- **A practical instance ceiling.** The renderer pre-allocates for ~20,000 instances; scaling to 100K–1M is exploratory (see BACKLOG).
-- **No size-optimised WASM.** `wasm-opt` is disabled, favouring build simplicity over bundle size.
+- **A practical scaling ceiling.** The renderer's instance buffer starts at ~20,000 and grows on demand, but the CPU + rayon *simulation* tops out well below 100K–1M; that scale is exploratory and would need GPU compute (see BACKLOG).

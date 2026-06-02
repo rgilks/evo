@@ -4,35 +4,58 @@ Forward-looking work, roughly ordered by what unblocks or de-risks the most. Pre
 
 ## P1 — Toolchain & dependency modernization
 
-The project is pinned to `nightly-2024-08-02` because atomics + `-Z build-std` are nightly-only. The ecosystem is starting to outgrow it: `indexmap` is pinned to `=2.2.6` to avoid an `E0658` on this nightly, and the lockfile carries both `getrandom` 0.2 and 0.3. Resuming serious work likely starts here.
+Pinned to `nightly-2024-08-02` because atomics + `-Z build-std` are nightly-only (still true in 2026 — that part is unavoidable, not debt). But the specific pin is ~21 months stale, which forces the `indexmap = "=2.2.6"` workaround, and the dep tree has drifted. Resuming serious work likely starts here.
 
-- Bump the pinned nightly and re-evaluate the `indexmap` pin.
-- `wgpu` 24 → current (high-churn; expect renderer changes).
-- `rand` 0.8 → 0.9; collapse the `getrandom` 0.2/0.3 split.
-- Treat this as one coordinated upgrade — these tend to cascade.
+- Bump to a recent nightly and drop the `indexmap` exact-pin.
+- `wgpu` 24 → 29 (five majors; expect mechanical churn in `web/webgpu.rs` + the shader). Highest-effort item.
+- `rand` 0.8 → 0.9 (collapses the `getrandom` 0.2/0.3 split), `hecs` 0.9 → 0.11, `dashmap` 5 → 6.
+- Treat as one coordinated upgrade — these cascade.
 
-## P1 — Verify / restore the live deployment
+## P1 — Performance: the neighbour read path
 
-`https://evo.pages.dev` (the project name CI deploys to) currently returns 404. The deploy config is sound, so the Pages project was likely deleted or never finished a deploy.
+The dominant per-tick cost is the `world.get::<&T>()` storm — movement and interaction re-fetch each neighbour's components by random access (~12 scattered lookups per neighbour), and the deterministic nearest-N selection now also does a `Position` lookup per candidate. Fix the data layout, not the algorithm:
 
-- Confirm the Cloudflare Pages project exists and the `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` repo secrets are valid.
-- Confirm the canonical public URL and add it to the README.
+- During the grid rebuild (already a full pass), capture the hot neighbour fields (position, hue, energy, size) into a contiguous per-tick **SoA cache** indexed by a dense id; the grid stores indices. Every `world.get` in the hot loop becomes an array index, and nearest-N gets its distances for free.
+- Replace the `DashMap` grid (cleared and rebuilt every tick; shard-lock contention in dense cells) with a **dense fixed grid** built by counting sort — lock-free, contiguous per-cell runs, no hashing. The world is bounded, so a flat grid fits.
 
-## P2 — GPU-accelerated spatial processing (100K–1M entities)
+These share one data-layout insight and together are the biggest non-rewrite performance win.
 
-Rescued from the deleted `million-scale-optimization` branch (tip was `120fa37`; recoverable from history if revisited). The idea: move neighbour search / spatial hashing onto the GPU to push entity counts toward 100K–1M, with a benchmarking harness to measure it. The current CPU + DashMap grid and the ~20,000-instance render ceiling top out well below that. Revisit only after the toolchain bump, since it touches `wgpu` heavily.
+## P2 — Headless run mode + benchmarks
 
-## P2 — Robust cache-busting in the build
+The crate is `cdylib`-only, so there's no native way to profile or benchmark. Add `"rlib"` to `crate-type`, an `examples/headless.rs` that runs N ticks from a fixed seed (now possible — the sim is deterministic), and `criterion` benches over the per-tick hot loop. Prerequisite for measuring any of the performance work above.
 
-`scripts/build-web.sh` injects a git-SHA `?v=` query into generated files via a chain of `sed` rewrites. It works but is brittle string-surgery on generated output and was the source of repeated Cloudflare `LinkError` firefighting. Consider a cleaner mechanism (content hashing, an import map, or a small build step) so cache invalidation is not fragile.
+## P2 — GPU compute for scale (100K–1M entities)
 
-## P3 — Test suite quality
+Reaching 100K–1M is a **separate GPU-compute engine**, not an optimization of the current one: ping-pong storage buffers, a counting-sort spatial grid + prefix sum on the GPU, force/movement compute shaders, and indirect draw. CPU + rayon cannot reach that scale. The deleted `million-scale-optimization` branch (tip `120fa37`) is an *investigation*, not a starting implementation — its shaders were brute-force O(N) scans, not a GPU spatial hash. This sim's per-entity logic (predation, energy transfer, births/deaths = structural mutation needing GPU compaction) makes the port heavier than a plain particle-life sim. Revisit only after the toolchain bump, and only if the scale is genuinely wanted.
 
-`cargo test` reports ~99 tests, but several are non-asserting diagnostic harnesses left over from debugging visual drift/clustering (e.g. `test_drift_direction_analysis`, `test_simulation_clustering`) — they `println!` analysis and pass unconditionally. Convert these to real assertions, or move them to `examples/` / benches so the headline test count reflects the actual safety net.
+## P2 — Build robustness: replace the `sed` cache-busting
 
-## P3 — WebGPU-only rendering
+`scripts/build-web.sh` injects a git-SHA `?v=` query via a chain of `sed` rewrites — brittle string-surgery on generated output, and largely redundant with `web/_headers` (`max-age=0, must-revalidate`). Drop most of it; fix the one load-bearing worker-import path via `wasm-bindgen-rayon`'s `no-bundler` feature, or move to content-hashed filenames / an import map.
 
-The renderer targets WebGPU and does nothing useful on browsers without it. Either add a real WebGL fallback (the `wgpu` `webgl` feature is already enabled) or detect WebGPU support and surface a clear "WebGPU required" message in the UI.
+## P2 — Deploy URL cleanup
+
+The site is live at `https://evo-dgc.pages.dev` (Cloudflare suffixed the project because `evo` was taken). Either rename the Pages project to reclaim `evo.pages.dev`, or adopt `evo-dgc` and add the canonical URL to the README.
+
+## P3 — Rendering polish
+
+- **Skip redundant re-uploads.** The render loop repacks/re-uploads the instance buffer every `requestAnimationFrame`, even on frames where the sim didn't tick (only the interpolation uniform changed). Gate the upload on a sim tick — free FPS on high-refresh displays.
+- **Additive blending for the glow.** Switch from alpha to additive blending so overlapping glows accumulate (order-independent, correct for particles on black) instead of draw-order-dependent occlusion.
+- **Simplify the fragment glow** (six `smoothstep`s → a 2-term or gaussian falloff) once counts rise — overdraw dominates glow-heavy rendering.
+- **WebGPU-unavailable UX.** Replace the 5-second error toast with a persistent "WebGPU required" message, and request `downlevel` device limits so low-end adapters degrade rather than fail. A real WebGL2 fallback (the `wgpu` `webgl` feature is already on) is larger and only worth it for broad reach.
+
+## P3 — Code cleanups (from the architecture review)
+
+- **Drop `Genes` from `EntityUpdate`.** It's cloned (~96 B) for every entity every tick but only reproducers use it (<1%); fetch the parent's genes in the apply phase instead.
+- **Single config owner.** `WebSimulation` duplicates `SimulationConfig` alongside `Simulation`'s copy and clones the whole struct on every `update_param`; give `Simulation` a `set_param` and drop the duplicate.
+- **Predation self-size bug.** Target-finding (`movement`) passes a dummy `Size { radius: 1.0 }` into `can_eat`, so "what I chase" and "what I can eat" use different sizes. Use the real size.
+
+## P3 — Testing & CI
+
+- **Convert the diagnostic drift/bias tests to assertions.** They already compute drift/centroid numbers and only `println!`; now that runs are deterministic, assert "drift < ε over N ticks." Turns the dead harnesses into real regression guards.
+- Property tests (`proptest`) for gene mutation bounds, energy clamping, and HSV↔RGB round-trip.
+- A single Playwright smoke test in CI (page loads, canvas present, no console errors).
+- Cache cargo in the CI **deploy** job (the `build-std` WASM build is uncached there today).
+- Consider TypeScript + prettier for `web/js/app.js` (bundle with a build-step migration, not standalone).
 
 ## Roadmap — simulation depth
 
