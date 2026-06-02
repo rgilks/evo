@@ -14,6 +14,26 @@ use rand::prelude::*;
 use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};
 
+/// Default seed used by the native/test path so runs are reproducible. The
+/// browser seeds from the wall clock for per-load variety (see lib.rs).
+const DEFAULT_SEED: u64 = 0x9E37_79B9_7F4A_7C15;
+
+/// Salt mixed into offspring RNG so a parent's reproduction stream is distinct
+/// from its movement stream within the same tick.
+const OFFSPRING_SALT: u64 = 0x0FF5_0FF5_0FF5_0FF5;
+
+/// Mix a base seed with an entity id and tick into a well-distributed seed
+/// (splitmix64 finaliser). Keying RNG per entity+tick makes results independent
+/// of thread scheduling, so the simulation is reproducible from a single seed.
+fn mix_seed(seed: u64, entity_bits: u64, step: u64) -> u64 {
+    let mut x = seed
+        ^ entity_bits.wrapping_mul(0xD1B5_4A32_D192_ED03)
+        ^ step.wrapping_mul(0x94D0_49BB_1331_11EB);
+    x = (x ^ (x >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+    x = (x ^ (x >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+    x ^ (x >> 31)
+}
+
 // Simulation state
 pub struct EntityUpdate {
     pub entity: Entity,
@@ -33,6 +53,7 @@ pub struct Simulation {
     grid: SpatialGrid,
     previous_positions: HashMap<Entity, Position>, // For smooth interpolation
     config: SimulationConfig,
+    seed: u64,
 
     // System instances
     movement_system: MovementSystem,
@@ -58,11 +79,14 @@ impl Simulation {
     }
 
     pub fn new_with_config(world_size: f32, config: SimulationConfig) -> Self {
+        Self::new_with_config_seeded(world_size, config, DEFAULT_SEED)
+    }
+
+    pub fn new_with_config_seeded(world_size: f32, config: SimulationConfig, seed: u64) -> Self {
         let mut world = World::new();
-        let mut rng = thread_rng();
         let grid = SpatialGrid::new(config.physics.grid_cell_size);
 
-        Self::spawn_initial_entities(&mut world, &mut rng, world_size, &config);
+        Self::spawn_initial_entities(&mut world, seed, world_size, &config);
 
         Self {
             world,
@@ -71,6 +95,7 @@ impl Simulation {
             grid,
             previous_positions: HashMap::new(),
             config,
+            seed,
             movement_system: MovementSystem,
             interaction_system: InteractionSystem,
             energy_system: EnergySystem,
@@ -80,7 +105,7 @@ impl Simulation {
 
     fn spawn_initial_entities(
         world: &mut World,
-        rng: &mut ThreadRng,
+        seed: u64,
         world_size: f32,
         config: &SimulationConfig,
     ) {
@@ -88,14 +113,17 @@ impl Simulation {
             (config.population.initial_entities as f32 * config.population.entity_scale) as usize;
         let spawn_radius = world_size * config.population.spawn_radius_factor;
 
-        for _ in 0..total_entities {
+        for i in 0..total_entities {
+            // Each initial entity gets its own deterministic RNG stream.
+            let mut rng = StdRng::seed_from_u64(mix_seed(seed, i as u64, 0));
+
             // Use perfectly uniform distribution in a circle
             let angle = rng.gen_range(0.0..std::f32::consts::TAU);
             let distance = spawn_radius * rng.gen::<f32>().sqrt(); // Square root for uniform distribution
             let x = distance * angle.cos();
             let y = distance * angle.sin();
 
-            let genes = Genes::new_random(rng);
+            let genes = Genes::new_random(&mut rng);
             let energy = rng.gen_range(15.0..75.0);
 
             world.spawn(creature_bundle(
@@ -208,6 +236,11 @@ impl Simulation {
             new_energy: energy.current,
             should_reproduce: false,
             eaten_entity: None,
+            rng: StdRng::seed_from_u64(mix_seed(
+                self.seed,
+                entity.to_bits().get(),
+                self.step as u64,
+            )),
         };
 
         // Systems run in order over the shared context (movement → interaction →
@@ -239,10 +272,27 @@ impl Simulation {
     }
 
     fn get_nearby_entities_for_entity(&self, pos: &Position, genes: &Genes) -> Vec<Entity> {
-        let nearby_entities = self
-            .grid
-            .get_nearby_entities(pos.x, pos.y, genes.sense_radius());
-        nearby_entities.iter().take(20).copied().collect::<Vec<_>>()
+        let radius = genes.sense_radius();
+        let r2 = radius * radius;
+        let candidates = self.grid.get_nearby_entities(pos.x, pos.y, radius);
+
+        // Deterministic nearest-N selection: rank candidates by (distance, id).
+        // Unlike a random subset this is order-independent (so the sim is
+        // reproducible), and "nearest" removes the directional bias a fixed-order
+        // truncation would introduce.
+        let mut scored: Vec<(f32, u64, Entity)> = candidates
+            .iter()
+            .filter_map(|&e| {
+                self.world.get::<&Position>(e).ok().and_then(|p| {
+                    let dx = p.x - pos.x;
+                    let dy = p.y - pos.y;
+                    let d2 = dx * dx + dy * dy;
+                    (d2 > 0.001 && d2 <= r2).then_some((d2, e.to_bits().get(), e))
+                })
+            })
+            .collect();
+        scored.sort_by(|a, b| a.0.total_cmp(&b.0).then_with(|| a.1.cmp(&b.1)));
+        scored.into_iter().take(20).map(|(_, _, e)| e).collect()
     }
 
     fn calculate_population_density(&self) -> f32 {
@@ -250,12 +300,17 @@ impl Simulation {
             / (self.config.population.max_population as f32 * self.config.population.entity_scale)
     }
 
-    fn apply_entity_updates(&mut self, updates: Vec<EntityUpdate>) {
+    fn apply_entity_updates(&mut self, mut updates: Vec<EntityUpdate>) {
         let max_population = (self.config.population.max_population as f32
             * self.config.population.entity_scale) as usize;
         // Soft population cap: as before, every reproducing parent is tested
         // against the same start-of-tick population baseline.
         let baseline = self.world.len() as usize;
+
+        // Canonical order so the structural mutations below (despawn/spawn) run
+        // deterministically — this keeps entity-id assignment, and thus the
+        // per-entity RNG keyed by id, reproducible across runs.
+        updates.sort_by_key(|u| u.entity.to_bits());
 
         // Entities eaten by a predator this tick are removed. Collect them first
         // so they are neither updated in place nor allowed to reproduce.
@@ -271,11 +326,17 @@ impl Simulation {
                 && !eaten.contains(&update.entity)
                 && baseline < max_population
             {
+                let mut rng = StdRng::seed_from_u64(mix_seed(
+                    self.seed ^ OFFSPRING_SALT,
+                    update.entity.to_bits().get(),
+                    self.step as u64,
+                ));
                 offspring.push(self.reproduction_system.create_offspring(
                     &update.genes,
                     update.energy.max,
                     &update.pos,
                     &self.config,
+                    &mut rng,
                 ));
             }
         }
@@ -302,11 +363,14 @@ impl Simulation {
         }
 
         // Births, deaths, and predation removals are the only structural
-        // mutations (serial — hecs).
+        // mutations (serial — hecs). Removal order is canonical so id recycling
+        // stays deterministic.
         for entity in dead {
             let _ = self.world.despawn(entity);
         }
-        for entity in eaten {
+        let mut eaten_removal: Vec<Entity> = eaten.iter().copied().collect();
+        eaten_removal.sort_by_key(|e| e.to_bits());
+        for entity in eaten_removal {
             let _ = self.world.despawn(entity);
         }
         for bundle in offspring {

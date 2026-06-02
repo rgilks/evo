@@ -19,6 +19,7 @@ impl crate::systems::System for MovementSystem {
             world: ctx.world,
             config: ctx.config,
             world_size: ctx.world_size,
+            rng: &mut ctx.rng,
         });
         self.handle_boundaries(
             &mut ctx.new_pos,
@@ -39,6 +40,7 @@ pub struct MovementUpdateParams<'a> {
     pub world: &'a World,
     pub config: &'a SimulationConfig,
     pub world_size: f32,
+    pub rng: &'a mut StdRng,
 }
 
 impl MovementSystem {
@@ -53,6 +55,7 @@ impl MovementSystem {
             world,
             config,
             world_size,
+            rng,
         } = params;
         // Initialize accumulators
         let mut target_x = 0.0;
@@ -155,9 +158,9 @@ impl MovementSystem {
         if found_target {
             self.move_towards_target(pos, target_x, target_y, genes, new_velocity);
         } else if matches!(genes.behavior.movement_style.style, MovementType::Grazing) {
-            self.apply_grazing_behavior(genes, new_velocity, config);
+            self.apply_grazing_behavior(genes, new_velocity, config, rng);
         } else {
-            self.move_randomly(genes, new_velocity, config);
+            self.move_randomly(genes, new_velocity, config, rng);
         }
 
         // Apply Flocking Forces
@@ -225,12 +228,12 @@ impl MovementSystem {
         genes: &Genes,
         new_velocity: &mut Velocity,
         config: &SimulationConfig,
+        rng: &mut StdRng,
     ) {
         // Grazers move slowly and steadily
         let grazing_speed = genes.speed() * 0.6;
 
         // Add some gentle random movement
-        let mut rng = thread_rng();
         let angle = rng.gen_range(0.0..std::f32::consts::TAU);
         let speed_variation = rng.gen_range(0.8..1.2);
 
@@ -257,20 +260,25 @@ impl MovementSystem {
         }
     }
 
-    fn move_randomly(&self, genes: &Genes, new_velocity: &mut Velocity, config: &SimulationConfig) {
-        let mut rng = thread_rng();
+    fn move_randomly(
+        &self,
+        genes: &Genes,
+        new_velocity: &mut Velocity,
+        config: &SimulationConfig,
+        rng: &mut StdRng,
+    ) {
         let speed_variation = rng.gen_range(0.8..1.2);
         let speed = genes.speed() * speed_variation;
 
         // Generate random direction using uniform distribution in a circle
-        let (dx, dy) = self.generate_random_direction(&mut rng);
+        let (dx, dy) = self.generate_random_direction(rng);
         new_velocity.x = dx * speed;
         new_velocity.y = dy * speed;
 
         self.cap_velocity(new_velocity, config);
     }
 
-    fn generate_random_direction(&self, rng: &mut ThreadRng) -> (f32, f32) {
+    fn generate_random_direction(&self, rng: &mut StdRng) -> (f32, f32) {
         loop {
             let dx = rng.gen_range(-1.0f32..1.0);
             let dy = rng.gen_range(-1.0f32..1.0);

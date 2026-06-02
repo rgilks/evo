@@ -55,7 +55,7 @@ pub struct Genes {
 }
 
 impl Genes {
-    pub fn new_random(rng: &mut ThreadRng) -> Self {
+    pub fn new_random(rng: &mut impl Rng) -> Self {
         let movement_type = match rng.gen_range(0..5) {
             0 => MovementType::Random,
             1 => MovementType::Flocking,
@@ -107,7 +107,7 @@ impl Genes {
         }
     }
 
-    pub fn mutate(&self, rng: &mut ThreadRng) -> Self {
+    pub fn mutate(&self, rng: &mut impl Rng) -> Self {
         let mut new_genes = self.clone();
 
         // Movement mutations

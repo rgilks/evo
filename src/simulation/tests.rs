@@ -507,3 +507,26 @@ fn test_predation_keeps_population_bounded() {
         "population exploded past the cap (got {pop})"
     );
 }
+
+#[test]
+fn test_same_seed_produces_identical_runs() {
+    // Bit-exact reproducibility: the same seed must yield identical state after
+    // N ticks, independent of thread scheduling. Different seeds should diverge.
+    fn run(seed: u64) -> Vec<(u64, u32, u32)> {
+        let mut sim = Simulation::new_with_config_seeded(200.0, SimulationConfig::default(), seed);
+        for _ in 0..40 {
+            sim.update();
+        }
+        let mut state: Vec<(u64, u32, u32)> = sim
+            .world()
+            .query::<&Position>()
+            .iter()
+            .map(|(e, p)| (e.to_bits().get(), p.x.to_bits(), p.y.to_bits()))
+            .collect();
+        state.sort();
+        state
+    }
+
+    assert_eq!(run(0xABCD), run(0xABCD), "same seed must be bit-identical");
+    assert_ne!(run(0xABCD), run(0x1234), "different seeds should diverge");
+}

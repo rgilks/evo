@@ -8,14 +8,16 @@ pub struct ReproductionSystem;
 
 impl super::System for ReproductionSystem {
     fn run(&self, ctx: &mut super::EntityContext) {
+        let density = ctx.population_density;
         ctx.should_reproduce = self.check_reproduction(
             ctx.new_energy,
             ctx.energy_max,
             ctx.genes,
-            ctx.population_density,
+            density,
             ctx.config,
+            &mut ctx.rng,
         );
-        if self.check_death(ctx.population_density, ctx.config) {
+        if self.check_death(density, ctx.config, &mut ctx.rng) {
             ctx.new_energy = 0.0; // Kill the entity
         }
         if ctx.should_reproduce {
@@ -33,13 +35,14 @@ impl ReproductionSystem {
         genes: &Genes,
         population_density: f32,
         config: &SimulationConfig,
+        rng: &mut impl Rng,
     ) -> bool {
         let reproduction_chance = genes.reproduction_rate()
             * (1.0 - population_density * config.reproduction.population_density_factor)
                 .max(config.reproduction.min_reproduction_chance);
 
         energy > max_energy * config.reproduction.reproduction_energy_threshold
-            && thread_rng().gen::<f32>() < reproduction_chance
+            && rng.gen::<f32>() < reproduction_chance
     }
 
     pub fn create_offspring(
@@ -48,9 +51,9 @@ impl ReproductionSystem {
         parent_energy_max: f32,
         parent_pos: &Position,
         config: &SimulationConfig,
+        rng: &mut impl Rng,
     ) -> crate::systems::CreatureBundle {
-        let mut rng = thread_rng();
-        let child_genes = parent_genes.mutate(&mut rng);
+        let child_genes = parent_genes.mutate(rng);
         let child_energy = parent_energy_max * config.reproduction.child_energy_factor;
 
         // Use uniform distribution in a circle for child positioning
@@ -82,9 +85,14 @@ impl ReproductionSystem {
         )
     }
 
-    pub fn check_death(&self, population_density: f32, config: &SimulationConfig) -> bool {
+    pub fn check_death(
+        &self,
+        population_density: f32,
+        config: &SimulationConfig,
+        rng: &mut impl Rng,
+    ) -> bool {
         let death_chance = population_density * config.reproduction.death_chance_factor;
-        thread_rng().gen::<f32>() < death_chance
+        rng.gen::<f32>() < death_chance
     }
 }
 
@@ -106,8 +114,14 @@ mod tests {
         let population_density = 0.1; // Low density for higher reproduction chance
         let config = SimulationConfig::default();
 
-        let _should_reproduce =
-            system.check_reproduction(energy, max_energy, &genes, population_density, &config);
+        let _should_reproduce = system.check_reproduction(
+            energy,
+            max_energy,
+            &genes,
+            population_density,
+            &config,
+            &mut rng,
+        );
     }
 
     #[test]
@@ -119,8 +133,14 @@ mod tests {
         let parent_pos = Position { x: 0.0, y: 0.0 };
         let config = SimulationConfig::default();
 
-        let (pos, energy, size, _genes, color, velocity, _movement_style) =
-            system.create_offspring(&parent_genes, parent_energy_max, &parent_pos, &config);
+        let (pos, energy, size, _genes, color, velocity, _movement_style) = system
+            .create_offspring(
+                &parent_genes,
+                parent_energy_max,
+                &parent_pos,
+                &config,
+                &mut rng,
+            );
 
         // Position should be near parent
         let distance = ((pos.x - parent_pos.x).powi(2) + (pos.y - parent_pos.y).powi(2)).sqrt();
@@ -149,8 +169,9 @@ mod tests {
         let system = ReproductionSystem;
         let population_density = 0.9; // High density
         let config = SimulationConfig::default();
+        let mut rng = thread_rng();
 
-        let _should_die = system.check_death(population_density, &config);
+        let _should_die = system.check_death(population_density, &config, &mut rng);
     }
 
     #[test]
@@ -163,8 +184,14 @@ mod tests {
         let population_density = 0.1; // Low density
         let config = SimulationConfig::default();
 
-        let should_reproduce =
-            system.check_reproduction(energy, max_energy, &genes, population_density, &config);
+        let should_reproduce = system.check_reproduction(
+            energy,
+            max_energy,
+            &genes,
+            population_density,
+            &config,
+            &mut rng,
+        );
 
         // Should not reproduce with low energy
         assert!(!should_reproduce);

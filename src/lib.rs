@@ -28,7 +28,12 @@ impl WebSimulation {
         let config: config::SimulationConfig = serde_json::from_str(config_json)
             .map_err(|e| JsValue::from_str(&format!("Config parse error: {}", e)))?;
 
-        let simulation = simulation::Simulation::new_with_config(world_size, config.clone());
+        // Seed from the wall clock so each page load is a different run, while the
+        // run stays fully reproducible from this seed (logged for sharing/replay).
+        let seed = js_sys::Date::now() as u64;
+        web_sys::console::log_1(&JsValue::from_str(&format!("Simulation seed: {seed}")));
+        let simulation =
+            simulation::Simulation::new_with_config_seeded(world_size, config.clone(), seed);
 
         Ok(WebSimulation {
             simulation,

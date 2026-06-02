@@ -12,6 +12,7 @@ use crate::components::{Color, Energy, MovementStyle, Position, Size, Velocity};
 use crate::config::SimulationConfig;
 use crate::genes::Genes;
 use hecs::{Entity, World};
+use rand::rngs::StdRng;
 
 /// Per-entity working state shared by every system during the compute phase.
 /// Systems read the immutable inputs and mutate the `new_*` fields in turn; the
@@ -32,6 +33,9 @@ pub struct EntityContext<'a> {
     pub new_energy: f32,
     pub should_reproduce: bool,
     pub eaten_entity: Option<Entity>,
+    /// Per-entity, per-tick RNG (seeded from the world seed + entity id + tick),
+    /// so randomness is reproducible and independent of thread scheduling.
+    pub rng: StdRng,
 }
 
 /// Uniform interface for the per-entity systems. Each system reads from and
