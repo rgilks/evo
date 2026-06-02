@@ -19,11 +19,8 @@ pub struct EntityUpdate {
     pub energy: Energy,
     pub size: Size,
     pub genes: Genes,
-    pub color: Color,
     pub velocity: Velocity,
-    pub movement_style: crate::components::MovementStyle,
     pub should_reproduce: bool,
-    pub eaten_entity: Option<Entity>,
 }
 
 pub struct Simulation {
@@ -47,9 +44,7 @@ struct ProcessEntityParams<'a> {
     energy: &'a Energy,
     size: &'a Size,
     genes: &'a Genes,
-    color: &'a Color,
     velocity: &'a Velocity,
-    movement_style: &'a crate::components::MovementStyle,
     population_density: f32,
 }
 
@@ -170,36 +165,24 @@ impl Simulation {
         // during the compute phase), so compute it once rather than per entity.
         let population_density = self.calculate_population_density();
         self.world
-            .query::<(
-                &Position,
-                &Energy,
-                &Size,
-                &Genes,
-                &Color,
-                &Velocity,
-                &crate::components::MovementStyle,
-            )>()
+            .query::<(&Position, &Energy, &Size, &Genes, &Velocity)>()
             .iter()
             .par_bridge()
-            .filter_map(
-                |(entity, (pos, energy, size, genes, color, velocity, movement_style))| {
-                    if energy.current <= 0.0 {
-                        return None;
-                    }
+            .filter_map(|(entity, (pos, energy, size, genes, velocity))| {
+                if energy.current <= 0.0 {
+                    return None;
+                }
 
-                    self.process_entity(ProcessEntityParams {
-                        entity,
-                        pos,
-                        energy,
-                        size,
-                        genes,
-                        color,
-                        velocity,
-                        movement_style,
-                        population_density,
-                    })
-                },
-            )
+                self.process_entity(ProcessEntityParams {
+                    entity,
+                    pos,
+                    energy,
+                    size,
+                    genes,
+                    velocity,
+                    population_density,
+                })
+            })
             .collect()
     }
 
@@ -210,9 +193,7 @@ impl Simulation {
             energy,
             size,
             genes,
-            color,
             velocity,
-            movement_style,
             population_density,
         } = params;
 
@@ -221,7 +202,6 @@ impl Simulation {
         let mut new_pos = pos.clone();
         let mut new_velocity = velocity.clone();
         let mut new_energy = energy.current;
-        let mut eaten_entity = None;
 
         self.apply_movement_to_entity(
             genes,
@@ -239,14 +219,7 @@ impl Simulation {
             &self.config,
         );
 
-        self.apply_interactions_to_entity(
-            &mut new_energy,
-            &mut eaten_entity,
-            &new_pos,
-            size,
-            genes,
-            &nearby_entities,
-        );
+        self.apply_interactions_to_entity(&mut new_energy, &new_pos, size, genes, &nearby_entities);
 
         self.energy_system
             .update_energy(&mut new_energy, size, genes, &self.config);
@@ -282,11 +255,8 @@ impl Simulation {
                 radius: new_size_radius,
             },
             genes: genes.clone(),
-            color: color.clone(),
             velocity: new_velocity,
-            movement_style: movement_style.clone(),
             should_reproduce,
-            eaten_entity,
         })
     }
 
@@ -323,7 +293,6 @@ impl Simulation {
     fn apply_interactions_to_entity(
         &self,
         new_energy: &mut f32,
-        eaten_entity: &mut Option<Entity>,
         new_pos: &Position,
         size: &Size,
         genes: &Genes,
@@ -332,7 +301,6 @@ impl Simulation {
         self.interaction_system
             .handle_interactions(crate::systems::InteractionParams {
                 new_energy,
-                eaten_entity,
                 new_pos,
                 size,
                 genes,
@@ -364,90 +332,55 @@ impl Simulation {
     }
 
     fn apply_entity_updates(&mut self, updates: Vec<EntityUpdate>) {
-        // Remove eaten entities in parallel
-        let entities_to_remove: Vec<_> = updates
-            .par_iter()
-            .filter_map(|update| update.eaten_entity)
-            .collect();
+        let max_population = (self.config.population.max_population as f32
+            * self.config.population.entity_scale) as usize;
+        // Soft population cap: as before, every reproducing parent is tested
+        // against the same start-of-tick population baseline.
+        let baseline = self.world.len() as usize;
 
-        // Despawn entities (this needs to be sequential due to Hecs limitations)
-        for &entity in &entities_to_remove {
+        // Collect deaths and queue offspring (read-only over self and the world).
+        let mut dead: Vec<Entity> = Vec::new();
+        let mut offspring = Vec::new();
+        for update in &updates {
+            if update.energy.current <= 0.0 {
+                dead.push(update.entity);
+            } else if update.should_reproduce && baseline < max_population {
+                offspring.push(self.reproduction_system.create_offspring(
+                    &update.genes,
+                    update.energy.max,
+                    &update.pos,
+                    &self.config,
+                ));
+            }
+        }
+
+        // Apply each survivor's new state in place — no despawn/respawn churn.
+        // Genes, color, and movement style never change for an existing entity, so
+        // only the mutable components are written. Predation transferred energy
+        // during the compute phase; eaten prey is not removed (see BACKLOG.md).
+        let updated: HashMap<Entity, &EntityUpdate> = updates
+            .iter()
+            .filter(|u| u.energy.current > 0.0)
+            .map(|u| (u.entity, u))
+            .collect();
+        for (entity, (pos, velocity, energy, size)) in
+            self.world
+                .query_mut::<(&mut Position, &mut Velocity, &mut Energy, &mut Size)>()
+        {
+            if let Some(u) = updated.get(&entity) {
+                pos.clone_from(&u.pos);
+                velocity.clone_from(&u.velocity);
+                energy.clone_from(&u.energy);
+                size.clone_from(&u.size);
+            }
+        }
+
+        // Births and deaths are the only structural mutations (serial — hecs).
+        for entity in dead {
             let _ = self.world.despawn(entity);
         }
-
-        // Prepare spawn data in parallel
-        let spawn_data: Vec<_> = updates
-            .par_iter()
-            .filter_map(|update| {
-                if update.energy.current <= 0.0 {
-                    return None;
-                }
-
-                // Store values before spawning to avoid move issues
-                let energy_max = update.energy.max;
-
-                let mut spawn_entities = vec![(
-                    update.pos.clone(),
-                    update.energy.clone(),
-                    update.size.clone(),
-                    update.genes.clone(),
-                    update.color.clone(),
-                    update.velocity.clone(),
-                    update.movement_style.clone(),
-                )];
-
-                // Handle reproduction with stricter population control
-                let max_population = (self.config.population.max_population as f32
-                    * self.config.population.entity_scale)
-                    as u32;
-                if update.should_reproduce && self.world.len() < max_population {
-                    let (
-                        child_pos,
-                        child_energy,
-                        child_size,
-                        child_genes,
-                        child_color,
-                        child_velocity,
-                        child_movement_style,
-                    ) = self.reproduction_system.create_offspring(
-                        &update.genes,
-                        energy_max,
-                        &update.pos,
-                        &self.config,
-                    );
-
-                    spawn_entities.push((
-                        child_pos,
-                        child_energy,
-                        child_size,
-                        child_genes,
-                        child_color,
-                        child_velocity,
-                        child_movement_style,
-                    ));
-                }
-
-                Some(spawn_entities)
-            })
-            .flatten()
-            .collect();
-
-        // Despawn old entities
-        for update in updates {
-            let _ = self.world.despawn(update.entity);
-        }
-
-        // Spawn new entities (this needs to be sequential due to Hecs limitations)
-        for (position, energy, size, genes, color, velocity, movement_style) in spawn_data {
-            self.world.spawn((
-                position,
-                energy,
-                size,
-                genes,
-                color,
-                velocity,
-                movement_style,
-            ));
+        for bundle in offspring {
+            self.world.spawn(bundle);
         }
     }
 

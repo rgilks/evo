@@ -8,7 +8,6 @@ use rand::prelude::*;
 fn test_interaction_system_handle_interactions() {
     let system = InteractionSystem;
     let mut new_energy = 50.0;
-    let mut eaten_entity = None;
     let new_pos = Position { x: 0.0, y: 0.0 };
     let size = Size { radius: 10.0 };
     let mut rng = thread_rng();
@@ -19,7 +18,6 @@ fn test_interaction_system_handle_interactions() {
 
     system.handle_interactions(InteractionParams {
         new_energy: &mut new_energy,
-        eaten_entity: &mut eaten_entity,
         new_pos: &new_pos,
         size: &size,
         genes: &genes,
@@ -30,7 +28,6 @@ fn test_interaction_system_handle_interactions() {
 
     // Energy should remain unchanged if no interactions
     assert_eq!(new_energy, 50.0);
-    assert!(eaten_entity.is_none());
 }
 
 #[test]

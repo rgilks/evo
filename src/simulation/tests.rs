@@ -233,21 +233,8 @@ fn test_simulation_apply_updates() {
         },
         size: Size { radius: 6.0 },
         genes: Genes::new_random(&mut thread_rng()),
-        color: Color {
-            r: 0.0,
-            g: 1.0,
-            b: 0.0,
-        },
         velocity: Velocity { x: 1.0, y: 1.0 },
-        movement_style: crate::components::MovementStyle {
-            style: crate::components::MovementType::Flocking,
-            flocking_strength: 0.7,
-            separation_distance: 12.0,
-            alignment_strength: 0.6,
-            cohesion_strength: 0.6,
-        },
         should_reproduce: false,
-        eaten_entity: None,
     }];
 
     sim.apply_entity_updates(updates);
@@ -455,4 +442,46 @@ fn test_update_config() {
 
     assert_ne!(sim.config.physics.max_velocity, original_velocity);
     assert_eq!(sim.config.physics.max_velocity, 5.0);
+}
+
+#[test]
+fn test_in_place_update_persists_and_moves_entities() {
+    // Entities are updated in place rather than despawned and respawned each tick,
+    // so an entity keeps its id across ticks. With the old respawn churn, none of
+    // the starting ids would survive a single tick.
+    let mut config = SimulationConfig::default();
+    config.reproduction.death_chance_factor = 0.0; // no random death
+    config.reproduction.reproduction_energy_threshold = 100.0; // unreachable -> no births
+    let mut sim = Simulation::new_with_config(200.0, config);
+
+    // Snapshot starting positions keyed by stable entity id.
+    let start: std::collections::HashMap<_, _> = sim
+        .world
+        .query::<&Position>()
+        .iter()
+        .map(|(e, p)| (e, (p.x, p.y)))
+        .collect();
+    assert!(!start.is_empty());
+
+    for _ in 0..5 {
+        sim.update();
+    }
+
+    // Survivors keep their ids (no respawn churn) and at least one moved in place.
+    let mut survivors = 0;
+    let mut moved = 0;
+    for (entity, pos) in sim.world.query::<&Position>().iter() {
+        if let Some(&(sx, sy)) = start.get(&entity) {
+            survivors += 1;
+            assert!(pos.x.is_finite() && pos.y.is_finite());
+            if (pos.x - sx).abs() > f32::EPSILON || (pos.y - sy).abs() > f32::EPSILON {
+                moved += 1;
+            }
+        }
+    }
+    assert!(
+        survivors > 0,
+        "original entity ids should persist across ticks (stable ids)"
+    );
+    assert!(moved > 0, "in-place update should move surviving entities");
 }

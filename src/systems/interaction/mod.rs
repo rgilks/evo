@@ -7,7 +7,6 @@ pub struct InteractionSystem;
 
 pub struct InteractionParams<'a> {
     pub new_energy: &'a mut f32,
-    pub eaten_entity: &'a mut Option<Entity>,
     pub new_pos: &'a Position,
     pub size: &'a Size,
     pub genes: &'a Genes,
@@ -20,7 +19,6 @@ impl InteractionSystem {
     pub fn handle_interactions(&self, params: InteractionParams) {
         let InteractionParams {
             new_energy,
-            eaten_entity,
             new_pos,
             size,
             genes,
@@ -30,7 +28,7 @@ impl InteractionSystem {
         } = params;
         for &entity in nearby_entities {
             if self.can_interact_with_entity(entity, new_pos, size, genes, world, config) {
-                self.process_interaction(entity, new_energy, eaten_entity, genes, world);
+                self.process_interaction(entity, new_energy, genes, world);
                 break; // Only interact with one entity per frame
             }
         }
@@ -70,14 +68,12 @@ impl InteractionSystem {
         &self,
         entity: Entity,
         new_energy: &mut f32,
-        eaten_entity: &mut Option<Entity>,
         genes: &Genes,
         world: &World,
     ) {
         if let Ok(nearby_energy) = world.get::<&Energy>(entity) {
             if let Ok(nearby_size) = world.get::<&Size>(entity) {
                 if let Ok(nearby_genes) = world.get::<&Genes>(entity) {
-                    *eaten_entity = Some(entity);
                     let energy_gained = genes.get_energy_gain(
                         nearby_energy.current,
                         &nearby_size,
