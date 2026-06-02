@@ -1,0 +1,137 @@
+digraph SystemOverview {
+  graph [
+    rankdir=TB,
+    bgcolor="#ffffff",
+    pad="0.55",
+    nodesep="0.55",
+    ranksep="0.85",
+    splines=polyline,
+    outputorder=edgesfirst,
+    compound=true,
+    newrank=true,
+    forcelabels=true,
+    fontname="Avenir",
+    label=<
+      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0">
+        <TR><TD><FONT POINT-SIZE="34"><B>System Overview</B></FONT></TD></TR>
+      </TABLE>
+    >,
+    labelloc=t,
+    labeljust=c
+  ];
+
+  node [
+    shape=box,
+    style="rounded,filled",
+    margin="0.21,0.13",
+    width=3.05,
+    height=0.74,
+    fixedsize=false,
+    fontname="Avenir",
+    fontsize=18,
+    penwidth=2.4,
+    fontcolor="#14213d",
+    color="#2264c7",
+    fillcolor="#eaf3ff:#ffffff",
+    gradientangle=270
+  ];
+
+  edge [
+    color="#263a59",
+    fontname="Avenir",
+    fontsize=13,
+    fontcolor="#3d4a5c",
+    penwidth=2.2,
+    arrowsize=0.78
+  ];
+
+  // ---- Host ----
+  subgraph cluster_host {
+    graph [
+      label=<
+        <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
+          <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="17" COLOR="#0f766e"><B>HOST</B></FONT></TD></TR>
+          <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="12" COLOR="#357a74">Cloudflare Pages serves the static web/ directory.</FONT></TD></TR>
+        </TABLE>
+      >,
+      labelloc=t, labeljust=l,
+      color="#99d5cf", fillcolor="#f0fdfa", style="rounded,filled", penwidth=1.8, margin=22
+    ];
+    H1 [label=<<B>Cloudflare Pages</B><BR/><FONT POINT-SIZE="15">static web/ + _headers (COOP/COEP)</FONT>>, fillcolor="#e6fffb:#ffffff", color="#0f766e"];
+  }
+
+  // ---- Browser ----
+  subgraph cluster_browser {
+    graph [
+      label=<
+        <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
+          <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="17" COLOR="#1f5fbf"><B>BROWSER</B></FONT></TD></TR>
+          <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="12" COLOR="#496f9f">Cross-origin isolated page driving a requestAnimationFrame loop.</FONT></TD></TR>
+        </TABLE>
+      >,
+      labelloc=t, labeljust=l,
+      color="#b9d8ff", fillcolor="#f5faff", style="rounded,filled", penwidth=1.8, margin=22
+    ];
+    B1 [label=<<B>app.js render loop</B><BR/><FONT POINT-SIZE="15">step sim at 60Hz, render every frame</FONT>>, fillcolor="#edf7ff:#ffffff", color="#2f80ed"];
+    B2 [label=<<B>UI controls</B><BR/><FONT POINT-SIZE="15">sliders → update_param(SimParam)</FONT>>, fillcolor="#edf7ff:#ffffff", color="#2f80ed"];
+    B1 -> B2 [style=invis];
+  }
+
+  // ---- WASM simulation core ----
+  subgraph cluster_core {
+    graph [
+      label=<
+        <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
+          <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="17" COLOR="#1e6b43"><B>WASM SIMULATION CORE (RUST)</B></FONT></TD></TR>
+          <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="12" COLOR="#4e7a61">An FFI-free engine wrapped by a wasm-bindgen facade.</FONT></TD></TR>
+        </TABLE>
+      >,
+      labelloc=t, labeljust=l,
+      color="#b8e5c8", fillcolor="#f4fbf6", style="rounded,filled", penwidth=1.8, margin=22
+    ];
+    C1 [label=<<B>WebSimulation</B><BR/><FONT POINT-SIZE="15">#[wasm_bindgen] facade</FONT>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
+    C2 [label=<<B>Simulation</B><BR/><FONT POINT-SIZE="15">per-tick orchestrator</FONT>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
+    C3 [label=<<B>hecs World</B><BR/><FONT POINT-SIZE="15">entities + plain-data components</FONT>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
+    C4 [label=<<B>Systems</B><BR/><FONT POINT-SIZE="15">movement · interaction · energy · reproduction</FONT>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
+    C5 [label=<<B>SpatialGrid</B><BR/><FONT POINT-SIZE="15">DashMap neighbour buckets</FONT>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
+  }
+
+  // ---- Threads ----
+  TP [label=<<B>rayon thread pool</B><BR/><FONT POINT-SIZE="15">wasm-bindgen-rayon over SharedArrayBuffer</FONT>>, fillcolor="#fff4d1:#fffaf0", color="#d39a00"];
+
+  // ---- GPU rendering ----
+  subgraph cluster_gpu {
+    graph [
+      label=<
+        <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
+          <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="17" COLOR="#5f3b8a"><B>GPU RENDERING (WEBGPU)</B></FONT></TD></TR>
+          <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="12" COLOR="#6d4d8d">Instanced draw; interpolation and camera run on the GPU.</FONT></TD></TR>
+        </TABLE>
+      >,
+      labelloc=t, labeljust=l,
+      color="#d6c6ee", fillcolor="#fbf8ff", style="rounded,filled", penwidth=1.8, margin=22
+    ];
+    G1 [label=<<B>WebGpuRenderer</B><BR/><FONT POINT-SIZE="15">one instanced draw of a unit quad</FONT>>, fillcolor="#f5f3ff:#ffffff", color="#7c3aed"];
+    G2 [label=<<B>shader.wgsl</B><BR/><FONT POINT-SIZE="15">interpolate prev→cur · camera · glow</FONT>>, fillcolor="#f5f3ff:#ffffff", color="#7c3aed"];
+    G1 -> G2 [label="pipeline"];
+  }
+
+  // ---- Output ----
+  CANVAS [label=<<B>&lt;canvas&gt;</B><BR/><FONT POINT-SIZE="15">on-screen frame</FONT>>, fillcolor="#d8f5de:#effcf2", color="#15803d", penwidth=3.0];
+
+  // ---- Edges ----
+  H1 -> B1 [lhead=cluster_browser, label="serves SPA + WASM"];
+
+  B1 -> C1 [lhead=cluster_core, label="update() each tick"];
+  B2 -> C1 [label="update_param(SimParam)", color="#6b7280", fontcolor="#6b7280", style=dashed];
+
+  C1 -> C2 [label="delegates"];
+  C2 -> C4 [label="compute (read-only)"];
+  C2 -> C5 [label="neighbour query"];
+  C2 -> C3 [label="apply: in-place · spawn · despawn"];
+  C4 -> TP [label="par_bridge", color="#6b7280", fontcolor="#6b7280", style=dashed, constraint=false];
+
+  B1 -> G1 [lhead=cluster_gpu, label="render(ptr, count, camera)"];
+  C1 -> G1 [label="update_entity_buffer() → *const f32", color="#6b7280", fontcolor="#6b7280", style=dashed];
+  G2 -> CANVAS [ltail=cluster_gpu, label="draw"];
+}

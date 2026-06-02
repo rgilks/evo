@@ -1,0 +1,124 @@
+digraph SimulationTick {
+  graph [
+    rankdir=TB,
+    bgcolor="#ffffff",
+    pad="0.55",
+    nodesep="0.50",
+    ranksep="0.80",
+    splines=polyline,
+    outputorder=edgesfirst,
+    compound=true,
+    newrank=true,
+    forcelabels=true,
+    fontname="Avenir",
+    label=<
+      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0">
+        <TR><TD><FONT POINT-SIZE="34"><B>Simulation Tick: Read &#8594; Compute &#8594; Apply</B></FONT></TD></TR>
+      </TABLE>
+    >,
+    labelloc=t,
+    labeljust=c
+  ];
+
+  node [
+    shape=box,
+    style="rounded,filled",
+    margin="0.21,0.13",
+    width=2.95,
+    height=0.72,
+    fixedsize=false,
+    fontname="Avenir",
+    fontsize=18,
+    penwidth=2.4,
+    fontcolor="#14213d",
+    color="#2264c7",
+    fillcolor="#eaf3ff:#ffffff",
+    gradientangle=270
+  ];
+
+  edge [
+    color="#263a59",
+    fontname="Avenir",
+    fontsize=13,
+    fontcolor="#3d4a5c",
+    penwidth=2.2,
+    arrowsize=0.78
+  ];
+
+  // ---- Entry ----
+  T0 [label=<<B>update()</B><BR/><FONT POINT-SIZE="15">step += 1, once per frame</FONT>>, fillcolor="#edf7ff:#ffffff", color="#2f80ed"];
+
+  // ---- Read / prepare ----
+  subgraph cluster_read {
+    graph [
+      label=<
+        <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
+          <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="17" COLOR="#8a5f00"><B>READ / PREPARE</B></FONT></TD></TR>
+          <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="12" COLOR="#836b27">Snapshot, then rebuild the neighbour index.</FONT></TD></TR>
+        </TABLE>
+      >,
+      labelloc=t, labeljust=l,
+      color="#f2cf78", fillcolor="#fffaf0", style="rounded,filled", penwidth=1.8, margin=22
+    ];
+    R1 [label=<<B>store_previous_positions</B><BR/><FONT POINT-SIZE="15">snapshot for interpolation</FONT>>, fillcolor="#fff4d1:#fffaf0", color="#d39a00"];
+    R2 [label=<<B>rebuild_spatial_grid</B><BR/><FONT POINT-SIZE="15">parallel DashMap inserts</FONT>>, fillcolor="#fff4d1:#fffaf0", color="#d39a00"];
+    R1 -> R2;
+  }
+
+  // ---- Compute (parallel) ----
+  subgraph cluster_compute {
+    graph [
+      label=<
+        <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
+          <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="17" COLOR="#1e6b43"><B>COMPUTE &#183; parallel, read-only</B></FONT></TD></TR>
+          <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="12" COLOR="#4e7a61">rayon fans entities across cores; no world mutation.</FONT></TD></TR>
+        </TABLE>
+      >,
+      labelloc=t, labeljust=l,
+      color="#b8e5c8", fillcolor="#f4fbf6", style="rounded,filled", penwidth=1.8, margin=22
+    ];
+    P1 [label=<<B>process_entities_parallel</B><BR/><FONT POINT-SIZE="15">par_bridge over the ECS query</FONT>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
+    P2 [label=<<B>EntityContext</B><BR/><FONT POINT-SIZE="15">per-entity working state</FONT>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
+    P3 [label=<<B>System pipeline</B><BR/><FONT POINT-SIZE="15">movement → interaction → energy → reproduction</FONT>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
+    P4 [label=<<B>EntityUpdate</B><BR/><FONT POINT-SIZE="15">pos · vel · energy · size · reproduce? · eaten?</FONT>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
+    P1 -> P2 -> P3 -> P4;
+  }
+
+  // ---- Apply (serial) ----
+  subgraph cluster_apply {
+    graph [
+      label=<
+        <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
+          <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="17" COLOR="#0f766e"><B>APPLY &#183; serial (hecs)</B></FONT></TD></TR>
+          <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="12" COLOR="#357a74">The only writer of world state.</FONT></TD></TR>
+        </TABLE>
+      >,
+      labelloc=t, labeljust=l,
+      color="#99d5cf", fillcolor="#f0fdfa", style="rounded,filled", penwidth=1.8, margin=22
+    ];
+
+    DQ1 [label=<<B>energy &#8804; 0?</B>>, shape=diamond, style=filled, width=2.4, height=1.05, fillcolor="#ffffff", color="#1f2f46", penwidth=2.4];
+    ALIVE [label=<<B>update in place</B><BR/><FONT POINT-SIZE="15">query_mut: pos · vel · energy · size</FONT>>, fillcolor="#e6fffb:#ffffff", color="#0f766e"];
+    DEAD [label=<<B>despawn (starved)</B>>, fillcolor="#e0e7ef:#ffffff", color="#5b6b80"];
+    EATEN [label=<<B>despawn eaten prey</B><BR/><FONT POINT-SIZE="15">collected from EntityUpdate.eaten</FONT>>, fillcolor="#e0e7ef:#ffffff", color="#5b6b80"];
+    OFF [label=<<B>spawn offspring</B><BR/><FONT POINT-SIZE="15">if reproduce, not eaten, under cap</FONT>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
+  }
+
+  // ---- Outcome ----
+  WORLD [label=<<B>World updated</B><BR/><FONT POINT-SIZE="15">renderer interpolates prev&#8594;cur for the frame</FONT>>, fillcolor="#d8f5de:#effcf2", color="#15803d", penwidth=3.0];
+
+  // ---- Edges ----
+  T0 -> R1 [lhead=cluster_read, label="tick"];
+  R2 -> P1 [ltail=cluster_read, lhead=cluster_compute, label="for each living entity"];
+  P4 -> DQ1 [ltail=cluster_compute, lhead=cluster_apply, label="apply each update"];
+
+  DQ1 -> DEAD [label="yes"];
+  DQ1 -> ALIVE [label="no: survivor"];
+  DQ1 -> OFF [label="reproduced", color="#6b7280", fontcolor="#6b7280", style=dashed, constraint=false];
+  P4 -> EATEN [label="prey eaten this tick", color="#6b7280", fontcolor="#6b7280", style=dashed];
+
+  ALIVE -> WORLD [ltail=cluster_apply];
+  DEAD -> WORLD [color="#6b7280", fontcolor="#6b7280", style=dashed];
+  EATEN -> WORLD [color="#6b7280", fontcolor="#6b7280", style=dashed];
+  OFF -> WORLD;
+}

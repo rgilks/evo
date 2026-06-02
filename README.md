@@ -65,6 +65,7 @@ evo/
 ## Documentation
 
 - [Architecture](docs/ARCHITECTURE.md) — how the code is organized and how a frame is produced
+- [Diagrams](docs/diagrams/README.md) — Graphviz architecture diagrams (system overview, simulation tick)
 - [Simulation System](docs/SIMULATION_SYSTEM.md) — genes, movement styles, predation, and statistics
 - [Deployment](docs/DEPLOYMENT.md) — Cloudflare Pages and the SharedArrayBuffer header requirement
 - [Backlog](BACKLOG.md) — ordered next work and known constraints

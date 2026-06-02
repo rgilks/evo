@@ -2,6 +2,8 @@
 
 > Scope: how the code is organized and how one rendered frame is produced. For the simulation *mechanics* — genes, movement styles, predation, statistics — see [SIMULATION_SYSTEM.md](SIMULATION_SYSTEM.md).
 
+![System overview](diagrams/system-overview.png)
+
 ## Stack
 
 | Layer | Choice | Notes |
@@ -68,6 +70,8 @@ The simulation is built from a small set of recurring patterns. Naming them once
 Known consistency gaps and patterns under consideration are tracked in [BACKLOG.md](../BACKLOG.md).
 
 ## Simulation Tick
+
+![Simulation tick: read, compute, apply](diagrams/simulation-tick.png)
 
 `Simulation::update()` ([src/simulation/mod.rs](../src/simulation/mod.rs)) runs each step in three phases:
 

@@ -4,6 +4,21 @@
 
 The Evolution Simulation is a complex ecosystem simulation built in Rust using an Entity-Component-System (ECS) architecture. It simulates the evolution of entities through natural selection, genetic inheritance, and environmental pressures.
 
+## Entity Lifecycle
+
+Every creature follows the same lifecycle — born from the initial population or as a mutated offspring, updated each tick, and removed when it starves or is eaten:
+
+```mermaid
+stateDiagram-v2
+    [*] --> Alive: spawn (initial or offspring)
+    Alive --> Alive: each tick — move, eat, metabolize
+    Alive --> Alive: reproduce → spawns a mutated offspring
+    Alive --> Dead: energy ≤ 0 (starved) or eaten by a predator
+    Dead --> [*]: despawn
+```
+
+For the per-tick machinery behind these transitions, see the [simulation tick diagram](diagrams/simulation-tick.png) and [ARCHITECTURE.md](ARCHITECTURE.md).
+
 ## Core Architecture
 
 ### Technology Stack

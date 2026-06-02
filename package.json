@@ -8,6 +8,8 @@
     "build": "./scripts/build-web.sh",
     "dev": "wrangler pages dev web",
     "deploy": "npm run build && wrangler pages deploy web --project-name evo",
+    "diagrams": "node scripts/render-diagrams.mjs",
+    "check:diagrams": "node scripts/check-diagrams.mjs",
     "setup": "./scripts/setup.sh",
     "prepare": "husky"
   },
