@@ -85,6 +85,8 @@ impl WebSimulation {
             "repro_threshold" => self.config.reproduction.reproduction_energy_threshold = value,
             "energy_cost" => self.config.energy.size_energy_cost_factor = value,
             "bounce_factor" => self.config.physics.velocity_bounce_factor = value,
+            "particle_force" => self.config.physics.particle_force_scale = value,
+            "particle_friction" => self.config.physics.particle_friction = value,
             _ => {}
         }
         self.simulation.update_config(self.config.clone());

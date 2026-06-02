@@ -3,7 +3,7 @@ import init, {
   WebSimulation,
   WebGpuRenderer,
   init_panic_hook,
-} from "../pkg/evo.js?v=b250293";
+} from "../pkg/evo.js?v=445b6fc";
 
 // Shared configuration object - matches the new Rust SimulationConfig structure
 const DEFAULT_CONFIG = {
@@ -22,6 +22,8 @@ const DEFAULT_CONFIG = {
     interaction_radius_offset: 15.0,
     velocity_bounce_factor: 0.8,
     center_pressure_strength: 0.3,
+    particle_force_scale: 0.15,
+    particle_friction: 0.95,
   },
   energy: {
     size_energy_cost_factor: 0.15,
@@ -161,6 +163,21 @@ class EvolutionApp {
       this.simulation.update_param("bounce_factor", value);
     });
 
+    const particleForceSlider = document.getElementById("particle-force");
+    const particleFrictionSlider = document.getElementById("particle-friction");
+
+    particleForceSlider.addEventListener("input", (e) => {
+      const value = parseFloat(e.target.value);
+      document.getElementById("pforce-value").textContent = value.toFixed(1);
+      this.simulation.update_param("particle_force", value);
+    });
+
+    particleFrictionSlider.addEventListener("input", (e) => {
+      const value = parseFloat(e.target.value);
+      document.getElementById("pfriction-value").textContent = value.toFixed(2);
+      this.simulation.update_param("particle_friction", value);
+    });
+
     // Keyboard shortcuts
     document.addEventListener("keydown", (e) => {
       if (e.key === "h" || e.key === "H") {
@@ -267,12 +284,12 @@ class EvolutionApp {
       const entityPtr = this.simulation.update_entity_buffer();
       const entityCount = this.simulation.entity_count();
       const worldSize = this.simulation.get_world_size();
-      
+
       // Calculate interpolation factor
       const targetInterval = 1000 / this.targetFPS;
       const currentTime = performance.now();
       const interpolationFactor = Math.min(1.0, (currentTime - this.lastUpdateTime) / targetInterval);
-      
+
       this.renderer.render(
         entityPtr,
         entityCount,

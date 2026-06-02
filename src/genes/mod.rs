@@ -36,6 +36,13 @@ pub struct BehaviorGenes {
     pub social_tendency: f32, // Tendency to be social vs solitary (0.0 = solitary, 1.0 = social)
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ParticleLifeGenes {
+    // Interactions with 6 hue sectors (0-60, 60-120, etc.)
+    // Value range: -1.0 (strong repulsion) to 1.0 (strong attraction)
+    pub interactions: [f32; 6],
+}
+
 // Main genes structure that groups related traits
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Genes {
@@ -44,6 +51,7 @@ pub struct Genes {
     pub reproduction: ReproductionGenes,
     pub appearance: AppearanceGenes,
     pub behavior: BehaviorGenes,
+    pub particle_life: ParticleLifeGenes,
 }
 
 impl Genes {
@@ -85,6 +93,16 @@ impl Genes {
                 },
                 gene_preference_strength: rng.gen_range(0.0..1.0),
                 social_tendency: rng.gen_range(0.0..1.0),
+            },
+            particle_life: ParticleLifeGenes {
+                interactions: [
+                    rng.gen_range(-1.0..1.0),
+                    rng.gen_range(-1.0..1.0),
+                    rng.gen_range(-1.0..1.0),
+                    rng.gen_range(-1.0..1.0),
+                    rng.gen_range(-1.0..1.0),
+                    rng.gen_range(-1.0..1.0),
+                ],
             },
         }
     }
@@ -172,6 +190,14 @@ impl Genes {
                 (new_genes.behavior.social_tendency + rng.gen_range(-0.1..0.1)).clamp(0.0, 1.0);
         }
 
+        // Particle life mutations
+        if rng.gen::<f32>() < self.reproduction.mutation_rate {
+            let index = rng.gen_range(0..6);
+            new_genes.particle_life.interactions[index] =
+                (new_genes.particle_life.interactions[index] + rng.gen_range(-0.2..0.2))
+                    .clamp(-1.0, 1.0);
+        }
+
         // Occasionally change movement type
         if rng.gen::<f32>() < self.reproduction.mutation_rate * 0.1 {
             new_genes.behavior.movement_style.style = match rng.gen_range(0..5) {
@@ -239,6 +265,15 @@ impl Genes {
             - other.behavior.gene_preference_strength)
             .abs();
         total_difference += flocking_diff * 0.2 + social_diff * 0.2 + preference_diff * 0.1;
+        total_weights += 0.5;
+
+        // Particle life similarity
+        let mut particle_diff = 0.0;
+        for i in 0..6 {
+            particle_diff +=
+                (self.particle_life.interactions[i] - other.particle_life.interactions[i]).abs();
+        }
+        total_difference += (particle_diff / 12.0) * 0.5; // Normalize (max diff per item is 2.0, total 12.0)
         total_weights += 0.5;
 
         // Movement type similarity

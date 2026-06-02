@@ -20,6 +20,8 @@ pub struct PhysicsConfig {
     pub interaction_radius_offset: f32,
     pub velocity_bounce_factor: f32,
     pub center_pressure_strength: f32,
+    pub particle_force_scale: f32,
+    pub particle_friction: f32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -65,6 +67,8 @@ impl Default for SimulationConfig {
                 interaction_radius_offset: 15.0,
                 velocity_bounce_factor: 0.8,
                 center_pressure_strength: 0.3,
+                particle_force_scale: 0.15,
+                particle_friction: 0.95,
             },
             energy: EnergyConfig {
                 size_energy_cost_factor: 0.15,

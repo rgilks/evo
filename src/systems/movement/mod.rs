@@ -32,60 +32,12 @@ impl MovementSystem {
             config,
             world_size,
         } = params;
-        // Find target for movement based on genes and movement style
-        let target = self.find_movement_target(pos, genes, nearby_entities, world);
+        // Initialize accumulators
+        let mut target_x = 0.0;
+        let mut target_y = 0.0;
+        let mut best_preference = 0.0;
+        let mut found_target = false;
 
-        if let Some((target_x, target_y)) = target {
-            self.move_towards_target(pos, target_x, target_y, genes, new_velocity);
-        } else {
-            self.move_randomly(genes, new_velocity, config);
-        }
-
-        // Apply movement style specific behaviors
-        self.apply_movement_style(pos, genes, nearby_entities, world, new_velocity, config);
-
-        self.update_position(new_pos, new_velocity);
-        self.apply_center_pressure(new_pos, new_velocity, config, world_size);
-        self.validate_position(new_pos);
-        self.apply_movement_cost(new_velocity, new_energy, genes, config);
-    }
-
-    fn apply_movement_style(
-        &self,
-        pos: &Position,
-        genes: &Genes,
-        nearby_entities: &[Entity],
-        world: &World,
-        new_velocity: &mut Velocity,
-        config: &SimulationConfig,
-    ) {
-        match genes.behavior.movement_style.style {
-            MovementType::Flocking => {
-                self.apply_flocking_behavior(pos, genes, nearby_entities, world, new_velocity);
-            }
-            MovementType::Solitary => {
-                self.apply_solitary_behavior(pos, genes, nearby_entities, world, new_velocity);
-            }
-            MovementType::Predatory => {
-                self.apply_predatory_behavior(pos, genes, nearby_entities, world, new_velocity);
-            }
-            MovementType::Grazing => {
-                self.apply_grazing_behavior(genes, new_velocity, config);
-            }
-            MovementType::Random => {
-                // Random behavior is already handled in move_randomly
-            }
-        }
-    }
-
-    fn apply_flocking_behavior(
-        &self,
-        pos: &Position,
-        genes: &Genes,
-        nearby_entities: &[Entity],
-        world: &World,
-        new_velocity: &mut Velocity,
-    ) {
         let mut flock_center_x = 0.0;
         let mut flock_center_y = 0.0;
         let mut flock_velocity_x = 0.0;
@@ -94,168 +46,156 @@ impl MovementSystem {
         let mut separation_x = 0.0;
         let mut separation_y = 0.0;
 
+        let mut avoidance_x = 0.0;
+        let mut avoidance_y = 0.0;
+
+        let mut particle_force_x = 0.0;
+        let mut particle_force_y = 0.0;
+
+        let interaction_radius = genes.sense_radius();
+        let separation_dist = genes.behavior.movement_style.separation_distance;
+
+        // Single pass over nearby entities
         for &entity in nearby_entities {
             if let Ok(nearby_pos) = world.get::<&Position>(entity) {
-                if let Ok(nearby_genes) = world.get::<&Genes>(entity) {
-                    if let Ok(nearby_velocity) = world.get::<&Velocity>(entity) {
-                        let distance = ((nearby_pos.x - pos.x).powi(2)
-                            + (nearby_pos.y - pos.y).powi(2))
-                        .sqrt();
+                let dx = nearby_pos.x - pos.x;
+                let dy = nearby_pos.y - pos.y;
+                let distance_sq = dx * dx + dy * dy;
 
-                        // Only flock with similar entities (similar genes)
-                        let gene_similarity = genes.calculate_gene_similarity(&nearby_genes);
-                        if distance < genes.sense_radius() && gene_similarity < 0.7 {
-                            // Cohesion: move toward flock center
-                            flock_center_x += nearby_pos.x;
-                            flock_center_y += nearby_pos.y;
+                if distance_sq > 0.001 && distance_sq < interaction_radius * interaction_radius {
+                    let distance = distance_sq.sqrt();
 
-                            // Alignment: align with flock direction
-                            flock_velocity_x += nearby_velocity.x;
-                            flock_velocity_y += nearby_velocity.y;
+                    if let Ok(nearby_genes) = world.get::<&Genes>(entity) {
+                        // 1. Particle Life Physics
+                        let sector = (nearby_genes.appearance.hue * 6.0).floor() as usize;
+                        let sector = sector.min(5);
+                        let force = genes.particle_life.interactions[sector];
+                        let strength = (1.0 - distance / interaction_radius) * force;
+                        particle_force_x += (dx / distance) * strength;
+                        particle_force_y += (dy / distance) * strength;
 
-                            // Separation: avoid crowding
-                            if distance > 0.0
-                                && distance < genes.behavior.movement_style.separation_distance
+                        // 2. Movement Targets (Predatory/Grazing logic)
+                        if let (Ok(nearby_energy), Ok(nearby_size)) =
+                            (world.get::<&Energy>(entity), world.get::<&Size>(entity))
+                        {
+                            if nearby_energy.current > 0.0
+                                && genes.can_eat(&nearby_genes, &nearby_size, &Size { radius: 1.0 })
                             {
-                                let separation_force =
-                                    (genes.behavior.movement_style.separation_distance - distance)
-                                        / distance;
-                                separation_x -= (nearby_pos.x - pos.x) * separation_force;
-                                separation_y -= (nearby_pos.y - pos.y) * separation_force;
+                                // Simplified self size check for target finding
+                                let preference = genes.get_predation_preference(&nearby_genes);
+                                if preference > best_preference {
+                                    target_x = nearby_pos.x;
+                                    target_y = nearby_pos.y;
+                                    best_preference = preference;
+                                    found_target = true;
+                                }
                             }
+                        }
 
-                            flock_count += 1;
+                        // 3. Movement Styles
+                        match genes.behavior.movement_style.style {
+                            MovementType::Flocking => {
+                                let gene_similarity =
+                                    genes.calculate_gene_similarity(&nearby_genes);
+                                if gene_similarity < 0.7 {
+                                    flock_center_x += nearby_pos.x;
+                                    flock_center_y += nearby_pos.y;
+
+                                    if let Ok(nearby_vel) = world.get::<&Velocity>(entity) {
+                                        flock_velocity_x += nearby_vel.x;
+                                        flock_velocity_y += nearby_vel.y;
+                                    }
+
+                                    if distance < separation_dist {
+                                        let sep_force = (separation_dist - distance) / distance;
+                                        separation_x -= dx * sep_force;
+                                        separation_y -= dy * sep_force;
+                                    }
+                                    flock_count += 1;
+                                }
+                            }
+                            MovementType::Solitary => {
+                                let avoid_force = interaction_radius / (distance + 1.0);
+                                avoidance_x -= dx * avoid_force;
+                                avoidance_y -= dy * avoid_force;
+                            }
+                            MovementType::Predatory => {
+                                // Handled in target finding mostly, but we could add specific logic here if needed
+                            }
+                            _ => {}
                         }
                     }
                 }
             }
         }
 
-        if flock_count > 0 {
-            // Apply flocking forces
+        // Apply Target Movement
+        if found_target {
+            self.move_towards_target(pos, target_x, target_y, genes, new_velocity);
+        } else if matches!(genes.behavior.movement_style.style, MovementType::Grazing) {
+            self.apply_grazing_behavior(genes, new_velocity, config);
+        } else {
+            self.move_randomly(genes, new_velocity, config);
+        }
+
+        // Apply Flocking Forces
+        if matches!(genes.behavior.movement_style.style, MovementType::Flocking) && flock_count > 0
+        {
             let flock_strength = genes.behavior.movement_style.flocking_strength;
 
             // Cohesion
             if genes.behavior.movement_style.cohesion_strength > 0.0 {
                 flock_center_x /= flock_count as f32;
                 flock_center_y /= flock_count as f32;
-                let cohesion_x = (flock_center_x - pos.x)
+                let coh_x = (flock_center_x - pos.x)
                     * genes.behavior.movement_style.cohesion_strength
                     * flock_strength;
-                let cohesion_y = (flock_center_y - pos.y)
+                let coh_y = (flock_center_y - pos.y)
                     * genes.behavior.movement_style.cohesion_strength
                     * flock_strength;
-                new_velocity.x += cohesion_x * 0.1;
-                new_velocity.y += cohesion_y * 0.1;
+                new_velocity.x += coh_x * 0.1;
+                new_velocity.y += coh_y * 0.1;
             }
 
             // Alignment
             if genes.behavior.movement_style.alignment_strength > 0.0 {
                 flock_velocity_x /= flock_count as f32;
                 flock_velocity_y /= flock_count as f32;
-                let alignment_x = flock_velocity_x
+                let align_x = flock_velocity_x
                     * genes.behavior.movement_style.alignment_strength
                     * flock_strength;
-                let alignment_y = flock_velocity_y
+                let align_y = flock_velocity_y
                     * genes.behavior.movement_style.alignment_strength
                     * flock_strength;
-                new_velocity.x += alignment_x * 0.1;
-                new_velocity.y += alignment_y * 0.1;
+                new_velocity.x += align_x * 0.1;
+                new_velocity.y += align_y * 0.1;
             }
 
             // Separation
-            let separation_strength = flock_strength * 0.2;
-            new_velocity.x += separation_x * separation_strength;
-            new_velocity.y += separation_y * separation_strength;
-        }
-    }
-
-    fn apply_solitary_behavior(
-        &self,
-        pos: &Position,
-        genes: &Genes,
-        nearby_entities: &[Entity],
-        world: &World,
-        new_velocity: &mut Velocity,
-    ) {
-        let mut avoidance_x = 0.0;
-        let mut avoidance_y = 0.0;
-
-        for &entity in nearby_entities {
-            if let Ok(nearby_pos) = world.get::<&Position>(entity) {
-                let distance =
-                    ((nearby_pos.x - pos.x).powi(2) + (nearby_pos.y - pos.y).powi(2)).sqrt();
-
-                if distance < genes.sense_radius() && distance > 0.0 {
-                    // Avoid other entities
-                    let avoidance_force = genes.sense_radius() / (distance + 1.0);
-                    avoidance_x -= (nearby_pos.x - pos.x) * avoidance_force;
-                    avoidance_y -= (nearby_pos.y - pos.y) * avoidance_force;
-                }
-            }
+            let sep_strength = flock_strength * 0.2;
+            new_velocity.x += separation_x * sep_strength;
+            new_velocity.y += separation_y * sep_strength;
         }
 
-        // Apply avoidance force
-        let avoidance_strength = genes.behavior.social_tendency * 0.3;
-        new_velocity.x += avoidance_x * avoidance_strength;
-        new_velocity.y += avoidance_y * avoidance_strength;
-    }
-
-    fn apply_predatory_behavior(
-        &self,
-        pos: &Position,
-        genes: &Genes,
-        nearby_entities: &[Entity],
-        world: &World,
-        new_velocity: &mut Velocity,
-    ) {
-        let mut best_prey_x = 0.0;
-        let mut best_prey_y = 0.0;
-        let mut best_preference = 0.0;
-
-        for &entity in nearby_entities {
-            if let Ok(nearby_pos) = world.get::<&Position>(entity) {
-                if let Ok(nearby_genes) = world.get::<&Genes>(entity) {
-                    if let Ok(nearby_energy) = world.get::<&Energy>(entity) {
-                        if let Ok(nearby_size) = world.get::<&Size>(entity) {
-                            if nearby_energy.current > 0.0 {
-                                let distance = ((nearby_pos.x - pos.x).powi(2)
-                                    + (nearby_pos.y - pos.y).powi(2))
-                                .sqrt();
-                                if distance < genes.sense_radius() {
-                                    // Calculate predation preference
-                                    let preference = genes.get_predation_preference(&nearby_genes);
-
-                                    // Also consider if we can actually eat this entity
-                                    if genes.can_eat(
-                                        &nearby_genes,
-                                        &nearby_size,
-                                        &Size { radius: 1.0 },
-                                    ) && preference > best_preference
-                                    {
-                                        best_prey_x = nearby_pos.x;
-                                        best_prey_y = nearby_pos.y;
-                                        best_preference = preference;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+        // Apply Solitary Avoidance
+        if matches!(genes.behavior.movement_style.style, MovementType::Solitary) {
+            let avoid_strength = genes.behavior.social_tendency * 0.3;
+            new_velocity.x += avoidance_x * avoid_strength;
+            new_velocity.y += avoidance_y * avoid_strength;
         }
 
-        // Move toward best prey
-        if best_preference > 0.0 {
-            let dx = best_prey_x - pos.x;
-            let dy = best_prey_y - pos.y;
-            let distance = (dx * dx + dy * dy).sqrt();
-            if distance > 0.0 {
-                let predatory_speed = genes.speed() * 1.2; // Predators move faster
-                new_velocity.x = (dx / distance) * predatory_speed;
-                new_velocity.y = (dy / distance) * predatory_speed;
-            }
-        }
+        // Apply Particle Physics Forces
+        new_velocity.x += particle_force_x * config.physics.particle_force_scale;
+        new_velocity.y += particle_force_y * config.physics.particle_force_scale;
+
+        // Friction damps both axes equally (Y-only damping biased motion horizontally)
+        new_velocity.x *= config.physics.particle_friction;
+        new_velocity.y *= config.physics.particle_friction;
+
+        self.update_position(new_pos, new_velocity);
+        self.apply_center_pressure(new_pos, new_velocity, config, world_size);
+        self.validate_position(new_pos);
+        self.apply_movement_cost(new_velocity, new_energy, genes, config);
     }
 
     fn apply_grazing_behavior(
@@ -397,58 +337,6 @@ impl MovementSystem {
             (new_velocity.x * new_velocity.x + new_velocity.y * new_velocity.y).sqrt();
         *new_energy -=
             movement_distance * config.energy.movement_energy_cost / genes.energy_efficiency();
-    }
-
-    fn find_movement_target(
-        &self,
-        pos: &Position,
-        genes: &Genes,
-        nearby_entities: &[Entity],
-        world: &World,
-    ) -> Option<(f32, f32)> {
-        let mut best_target_x = 0.0;
-        let mut best_target_y = 0.0;
-        let mut best_preference = 0.0;
-
-        for &entity in nearby_entities {
-            if let Ok(nearby_pos) = world.get::<&Position>(entity) {
-                if let Ok(nearby_genes) = world.get::<&Genes>(entity) {
-                    if let Ok(nearby_energy) = world.get::<&Energy>(entity) {
-                        if let Ok(nearby_size) = world.get::<&Size>(entity) {
-                            if nearby_energy.current > 0.0 {
-                                let distance = ((nearby_pos.x - pos.x).powi(2)
-                                    + (nearby_pos.y - pos.y).powi(2))
-                                .sqrt();
-                                if distance < genes.sense_radius() {
-                                    // Check if this is a potential food source
-                                    if genes.can_eat(
-                                        &nearby_genes,
-                                        &nearby_size,
-                                        &Size { radius: 1.0 },
-                                    ) {
-                                        // Calculate preference based on gene similarity
-                                        let preference =
-                                            genes.get_predation_preference(&nearby_genes);
-
-                                        if preference > best_preference {
-                                            best_target_x = nearby_pos.x;
-                                            best_target_y = nearby_pos.y;
-                                            best_preference = preference;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        if best_preference > 0.0 {
-            Some((best_target_x, best_target_y))
-        } else {
-            None
-        }
     }
 
     pub fn handle_boundaries(
