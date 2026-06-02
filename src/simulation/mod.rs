@@ -143,7 +143,7 @@ impl Simulation {
         self.step += 1;
         self.update_simulation();
 
-        if self.step.is_multiple_of(60) {
+        if self.step % 60 == 0 {
             self.log_simulation_metrics();
         }
     }
@@ -166,7 +166,7 @@ impl Simulation {
 
     fn store_previous_positions(&mut self) {
         self.previous_positions.clear();
-        for (entity, pos) in self.world.query::<(Entity, &Position)>().iter() {
+        for (entity, (pos,)) in self.world.query::<(&Position,)>().iter() {
             self.previous_positions.insert(entity, pos.clone());
         }
     }
@@ -179,9 +179,9 @@ impl Simulation {
         self.grid.clear();
         self.neighbor_cache.clear();
 
-        for (entity, pos, genes, energy, size, velocity) in self
+        for (entity, (pos, genes, energy, size, velocity)) in self
             .world
-            .query::<(Entity, &Position, &Genes, &Energy, &Size, &Velocity)>()
+            .query::<(&Position, &Genes, &Energy, &Size, &Velocity)>()
             .iter()
         {
             self.grid.insert(entity, pos.x, pos.y);
@@ -203,10 +203,10 @@ impl Simulation {
         // during the compute phase), so compute it once rather than per entity.
         let population_density = self.calculate_population_density();
         self.world
-            .query::<(Entity, &Position, &Energy, &Size, &Genes, &Velocity)>()
+            .query::<(&Position, &Energy, &Size, &Genes, &Velocity)>()
             .iter()
             .par_bridge()
-            .filter_map(|(entity, pos, energy, size, genes, velocity)| {
+            .filter_map(|(entity, (pos, energy, size, genes, velocity))| {
                 if energy.current <= 0.0 {
                     return None;
                 }
@@ -366,9 +366,9 @@ impl Simulation {
             .filter(|u| u.energy.current > 0.0 && !eaten.contains(&u.entity))
             .map(|u| (u.entity, u))
             .collect();
-        for (entity, pos, velocity, energy, size) in
+        for (entity, (pos, velocity, energy, size)) in
             self.world
-                .query_mut::<(Entity, &mut Position, &mut Velocity, &mut Energy, &mut Size)>()
+                .query_mut::<(&mut Position, &mut Velocity, &mut Energy, &mut Size)>()
         {
             if let Some(u) = updated.get(&entity) {
                 pos.clone_from(&u.pos);
@@ -396,10 +396,10 @@ impl Simulation {
 
     pub fn get_entities(&self) -> Vec<(f32, f32, f32, f32, f32, f32, f32, f32)> {
         self.world
-            .query::<(Entity, &Position, &Size, &Color)>()
+            .query::<(&Position, &Size, &Color)>()
             .iter()
             .par_bridge()
-            .map(|(entity, pos, size, color)| {
+            .map(|(entity, (pos, size, color))| {
                 let prev_pos = self.previous_positions.get(&entity).unwrap_or(pos);
                 (
                     prev_pos.x,
@@ -415,18 +415,15 @@ impl Simulation {
             .collect()
     }
 
-    /// CPU-side interpolation, retained for tests; the live renderer interpolates
-    /// GPU-side from the entity buffer instead.
-    #[allow(dead_code)]
     pub fn get_interpolated_entities(
         &self,
         interpolation_factor: f32,
     ) -> Vec<(f32, f32, f32, f32, f32, f32)> {
         self.world
-            .query::<(Entity, &Position, &Size, &Color)>()
+            .query::<(&Position, &Size, &Color)>()
             .iter()
             .par_bridge()
-            .map(|(entity, pos, size, color)| {
+            .map(|(entity, (pos, size, color))| {
                 let interpolated_pos = if let Some(prev_pos) = self.previous_positions.get(&entity)
                 {
                     // Interpolate between previous and current position
