@@ -16,7 +16,7 @@ The easiest way to deploy is using the npm script which handles building and dep
 npm run deploy
 ```
 
-This command runs `build:web` (compiling Rust to WASM) and then `wrangler pages deploy`.
+This command runs `build` (compiling Rust to WASM) and then `wrangler pages deploy`.
 
 ## Manual Steps
 
@@ -24,7 +24,7 @@ If you prefer to run steps individually:
 
 1. **Build Web Assembly**:
    ```bash
-   npm run build:web
+   npm run build
    ```
    *Output*: Generates `pkg/` and ensures `web/pkg/` contains the latest WASM.
 
@@ -35,12 +35,12 @@ If you prefer to run steps individually:
 
 ## Local Testing
 
-To simulate the exact Cloudflare environment locally:
+To run locally the same way Cloudflare serves the site:
 
 ```bash
-npm run dev:worker
+npm run dev
 ```
-*Note: This uses `wrangler pages dev` which respects the `_headers` file.*
+*Note: This uses `wrangler pages dev`, which serves `web/` on port 8788 and respects the `_headers` file (so `SharedArrayBuffer` and threads work).*
 
 ## Critical Configuration: SharedArrayBuffer
 
@@ -55,4 +55,4 @@ This project uses multi-threading (`rayon`), which requires `SharedArrayBuffer`.
 
 **Troubleshooting:**
 - **Error**: "SharedArrayBuffer is not defined"
-- **Fix**: Ensure `web/_headers` exists and is deployed. Note that some local dev servers (like `python -m http.server`) do NOT send these headers. Use `npm run dev` (Node.js) or `npm run dev:worker` (Wrangler) for local testing.
+- **Fix**: Ensure `web/_headers` exists and is deployed. Note that some local dev servers (like `python -m http.server`) do NOT send these headers. Use `npm run dev` (Wrangler `pages dev`), which sends the required headers, for local testing.

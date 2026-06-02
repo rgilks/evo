@@ -42,6 +42,7 @@ Genes determine all behavior and attributes. They are mutable and heritable.
 | **Reproduction** | `rate`, `mutation_rate` |
 | **Shape/Color** | `hue`, `saturation` |
 | **Behavior** | `movement_style`, `social_tendency`, `gene_preference` |
+| **Particle Life** | `interactions` — per-hue-sector attraction/repulsion weights |
 
 ### 3. Movement System
 
@@ -51,6 +52,8 @@ Entities exhibit one of five genetically determined movement styles:
 3. **Solitary**: Active avoidance of other entities.
 4. **Predatory**: Active pursuit of prey based on genetic preference and size advantage.
 5. **Grazing**: Slow, steady movement with minimal energy expenditure.
+
+On top of these styles, every creature carries **particle-life interaction weights** — a per-hue-sector attraction/repulsion table applied as a force during the same single neighbour pass. This adds emergent clustering and pattern formation over the style-based behaviour, and is tunable live via the `particle_force_scale` and `particle_friction` parameters.
 
 ### 4. Interaction System
 

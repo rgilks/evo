@@ -62,9 +62,13 @@ evo/
 | `cargo test` | Run Rust tests |
 | `cargo clippy` | Run linter |
 
-## Simulation Details
+## Documentation
 
-For a deep dive into the simulation mechanics, see [docs/SIMULATION_SYSTEM.md](docs/SIMULATION_SYSTEM.md).
+- [Architecture](docs/ARCHITECTURE.md) — how the code is organized and how a frame is produced
+- [Simulation System](docs/SIMULATION_SYSTEM.md) — genes, movement styles, predation, and statistics
+- [Deployment](docs/DEPLOYMENT.md) — Cloudflare Pages and the SharedArrayBuffer header requirement
+- [Backlog](BACKLOG.md) — ordered next work and known constraints
+- [Agent Notes](AGENTS.md) — workflow, verification, and architecture rules for agents
 
 ## License
 
