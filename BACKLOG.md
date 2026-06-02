@@ -34,6 +34,18 @@ Rescued from the deleted `million-scale-optimization` branch (tip was `120fa37`;
 
 The renderer targets WebGPU and does nothing useful on browsers without it. Either add a real WebGL fallback (the `wgpu` `webgl` feature is already enabled) or detect WebGPU support and surface a clear "WebGPU required" message in the UI.
 
+## Patterns & consistency debt
+
+Surfaced by the architecture-pattern audit. The two cardinal patterns (Read–Compute–Apply, spatial-grid neighbour queries) hold everywhere; these are smaller consistency gaps and patterns worth adopting, ordered by value. See the pattern catalog in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#patterns).
+
+- **In-place component mutation instead of despawn-all / respawn-all.** `apply_entity_updates` (`simulation/mod.rs`) despawns *every* entity each tick and re-spawns the survivors, causing large per-tick allocation and archetype churn. Mutate components in place via hecs `query_mut`/`get_mut`, reserving spawn/despawn for actual births and deaths. Biggest performance win, and it removes the current redundant double-despawn.
+- **Unify the system call convention.** Movement and interaction take parameter objects; energy and reproduction take positional args (with `clippy::too_many_arguments` suppressed), and `handle_boundaries` is positional while `update_movement` is not. Pick one — ideally a single per-entity "scratch context" the systems mutate in turn — and drop the lint allow.
+- **Centralize the creature archetype.** The 7-component spawn tuple is written out in three places (`spawn_initial_entities`, the apply-phase respawn, and `create_offspring`) that must be kept in sync by hand. A single `spawn_creature(...)` constructor/builder removes the drift hazard.
+- **Introduce a `System` trait.** The four systems are unit structs with ad-hoc method names and signatures. A common trait (e.g. `run(&self, ctx: &mut EntityContext)`) makes the system set explicit, uniform, and ordered — the missing half of the ECS "system" pattern.
+- **Type the `update_param` surface.** `WebSimulation::update_param` is a stringly-typed `match` exposing 8 config fields and silently ignoring unknown keys (`_ => {}`). A typed param enum (or generated setter table) removes the silent no-op on typos and stays in sync with `SimulationConfig`.
+- **Hoist per-tick invariants.** `calculate_population_density()` is recomputed per entity inside the compute loop; compute it once per tick and pass it in.
+- **Remove dead code.** `Vec2` (`components.rs`) is unused outside its own tests; either adopt it as the shared 2-vector (replacing the duplicated `Position`/`Velocity` x/y shape) or delete it.
+
 ## Roadmap — simulation depth
 
 Longer-horizon mechanics live in [docs/SIMULATION_SYSTEM.md](docs/SIMULATION_SYSTEM.md#roadmap--future-ideas): environmental terrain and resource patches, aging/disease, mating rituals, and multi-species food webs.
