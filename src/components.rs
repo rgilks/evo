@@ -74,31 +74,6 @@ pub enum MovementType {
     Grazing,   // Move slowly and steadily
 }
 
-// Utility structs for better organization
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Vec2 {
-    pub x: f32,
-    pub y: f32,
-}
-
-impl Vec2 {
-    pub fn new(x: f32, y: f32) -> Self {
-        Self { x, y }
-    }
-}
-
-impl From<Position> for Vec2 {
-    fn from(pos: Position) -> Self {
-        Vec2::new(pos.x, pos.y)
-    }
-}
-
-impl From<Velocity> for Vec2 {
-    fn from(vel: Velocity) -> Self {
-        Vec2::new(vel.x, vel.y)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -182,29 +157,6 @@ mod tests {
         assert!((white.r - 1.0).abs() < 0.001);
         assert!((white.g - 1.0).abs() < 0.001);
         assert!((white.b - 1.0).abs() < 0.001);
-    }
-
-    #[test]
-    fn test_vec2_creation() {
-        let vec = Vec2::new(3.0, 4.0);
-        assert_eq!(vec.x, 3.0);
-        assert_eq!(vec.y, 4.0);
-    }
-
-    #[test]
-    fn test_vec2_from_position() {
-        let pos = Position { x: 10.0, y: 20.0 };
-        let vec: Vec2 = pos.into();
-        assert_eq!(vec.x, 10.0);
-        assert_eq!(vec.y, 20.0);
-    }
-
-    #[test]
-    fn test_vec2_from_velocity() {
-        let vel = Velocity { x: 5.0, y: -3.0 };
-        let vec: Vec2 = vel.into();
-        assert_eq!(vec.x, 5.0);
-        assert_eq!(vec.y, -3.0);
     }
 
     #[test]

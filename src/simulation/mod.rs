@@ -50,6 +50,7 @@ struct ProcessEntityParams<'a> {
     color: &'a Color,
     velocity: &'a Velocity,
     movement_style: &'a crate::components::MovementStyle,
+    population_density: f32,
 }
 
 impl Simulation {
@@ -165,6 +166,9 @@ impl Simulation {
     }
 
     fn process_entities_parallel(&self) -> Vec<EntityUpdate> {
+        // Population density is constant across the tick (the world is not mutated
+        // during the compute phase), so compute it once rather than per entity.
+        let population_density = self.calculate_population_density();
         self.world
             .query::<(
                 &Position,
@@ -192,6 +196,7 @@ impl Simulation {
                         color,
                         velocity,
                         movement_style,
+                        population_density,
                     })
                 },
             )
@@ -208,6 +213,7 @@ impl Simulation {
             color,
             velocity,
             movement_style,
+            population_density,
         } = params;
 
         let nearby_entities = self.get_nearby_entities_for_entity(pos, genes);
@@ -245,7 +251,6 @@ impl Simulation {
         self.energy_system
             .update_energy(&mut new_energy, size, genes, &self.config);
 
-        let population_density = self.calculate_population_density();
         let should_reproduce =
             self.check_reproduction_for_entity(new_energy, energy.max, genes, population_density);
 
