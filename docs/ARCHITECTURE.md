@@ -43,13 +43,15 @@ The simulation is built from a small set of recurring patterns. Naming them once
 
 **Stateless system-as-unit-struct.** Each system is a zero-sized unit struct (`MovementSystem`, `InteractionSystem`, `EnergySystem`, `ReproductionSystem` in `systems/`), held as a field on `Simulation` and instantiated once. Systems hold no state; they are namespaces for behaviour that takes the world and components as arguments.
 
-**Read–Compute–Apply (deferred mutation).** The cardinal tick pattern. Each step: (1) **read** the world through immutable queries, (2) **compute** a `Vec<EntityUpdate>` in parallel under rayon — pure functions of the read state, no world mutation, and (3) **apply** all structural mutations serially in the orchestrator. The invariant: *no system mutates `World` structure from inside a parallel query.* The one deliberate exception is the spatial-grid rebuild, which writes into a `DashMap` from a parallel iterator — sound precisely because the target is a thread-safe concurrent map, not the `World`.
+**Read–Compute–Apply (deferred mutation).** The cardinal tick pattern. Each step: (1) **read** the world through immutable queries, (2) **compute** a `Vec<EntityUpdate>` in parallel under rayon — pure functions of the read state, no world mutation, and (3) **apply** the results serially in the orchestrator — writing each survivor's components in place, despawning the dead, and spawning offspring. The invariant: *no system mutates `World` structure from inside a parallel query.* The one deliberate exception is the spatial-grid rebuild, which writes into a `DashMap` from a parallel iterator — sound precisely because the target is a thread-safe concurrent map, not the `World`.
 
-**Command object (`EntityUpdate`).** The carrier between compute and apply (`simulation/mod.rs`). Every per-entity result — new position/velocity/energy/size, whether it reproduced, what it ate — is packaged into one `EntityUpdate`, and the apply phase is its sole interpreter. This is what lets the compute phase stay pure and parallel.
+**Command object (`EntityUpdate`).** The carrier between compute and apply (`simulation/mod.rs`). Every per-entity result — new position/velocity/energy/size and whether it reproduced — is packaged into one `EntityUpdate`, and the apply phase is its sole interpreter. This is what lets the compute phase stay pure and parallel.
 
 **Spatial hashing for neighbour queries.** `SpatialGrid` (`spatial_grid.rs`) buckets entities into fixed-size cells in a `DashMap`. A neighbour lookup scans only the cells within the query radius — never the whole population — turning O(N²) all-pairs into near-O(N). The grid is queried once per entity per tick and the result is shared by movement and interaction. Two deliberate refinements: cell order is shuffled per query to remove directional bias, and each entity considers at most 20 neighbours (`take(20)`), trading completeness for a bounded per-entity cost.
 
-**Parameter object.** Systems that take many borrows bundle them into a single `*Params` struct destructured at the function entry — `MovementUpdateParams`, `InteractionParams`, and the orchestrator's own `ProcessEntityParams`. (Energy and reproduction currently take positional parameters instead; `simulation/mod.rs` suppresses `clippy::too_many_arguments` for the mixed cases — see BACKLOG.)
+**System pipeline over a shared context.** All four systems implement one trait — `System::run(&mut EntityContext)` (`systems/`) — and the orchestrator runs them in a fixed order (movement → interaction → energy → reproduction) over a single `EntityContext` carrying the read-only inputs and the mutable `new_*` working state. The per-system `*Params` structs (`MovementUpdateParams`, `InteractionParams`) and the orchestrator's `ProcessEntityParams` are the parameter-object form used to pass many borrows without long argument lists.
+
+**Centralized archetype.** The creature component bundle is built in one place, `systems::creature_bundle`, used by both the initial spawn and reproduction so the archetype cannot drift between the two.
 
 **Grouped configuration.** `SimulationConfig` is a struct of domain sub-structs (`population`, `physics`, `energy`, `reproduction` — `config/mod.rs`), serde-(de)serializable, with a `Default`. It is threaded read-only as `&config` to every system, and individual fields are tunable live through `WebSimulation::update_param`. `Genes` mirrors this shape with one sub-struct per trait domain.
 
@@ -59,7 +61,7 @@ The simulation is built from a small set of recurring patterns. Naming them once
 
 **Zero-copy render buffer.** Instead of per-creature draw calls, entities are packed into one flat `[f32]` (8 floats each) exposed to JS by raw pointer; the renderer reads it as instance data for a single instanced draw, and the shader does interpolation and the camera transform on the GPU (see Rendering Pipeline).
 
-**Snapshot for interpolation.** Each tick snapshots positions into `previous_positions` before moving entities, so the renderer can interpolate between the last two sim states — decoupling visual smoothness from tick rate.
+**Snapshot for interpolation.** Each tick snapshots positions into `previous_positions` (keyed by entity) before moving entities, so the renderer can interpolate between the last two sim states — decoupling visual smoothness from tick rate. Because entities are updated in place, their ids are stable across ticks, so the snapshot matches the live entities and the interpolation is active.
 
 **Graceful-skip error handling.** Component reads in the hot path use `if let Ok(...)` and silently skip entities that vanished mid-tick; despawns discard their `Result` (`let _ =`); the FFI boundary uses `Result`/`map_err`; other fallbacks use `unwrap_or(default)`. There are no `panic!`/`unwrap`/`expect` in non-test code.
 
@@ -71,9 +73,9 @@ Known consistency gaps and patterns under consideration are tracked in [BACKLOG.
 
 1. **Snapshot** — store previous positions (used for GPU-side interpolation between sim steps).
 2. **Build spatial grid** — rebuild the `SpatialGrid` from current positions (concurrent inserts via DashMap).
-3. **Compute then apply** — process every entity *in parallel* into a list of `EntityUpdate`s (new position/velocity/energy, eaten flags, offspring), then apply that list *serially*: despawn eaten and starved/old entities, spawn offspring.
+3. **Compute then apply** — process every entity *in parallel* into a list of `EntityUpdate`s, then apply that list *serially*: write each survivor's `Position`/`Velocity`/`Energy`/`Size` in place (via `query_mut`), despawn the starved/dead, and spawn offspring.
 
-This split exists because hecs structural mutation (spawn/despawn) is single-threaded. Reads and per-entity math fan out across cores; only the apply step touches world structure.
+This split exists because hecs mutation (in-place writes and spawn/despawn) is single-threaded. Reads and per-entity math fan out across cores; only the apply step mutates the world.
 
 ## Parallelism Model
 
