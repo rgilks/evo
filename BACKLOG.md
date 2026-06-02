@@ -2,14 +2,19 @@
 
 Forward-looking work, roughly ordered by what unblocks or de-risks the most. Present tense; this is intent, not history.
 
-## P1 — Toolchain & dependency modernization
+## P1 — Toolchain & dependency modernization (blocked on wasm threads)
 
-Pinned to `nightly-2024-08-02` because atomics + `-Z build-std` are nightly-only (still true in 2026 — that part is unavoidable, not debt). But the specific pin is ~21 months stale, which forces the `indexmap = "=2.2.6"` workaround, and the dep tree has drifted. Resuming serious work likely starts here.
+Pinned to `nightly-2024-08-02` because atomics + `-Z build-std` are nightly-only (still true in 2026 — unavoidable, not debt). The pin is ~21 months stale, which forces the `indexmap = "=2.2.6"` workaround, and the dep tree has drifted.
 
-- Bump to a recent nightly and drop the `indexmap` exact-pin.
-- `wgpu` 24 → 29 (five majors; expect mechanical churn in `web/webgpu.rs` + the shader). Highest-effort item.
-- `rand` 0.8 → 0.9 (collapses the `getrandom` 0.2/0.3 split) and `hecs` 0.9 → 0.11.
-- Treat as one coordinated upgrade — these cascade.
+**Blocker — newer nightlies break wasm threads.** On `nightly-2026-05-01` (rustc 1.97) the wasm build stops emitting a *shared* memory, so `wasm-bindgen-rayon`'s `initThreadPool` fails at load (`DataCloneError: #<Memory> could not be cloned`; `Atomics.waitAsync` on a non-shared `Int32Array`) and the app never initializes. The same `wasm-bindgen` (0.2.100) and `wasm-bindgen-rayon` (1.3.0) work on the old nightly and break on the new one, so it is the compiler's shared-memory emission that changed — not the JS glue. Resolve this first (likely an explicit `-C link-arg=--shared-memory -C link-arg=--max-memory=…`, or an added target-feature) and confirm `initThreadPool` succeeds in the browser before bumping anything else.
+
+Once threads work on a recent nightly, the rest follows and has been scouted:
+
+- Drop the `indexmap = "=2.2.6"` exact-pin (newer nightlies accept current indexmap; it's only a transitive of wgpu/naga).
+- `hecs` 0.9 → 0.11: query iterators now yield `Q::Item` instead of `(Entity, Q::Item)`, and `Entity` implements `Query` — add `Entity` to the queries that need the id and flatten the bindings. Also `rand` 0.8 → 0.9.
+- `wgpu` 24 → 29: mechanical churn in `web/webgpu.rs` — by-value `InstanceDescriptor` (no `Default`), `request_adapter` returns `Result`, `request_device` takes one arg, `bind_group_layouts: &[Option<&_>]` + `immediate_size`, `multiview` → `multiview_mask`, `get_current_texture` returns the `CurrentSurfaceTexture` enum, and `RenderPassColorAttachment.depth_slice`. wgpu 29 forces `wasm-bindgen` 0.2.122, which needs the newer nightly — so it is gated behind the threads fix above.
+
+Keep the CI workflow's pinned nightly in sync with `rust-toolchain.toml`: the workflow installs rustfmt/clippy/wasm components for its own pinned value, so a mismatch fails the build.
 
 ## P2 — Performance: dense spatial grid (SoA)
 
