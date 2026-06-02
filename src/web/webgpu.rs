@@ -34,6 +34,7 @@ pub struct WebGpuRenderer {
     uniform_buffer: wgpu::Buffer,
     bind_group: wgpu::BindGroup,
     num_instances: u32,
+    instance_capacity: u32,
     width: u32,
     height: u32,
 }
@@ -214,13 +215,14 @@ impl WebGpuRenderer {
             cache: None,
         });
 
-        // Create instance buffer (pre-allocate for 20000 entities)
+        // Create instance buffer, pre-allocated for an initial capacity (grown on demand).
+        const INITIAL_INSTANCE_CAPACITY: usize = 20000;
         let initial_instances = vec![
             Instance {
                 prev_curr_pos: [0.0, 0.0, 0.0, 0.0],
                 radius_color: [0.0, 0.0, 0.0, 0.0],
             };
-            20000
+            INITIAL_INSTANCE_CAPACITY
         ];
 
         let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -239,6 +241,7 @@ impl WebGpuRenderer {
             uniform_buffer,
             bind_group,
             num_instances: 0,
+            instance_capacity: INITIAL_INSTANCE_CAPACITY as u32,
             width,
             height,
         })
@@ -282,30 +285,28 @@ impl WebGpuRenderer {
         self.queue
             .write_buffer(&self.uniform_buffer, 0, bytemuck::cast_slice(&[uniforms]));
 
-        // Read entity data (8 floats per entity: prev_x, prev_y, cur_x, cur_y, radius, r, g, b)
+        // The packed buffer's layout is identical to `Instance` (8 f32 =
+        // prev_curr_pos[4] + radius_color[4]), so reinterpret it directly —
+        // no per-frame copy into a Vec<Instance>.
         let entity_data =
             unsafe { std::slice::from_raw_parts(entities_ptr, (entity_count * 8) as usize) };
+        let instances: &[Instance] = bytemuck::cast_slice(entity_data);
 
-        // Convert to instances (Parallel conversion would be nice but requires a buffer)
-        let mut instances = Vec::with_capacity(entity_count as usize);
-
-        for chunk in entity_data.chunks(8) {
-            if chunk.len() < 8 {
-                break;
-            }
-            instances.push(Instance {
-                prev_curr_pos: [chunk[0], chunk[1], chunk[2], chunk[3]],
-                radius_color: [chunk[4], chunk[5], chunk[6], chunk[7]],
+        // Grow the instance buffer if the population outgrew its capacity.
+        if entity_count > self.instance_capacity {
+            let new_capacity = entity_count.next_power_of_two();
+            self.instance_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("Instance Buffer"),
+                size: new_capacity as u64 * std::mem::size_of::<Instance>() as u64,
+                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
             });
+            self.instance_capacity = new_capacity;
         }
 
-        self.num_instances = instances.len() as u32;
-
-        // Update instance buffer
-        if !instances.is_empty() {
-            self.queue
-                .write_buffer(&self.instance_buffer, 0, bytemuck::cast_slice(&instances));
-        }
+        self.num_instances = entity_count;
+        self.queue
+            .write_buffer(&self.instance_buffer, 0, bytemuck::cast_slice(instances));
 
         // Render
         let output = match self.surface.get_current_texture() {
