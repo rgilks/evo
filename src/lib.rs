@@ -18,6 +18,7 @@ pub use wasm_bindgen_rayon::init_thread_pool;
 pub struct WebSimulation {
     simulation: simulation::Simulation,
     config: config::SimulationConfig,
+    seed: u64,
     entity_buffer: Vec<f32>, // Reusable buffer for entity data
 }
 
@@ -25,21 +26,25 @@ pub struct WebSimulation {
 impl WebSimulation {
     #[wasm_bindgen(constructor)]
     pub fn new(world_size: f32, config_json: &str) -> Result<WebSimulation, JsValue> {
-        let config: config::SimulationConfig = serde_json::from_str(config_json)
-            .map_err(|e| JsValue::from_str(&format!("Config parse error: {}", e)))?;
-
-        // Seed from the wall clock so each page load is a different run, while the
-        // run stays fully reproducible from this seed (logged for sharing/replay).
+        // Seed from the wall clock so each page load is a different run.
         let seed = js_sys::Date::now() as u64;
-        web_sys::console::log_1(&JsValue::from_str(&format!("Simulation seed: {seed}")));
-        let simulation =
-            simulation::Simulation::new_with_config_seeded(world_size, config.clone(), seed);
+        Self::build(world_size, config_json, seed)
+    }
 
-        Ok(WebSimulation {
-            simulation,
-            config,
-            entity_buffer: Vec::with_capacity(80000), // 10000 entities * 8 floats
-        })
+    /// Construct with an explicit seed so a run can be reproduced or shared.
+    /// `seed` arrives as an f64 from JS — exact for the wall-clock seeds we log
+    /// (well below 2^53).
+    pub fn with_seed(
+        world_size: f32,
+        config_json: &str,
+        seed: f64,
+    ) -> Result<WebSimulation, JsValue> {
+        Self::build(world_size, config_json, seed as u64)
+    }
+
+    /// The seed this run was created from (as f64 for JS; exact below 2^53).
+    pub fn get_seed(&self) -> f64 {
+        self.seed as f64
     }
 
     pub fn update(&mut self) {
@@ -100,6 +105,24 @@ impl WebSimulation {
 
     pub fn get_step(&self) -> u32 {
         self.simulation.step()
+    }
+}
+
+impl WebSimulation {
+    fn build(world_size: f32, config_json: &str, seed: u64) -> Result<WebSimulation, JsValue> {
+        let config: config::SimulationConfig = serde_json::from_str(config_json)
+            .map_err(|e| JsValue::from_str(&format!("Config parse error: {}", e)))?;
+
+        web_sys::console::log_1(&JsValue::from_str(&format!("Simulation seed: {seed}")));
+        let simulation =
+            simulation::Simulation::new_with_config_seeded(world_size, config.clone(), seed);
+
+        Ok(WebSimulation {
+            simulation,
+            config,
+            seed,
+            entity_buffer: Vec::with_capacity(80000), // 10000 entities * 8 floats
+        })
     }
 }
 

@@ -2,6 +2,8 @@
 
 A beautiful and performant evolution simulation written in Rust with WebGPU-accelerated graphics and WebAssembly, running entirely in the browser.
 
+**Live:** [evo-dgc.pages.dev](https://evo-dgc.pages.dev) — needs a WebGPU-capable browser (Chrome / Edge / Brave 113+). Each load picks a random seed (logged to the console); enter a seed in the UI to reproduce or share a run.
+
 ![Evolution Simulation Screenshot](screenshot.png)
 
 ## Quick Start

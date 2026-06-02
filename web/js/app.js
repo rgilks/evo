@@ -4,7 +4,7 @@ import init, {
   WebGpuRenderer,
   init_panic_hook,
   SimParam,
-} from "../pkg/evo.js?v=2765370";
+} from "../pkg/evo.js?v=9b218cf";
 
 // Shared configuration object - matches the new Rust SimulationConfig structure
 const DEFAULT_CONFIG = {
@@ -92,6 +92,7 @@ class EvolutionApp {
         Math.max(this.canvas.width, this.canvas.height),
         configJson
       );
+      this.updateSeedDisplay();
 
       // Initialize WebGPU renderer (required - no fallback)
       if (!navigator.gpu) {
@@ -245,11 +246,22 @@ class EvolutionApp {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 
-    this.simulation = new WebSimulation(
-      Math.max(canvas.width, canvas.height),
-      JSON.stringify(DEFAULT_CONFIG)
-    );
+    const worldSize = Math.max(canvas.width, canvas.height);
+    const configJson = JSON.stringify(DEFAULT_CONFIG);
+    const seedText = document.getElementById("seed-input")?.value.trim();
+    const seed = seedText ? Number(seedText) : NaN;
+    this.simulation = Number.isFinite(seed)
+      ? WebSimulation.with_seed(worldSize, configJson, seed)
+      : new WebSimulation(worldSize, configJson);
+    this.updateSeedDisplay();
     this.updateStats();
+  }
+
+  updateSeedDisplay() {
+    const el = document.getElementById("seed-display");
+    if (el && this.simulation) {
+      el.textContent = String(this.simulation.get_seed());
+    }
   }
 
   startRenderLoop() {
