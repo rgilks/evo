@@ -16,7 +16,7 @@ fn test_interaction_system_handle_interactions() {
     let world = World::new();
     let config = SimulationConfig::default();
 
-    system.handle_interactions(InteractionParams {
+    let eaten = system.handle_interactions(InteractionParams {
         new_energy: &mut new_energy,
         new_pos: &new_pos,
         size: &size,
@@ -26,8 +26,9 @@ fn test_interaction_system_handle_interactions() {
         config: &config,
     });
 
-    // Energy should remain unchanged if no interactions
+    // No neighbors -> nothing eaten and energy unchanged
     assert_eq!(new_energy, 50.0);
+    assert!(eaten.is_none());
 }
 
 #[test]

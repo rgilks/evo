@@ -77,17 +77,18 @@ impl WebSimulation {
         self.simulation.world_size()
     }
 
-    pub fn update_param(&mut self, name: &str, value: f32) {
-        match name {
-            "max_velocity" => self.config.physics.max_velocity = value,
-            "center_pressure" => self.config.physics.center_pressure_strength = value,
-            "death_chance" => self.config.reproduction.death_chance_factor = value,
-            "repro_threshold" => self.config.reproduction.reproduction_energy_threshold = value,
-            "energy_cost" => self.config.energy.size_energy_cost_factor = value,
-            "bounce_factor" => self.config.physics.velocity_bounce_factor = value,
-            "particle_force" => self.config.physics.particle_force_scale = value,
-            "particle_friction" => self.config.physics.particle_friction = value,
-            _ => {}
+    pub fn update_param(&mut self, param: SimParam, value: f32) {
+        match param {
+            SimParam::MaxVelocity => self.config.physics.max_velocity = value,
+            SimParam::CenterPressure => self.config.physics.center_pressure_strength = value,
+            SimParam::DeathChance => self.config.reproduction.death_chance_factor = value,
+            SimParam::ReproThreshold => {
+                self.config.reproduction.reproduction_energy_threshold = value
+            }
+            SimParam::EnergyCost => self.config.energy.size_energy_cost_factor = value,
+            SimParam::BounceFactor => self.config.physics.velocity_bounce_factor = value,
+            SimParam::ParticleForce => self.config.physics.particle_force_scale = value,
+            SimParam::ParticleFriction => self.config.physics.particle_friction = value,
         }
         self.simulation.update_config(self.config.clone());
     }
@@ -100,4 +101,19 @@ impl WebSimulation {
 #[wasm_bindgen]
 pub fn init_panic_hook() {
     console_error_panic_hook::set_once();
+}
+
+/// Tunable simulation parameters exposed to the UI. Modelling the surface as an
+/// enum keeps the JS↔WASM boundary typed: callers cannot pass an unknown
+/// parameter, and every variant must be handled in `WebSimulation::update_param`.
+#[wasm_bindgen]
+pub enum SimParam {
+    MaxVelocity,
+    CenterPressure,
+    DeathChance,
+    ReproThreshold,
+    EnergyCost,
+    BounceFactor,
+    ParticleForce,
+    ParticleFriction,
 }

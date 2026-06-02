@@ -235,6 +235,7 @@ fn test_simulation_apply_updates() {
         genes: Genes::new_random(&mut thread_rng()),
         velocity: Velocity { x: 1.0, y: 1.0 },
         should_reproduce: false,
+        eaten_entity: None,
     }];
 
     sim.apply_entity_updates(updates);
@@ -484,4 +485,25 @@ fn test_in_place_update_persists_and_moves_entities() {
         "original entity ids should persist across ticks (stable ids)"
     );
     assert!(moved > 0, "in-place update should move surviving entities");
+}
+
+#[test]
+fn test_predation_keeps_population_bounded() {
+    // Eating removes prey, so the population oscillates — but over a long run it
+    // must neither collapse to zero nor explode far past the cap.
+    let config = SimulationConfig::default();
+    let max_pop =
+        (config.population.max_population as f32 * config.population.entity_scale) as usize;
+    let mut sim = Simulation::new_with_config(200.0, config);
+
+    for _ in 0..80 {
+        sim.update();
+    }
+
+    let pop = sim.world().len() as usize;
+    assert!(pop > 0, "population collapsed to zero under predation");
+    assert!(
+        pop < max_pop * 2,
+        "population exploded past the cap (got {pop})"
+    );
 }

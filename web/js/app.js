@@ -3,7 +3,8 @@ import init, {
   WebSimulation,
   WebGpuRenderer,
   init_panic_hook,
-} from "../pkg/evo.js?v=445b6fc";
+  SimParam,
+} from "../pkg/evo.js?v=3490dfd";
 
 // Shared configuration object - matches the new Rust SimulationConfig structure
 const DEFAULT_CONFIG = {
@@ -125,19 +126,19 @@ class EvolutionApp {
     velocitySlider.addEventListener("input", (e) => {
       const value = parseFloat(e.target.value);
       document.getElementById("velocity-value").textContent = value.toFixed(1);
-      this.simulation.update_param("max_velocity", value);
+      this.simulation.update_param(SimParam.MaxVelocity, value);
     });
 
     pressureSlider.addEventListener("input", (e) => {
       const value = parseFloat(e.target.value);
       document.getElementById("pressure-value").textContent = value.toFixed(2);
-      this.simulation.update_param("center_pressure", value);
+      this.simulation.update_param(SimParam.CenterPressure, value);
     });
 
     deathSlider.addEventListener("input", (e) => {
       const value = parseFloat(e.target.value);
       document.getElementById("death-value").textContent = value.toFixed(2);
-      this.simulation.update_param("death_chance", value);
+      this.simulation.update_param(SimParam.DeathChance, value);
     });
 
     // New sliders
@@ -148,19 +149,19 @@ class EvolutionApp {
     reproSlider.addEventListener("input", (e) => {
       const value = parseFloat(e.target.value);
       document.getElementById("repro-value").textContent = value.toFixed(2);
-      this.simulation.update_param("repro_threshold", value);
+      this.simulation.update_param(SimParam.ReproThreshold, value);
     });
 
     energySlider.addEventListener("input", (e) => {
       const value = parseFloat(e.target.value);
       document.getElementById("energy-value").textContent = value.toFixed(2);
-      this.simulation.update_param("energy_cost", value);
+      this.simulation.update_param(SimParam.EnergyCost, value);
     });
 
     bounceSlider.addEventListener("input", (e) => {
       const value = parseFloat(e.target.value);
       document.getElementById("bounce-value").textContent = value.toFixed(2);
-      this.simulation.update_param("bounce_factor", value);
+      this.simulation.update_param(SimParam.BounceFactor, value);
     });
 
     const particleForceSlider = document.getElementById("particle-force");
@@ -169,13 +170,13 @@ class EvolutionApp {
     particleForceSlider.addEventListener("input", (e) => {
       const value = parseFloat(e.target.value);
       document.getElementById("pforce-value").textContent = value.toFixed(1);
-      this.simulation.update_param("particle_force", value);
+      this.simulation.update_param(SimParam.ParticleForce, value);
     });
 
     particleFrictionSlider.addEventListener("input", (e) => {
       const value = parseFloat(e.target.value);
       document.getElementById("pfriction-value").textContent = value.toFixed(2);
-      this.simulation.update_param("particle_friction", value);
+      this.simulation.update_param(SimParam.ParticleFriction, value);
     });
 
     // Keyboard shortcuts

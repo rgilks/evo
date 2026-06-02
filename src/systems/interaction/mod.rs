@@ -7,7 +7,7 @@ pub struct InteractionSystem;
 
 impl crate::systems::System for InteractionSystem {
     fn run(&self, ctx: &mut crate::systems::EntityContext) {
-        self.handle_interactions(InteractionParams {
+        let eaten = self.handle_interactions(InteractionParams {
             new_energy: &mut ctx.new_energy,
             new_pos: &ctx.new_pos,
             size: ctx.size,
@@ -16,6 +16,7 @@ impl crate::systems::System for InteractionSystem {
             world: ctx.world,
             config: ctx.config,
         });
+        ctx.eaten_entity = eaten;
     }
 }
 
@@ -30,7 +31,7 @@ pub struct InteractionParams<'a> {
 }
 
 impl InteractionSystem {
-    pub fn handle_interactions(&self, params: InteractionParams) {
+    pub fn handle_interactions(&self, params: InteractionParams) -> Option<Entity> {
         let InteractionParams {
             new_energy,
             new_pos,
@@ -43,9 +44,10 @@ impl InteractionSystem {
         for &entity in nearby_entities {
             if self.can_interact_with_entity(entity, new_pos, size, genes, world, config) {
                 self.process_interaction(entity, new_energy, genes, world);
-                break; // Only interact with one entity per frame
+                return Some(entity); // Eat one entity per frame
             }
         }
+        None
     }
 
     fn can_interact_with_entity(

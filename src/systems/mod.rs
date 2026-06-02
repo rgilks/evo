@@ -31,6 +31,7 @@ pub struct EntityContext<'a> {
     pub new_velocity: Velocity,
     pub new_energy: f32,
     pub should_reproduce: bool,
+    pub eaten_entity: Option<Entity>,
 }
 
 /// Uniform interface for the per-entity systems. Each system reads from and

@@ -34,13 +34,6 @@ Rescued from the deleted `million-scale-optimization` branch (tip was `120fa37`;
 
 The renderer targets WebGPU and does nothing useful on browsers without it. Either add a real WebGL fallback (the `wgpu` `webgl` feature is already enabled) or detect WebGPU support and surface a clear "WebGPU required" message in the UI.
 
-## Patterns & consistency debt
-
-Most of the architecture-pattern audit's findings are addressed: entities update in place, the four systems share a `System` trait + `EntityContext`, the creature archetype is centralized in `creature_bundle`, per-tick invariants are hoisted, and dead code (`Vec2`) is gone. The two cardinal patterns (Read–Compute–Apply, spatial-grid neighbour queries) hold everywhere. See the pattern catalog in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#patterns). Remaining:
-
-- **Predation does not remove prey.** Eating only transfers energy to the predator; the eaten entity is not despawned. (Historically it was despawned and immediately respawned — a net no-op — and the in-place rewrite preserves that behaviour.) Decide whether eating should remove prey; if so, despawn eaten entities in `apply_entity_updates`.
-- **Type the `update_param` surface.** `WebSimulation::update_param` is a stringly-typed `match` exposing 8 config fields and silently ignoring unknown keys (`_ => {}`). A typed param enum (or generated setter table) removes the silent no-op on typos and stays in sync with `SimulationConfig`.
-
 ## Roadmap — simulation depth
 
 Longer-horizon mechanics live in [docs/SIMULATION_SYSTEM.md](docs/SIMULATION_SYSTEM.md#roadmap--future-ideas): environmental terrain and resource patches, aging/disease, mating rituals, and multi-species food webs.

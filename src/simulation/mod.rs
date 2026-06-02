@@ -12,7 +12,7 @@ use crate::systems::{
 use hecs::*;
 use rand::prelude::*;
 use rayon::prelude::*;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 // Simulation state
 pub struct EntityUpdate {
@@ -23,6 +23,7 @@ pub struct EntityUpdate {
     pub genes: Genes,
     pub velocity: Velocity,
     pub should_reproduce: bool,
+    pub eaten_entity: Option<Entity>,
 }
 
 pub struct Simulation {
@@ -206,6 +207,7 @@ impl Simulation {
             new_velocity: velocity.clone(),
             new_energy: energy.current,
             should_reproduce: false,
+            eaten_entity: None,
         };
 
         // Systems run in order over the shared context (movement → interaction →
@@ -232,6 +234,7 @@ impl Simulation {
             genes: genes.clone(),
             velocity: ctx.new_velocity,
             should_reproduce: ctx.should_reproduce,
+            eaten_entity: ctx.eaten_entity,
         })
     }
 
@@ -254,13 +257,20 @@ impl Simulation {
         // against the same start-of-tick population baseline.
         let baseline = self.world.len() as usize;
 
+        // Entities eaten by a predator this tick are removed. Collect them first
+        // so they are neither updated in place nor allowed to reproduce.
+        let eaten: HashSet<Entity> = updates.iter().filter_map(|u| u.eaten_entity).collect();
+
         // Collect deaths and queue offspring (read-only over self and the world).
         let mut dead: Vec<Entity> = Vec::new();
         let mut offspring = Vec::new();
         for update in &updates {
             if update.energy.current <= 0.0 {
                 dead.push(update.entity);
-            } else if update.should_reproduce && baseline < max_population {
+            } else if update.should_reproduce
+                && !eaten.contains(&update.entity)
+                && baseline < max_population
+            {
                 offspring.push(self.reproduction_system.create_offspring(
                     &update.genes,
                     update.energy.max,
@@ -272,11 +282,11 @@ impl Simulation {
 
         // Apply each survivor's new state in place — no despawn/respawn churn.
         // Genes, color, and movement style never change for an existing entity, so
-        // only the mutable components are written. Predation transferred energy
-        // during the compute phase; eaten prey is not removed (see BACKLOG.md).
+        // only the mutable components are written. Eaten entities are skipped here
+        // and despawned below.
         let updated: HashMap<Entity, &EntityUpdate> = updates
             .iter()
-            .filter(|u| u.energy.current > 0.0)
+            .filter(|u| u.energy.current > 0.0 && !eaten.contains(&u.entity))
             .map(|u| (u.entity, u))
             .collect();
         for (entity, (pos, velocity, energy, size)) in
@@ -291,8 +301,12 @@ impl Simulation {
             }
         }
 
-        // Births and deaths are the only structural mutations (serial — hecs).
+        // Births, deaths, and predation removals are the only structural
+        // mutations (serial — hecs).
         for entity in dead {
+            let _ = self.world.despawn(entity);
+        }
+        for entity in eaten {
             let _ = self.world.despawn(entity);
         }
         for bundle in offspring {
