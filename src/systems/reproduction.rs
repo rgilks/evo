@@ -1,10 +1,29 @@
-use crate::components::{Energy, Position, Size, Velocity};
+use crate::components::Position;
 use crate::config::SimulationConfig;
 use crate::genes::Genes;
 use rand::prelude::*;
 
 /// Reproduction system - handles entity reproduction and population control
 pub struct ReproductionSystem;
+
+impl super::System for ReproductionSystem {
+    fn run(&self, ctx: &mut super::EntityContext) {
+        ctx.should_reproduce = self.check_reproduction(
+            ctx.new_energy,
+            ctx.energy_max,
+            ctx.genes,
+            ctx.population_density,
+            ctx.config,
+        );
+        if self.check_death(ctx.population_density, ctx.config) {
+            ctx.new_energy = 0.0; // Kill the entity
+        }
+        if ctx.should_reproduce {
+            // Offspring is spawned in apply_entity_updates; deduct the parent's cost here.
+            ctx.new_energy *= ctx.config.reproduction.reproduction_energy_cost;
+        }
+    }
+}
 
 impl ReproductionSystem {
     pub fn check_reproduction(
@@ -29,21 +48,10 @@ impl ReproductionSystem {
         parent_energy_max: f32,
         parent_pos: &Position,
         config: &SimulationConfig,
-    ) -> (
-        Position,
-        Energy,
-        Size,
-        Genes,
-        crate::components::Color,
-        Velocity,
-        crate::components::MovementStyle,
-    ) {
+    ) -> crate::systems::CreatureBundle {
         let mut rng = thread_rng();
         let child_genes = parent_genes.mutate(&mut rng);
         let child_energy = parent_energy_max * config.reproduction.child_energy_factor;
-        let child_radius = (child_energy / 15.0 * child_genes.size_factor())
-            .clamp(config.physics.min_entity_radius, 15.0);
-        let child_color = child_genes.get_color();
 
         // Use uniform distribution in a circle for child positioning
         let (dx, dy) = loop {
@@ -61,22 +69,16 @@ impl ReproductionSystem {
             }
         };
 
-        (
+        crate::systems::creature_bundle(
             Position {
                 x: parent_pos.x + dx,
                 y: parent_pos.y + dy,
             },
-            Energy {
-                current: child_energy,
-                max: parent_energy_max,
-            },
-            Size {
-                radius: child_radius,
-            },
-            child_genes.clone(),
-            child_color,
-            Velocity { x: 0.0, y: 0.0 },
-            child_genes.behavior.movement_style.clone(),
+            child_energy,
+            parent_energy_max,
+            child_genes,
+            15.0,
+            config.physics.min_entity_radius,
         )
     }
 

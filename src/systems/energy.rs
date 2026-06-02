@@ -5,6 +5,12 @@ use crate::genes::Genes;
 /// Energy system - handles energy consumption and metabolism
 pub struct EnergySystem;
 
+impl super::System for EnergySystem {
+    fn run(&self, ctx: &mut super::EntityContext) {
+        self.update_energy(&mut ctx.new_energy, ctx.size, ctx.genes, ctx.config);
+    }
+}
+
 impl EnergySystem {
     pub fn update_energy(
         &self,

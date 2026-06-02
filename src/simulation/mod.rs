@@ -1,12 +1,14 @@
 #![allow(clippy::type_complexity)]
-#![allow(clippy::too_many_arguments)]
 
 use crate::components::{Color, Energy, Position, Size, Velocity};
 use crate::config::SimulationConfig;
 use crate::genes::Genes;
 use crate::spatial_grid::SpatialGrid;
 use crate::stats::SimulationStats;
-use crate::systems::{EnergySystem, InteractionSystem, MovementSystem, ReproductionSystem};
+use crate::systems::{
+    creature_bundle, EnergySystem, EntityContext, InteractionSystem, MovementSystem,
+    ReproductionSystem, System,
+};
 use hecs::*;
 use rand::prelude::*;
 use rayon::prelude::*;
@@ -94,23 +96,14 @@ impl Simulation {
 
             let genes = Genes::new_random(rng);
             let energy = rng.gen_range(15.0..75.0);
-            let color = genes.get_color();
-            let radius = (energy / 15.0 * genes.size_factor()).clamp(
-                config.physics.min_entity_radius,
-                config.physics.max_entity_radius,
-            );
 
-            world.spawn((
+            world.spawn(creature_bundle(
                 Position { x, y },
-                Energy {
-                    current: energy,
-                    max: energy * 1.3,
-                },
-                Size { radius },
-                genes.clone(),
-                color,
-                Velocity { x: 0.0, y: 0.0 },
-                genes.behavior.movement_style.clone(),
+                energy,
+                energy * 1.3,
+                genes,
+                config.physics.max_entity_radius,
+                config.physics.min_entity_radius,
             ));
         }
     }
@@ -199,64 +192,46 @@ impl Simulation {
 
         let nearby_entities = self.get_nearby_entities_for_entity(pos, genes);
 
-        let mut new_pos = pos.clone();
-        let mut new_velocity = velocity.clone();
-        let mut new_energy = energy.current;
-
-        self.apply_movement_to_entity(
+        let mut ctx = EntityContext {
             genes,
-            &mut new_pos,
-            &mut new_velocity,
-            &mut new_energy,
             pos,
-            &nearby_entities,
-        );
+            size,
+            nearby_entities: &nearby_entities,
+            world: &self.world,
+            config: &self.config,
+            world_size: self.world_size,
+            population_density,
+            energy_max: energy.max,
+            new_pos: pos.clone(),
+            new_velocity: velocity.clone(),
+            new_energy: energy.current,
+            should_reproduce: false,
+        };
 
-        self.movement_system.handle_boundaries(
-            &mut new_pos,
-            &mut new_velocity,
-            self.world_size,
-            &self.config,
-        );
-
-        self.apply_interactions_to_entity(&mut new_energy, &new_pos, size, genes, &nearby_entities);
-
-        self.energy_system
-            .update_energy(&mut new_energy, size, genes, &self.config);
-
-        let should_reproduce =
-            self.check_reproduction_for_entity(new_energy, energy.max, genes, population_density);
-
-        if self
-            .reproduction_system
-            .check_death(population_density, &self.config)
-        {
-            new_energy = 0.0; // Kill the entity
-        }
-
-        if should_reproduce {
-            // Don't spawn child here - we'll handle it in apply_entity_updates
-            // Reduce parent energy
-            new_energy *= self.config.reproduction.reproduction_energy_cost;
-        }
+        // Systems run in order over the shared context (movement → interaction →
+        // energy → reproduction); size is derived from the final energy.
+        self.movement_system.run(&mut ctx);
+        self.interaction_system.run(&mut ctx);
+        self.energy_system.run(&mut ctx);
+        self.reproduction_system.run(&mut ctx);
 
         let new_size_radius =
             self.energy_system
-                .calculate_new_size(new_energy, genes, &self.config);
+                .calculate_new_size(ctx.new_energy, genes, &self.config);
 
         Some(EntityUpdate {
             entity,
-            pos: new_pos,
+            pos: ctx.new_pos,
             energy: Energy {
-                current: new_energy,
+                current: ctx.new_energy,
                 max: energy.max,
             },
             size: Size {
                 radius: new_size_radius,
             },
             genes: genes.clone(),
-            velocity: new_velocity,
-            should_reproduce,
+            velocity: ctx.new_velocity,
+            should_reproduce: ctx.should_reproduce,
         })
     }
 
@@ -267,68 +242,9 @@ impl Simulation {
         nearby_entities.iter().take(20).copied().collect::<Vec<_>>()
     }
 
-    fn apply_movement_to_entity(
-        &self,
-        genes: &Genes,
-        new_pos: &mut Position,
-        new_velocity: &mut Velocity,
-        new_energy: &mut f32,
-        pos: &Position,
-        nearby_entities: &[Entity],
-    ) {
-        self.movement_system
-            .update_movement(crate::systems::MovementUpdateParams {
-                genes,
-                new_pos,
-                new_velocity,
-                new_energy,
-                pos,
-                nearby_entities,
-                world: &self.world,
-                config: &self.config,
-                world_size: self.world_size,
-            });
-    }
-
-    fn apply_interactions_to_entity(
-        &self,
-        new_energy: &mut f32,
-        new_pos: &Position,
-        size: &Size,
-        genes: &Genes,
-        nearby_entities: &[Entity],
-    ) {
-        self.interaction_system
-            .handle_interactions(crate::systems::InteractionParams {
-                new_energy,
-                new_pos,
-                size,
-                genes,
-                nearby_entities,
-                world: &self.world,
-                config: &self.config,
-            });
-    }
-
     fn calculate_population_density(&self) -> f32 {
         self.world.len() as f32
             / (self.config.population.max_population as f32 * self.config.population.entity_scale)
-    }
-
-    fn check_reproduction_for_entity(
-        &self,
-        energy: f32,
-        max_energy: f32,
-        genes: &Genes,
-        population_density: f32,
-    ) -> bool {
-        self.reproduction_system.check_reproduction(
-            energy,
-            max_energy,
-            genes,
-            population_density,
-            &self.config,
-        )
     }
 
     fn apply_entity_updates(&mut self, updates: Vec<EntityUpdate>) {

@@ -7,6 +7,28 @@ use rand::prelude::*;
 /// Movement system - handles entity movement and boundary constraints
 pub struct MovementSystem;
 
+impl crate::systems::System for MovementSystem {
+    fn run(&self, ctx: &mut crate::systems::EntityContext) {
+        self.update_movement(MovementUpdateParams {
+            genes: ctx.genes,
+            new_pos: &mut ctx.new_pos,
+            new_velocity: &mut ctx.new_velocity,
+            new_energy: &mut ctx.new_energy,
+            pos: ctx.pos,
+            nearby_entities: ctx.nearby_entities,
+            world: ctx.world,
+            config: ctx.config,
+            world_size: ctx.world_size,
+        });
+        self.handle_boundaries(
+            &mut ctx.new_pos,
+            &mut ctx.new_velocity,
+            ctx.world_size,
+            ctx.config,
+        );
+    }
+}
+
 pub struct MovementUpdateParams<'a> {
     pub genes: &'a Genes,
     pub new_pos: &'a mut Position,

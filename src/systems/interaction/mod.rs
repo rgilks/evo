@@ -5,6 +5,20 @@ use hecs::{Entity, World};
 
 pub struct InteractionSystem;
 
+impl crate::systems::System for InteractionSystem {
+    fn run(&self, ctx: &mut crate::systems::EntityContext) {
+        self.handle_interactions(InteractionParams {
+            new_energy: &mut ctx.new_energy,
+            new_pos: &ctx.new_pos,
+            size: ctx.size,
+            genes: ctx.genes,
+            nearby_entities: ctx.nearby_entities,
+            world: ctx.world,
+            config: ctx.config,
+        });
+    }
+}
+
 pub struct InteractionParams<'a> {
     pub new_energy: &'a mut f32,
     pub new_pos: &'a Position,
