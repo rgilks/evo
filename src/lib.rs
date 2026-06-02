@@ -33,7 +33,7 @@ impl WebSimulation {
         Ok(WebSimulation {
             simulation,
             config,
-            entity_buffer: Vec::with_capacity(60000), // 10000 entities * 6 floats
+            entity_buffer: Vec::with_capacity(80000), // 10000 entities * 8 floats
         })
     }
 
@@ -61,7 +61,7 @@ impl WebSimulation {
     }
 
     pub fn entity_count(&self) -> u32 {
-        (self.entity_buffer.len() / 6) as u32
+        (self.entity_buffer.len() / 8) as u32
     }
 
     pub fn get_stats(&self) -> JsValue {
