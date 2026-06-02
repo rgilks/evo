@@ -1,7 +1,7 @@
-use crate::components::{Energy, MovementType, Position, Size, Velocity};
+use crate::components::{MovementType, Position, Size, Velocity};
 use crate::config::SimulationConfig;
 use crate::genes::Genes;
-use hecs::{Entity, World};
+use hecs::Entity;
 use rand::prelude::*;
 
 /// Movement system - handles entity movement and boundary constraints
@@ -16,7 +16,7 @@ impl crate::systems::System for MovementSystem {
             new_energy: &mut ctx.new_energy,
             pos: ctx.pos,
             nearby_entities: ctx.nearby_entities,
-            world: ctx.world,
+            cache: ctx.cache,
             config: ctx.config,
             world_size: ctx.world_size,
             rng: &mut ctx.rng,
@@ -37,7 +37,7 @@ pub struct MovementUpdateParams<'a> {
     pub new_energy: &'a mut f32,
     pub pos: &'a Position,
     pub nearby_entities: &'a [Entity],
-    pub world: &'a World,
+    pub cache: &'a crate::systems::NeighborCache,
     pub config: &'a SimulationConfig,
     pub world_size: f32,
     pub rng: &'a mut StdRng,
@@ -52,7 +52,7 @@ impl MovementSystem {
             new_energy,
             pos,
             nearby_entities,
-            world,
+            cache,
             config,
             world_size,
             rng,
@@ -80,76 +80,63 @@ impl MovementSystem {
         let interaction_radius = genes.sense_radius();
         let separation_dist = genes.behavior.movement_style.separation_distance;
 
-        // Single pass over nearby entities
+        // Single pass over nearby entities, reading from the per-tick cache.
         for &entity in nearby_entities {
-            if let Ok(nearby_pos) = world.get::<&Position>(entity) {
-                let dx = nearby_pos.x - pos.x;
-                let dy = nearby_pos.y - pos.y;
-                let distance_sq = dx * dx + dy * dy;
+            let Some(n) = cache.get(&entity) else {
+                continue;
+            };
+            let dx = n.pos.x - pos.x;
+            let dy = n.pos.y - pos.y;
+            let distance_sq = dx * dx + dy * dy;
 
-                if distance_sq > 0.001 && distance_sq < interaction_radius * interaction_radius {
-                    let distance = distance_sq.sqrt();
+            if distance_sq > 0.001 && distance_sq < interaction_radius * interaction_radius {
+                let distance = distance_sq.sqrt();
 
-                    if let Ok(nearby_genes) = world.get::<&Genes>(entity) {
-                        // 1. Particle Life Physics
-                        let sector = (nearby_genes.appearance.hue * 6.0).floor() as usize;
-                        let sector = sector.min(5);
-                        let force = genes.particle_life.interactions[sector];
-                        let strength = (1.0 - distance / interaction_radius) * force;
-                        particle_force_x += (dx / distance) * strength;
-                        particle_force_y += (dy / distance) * strength;
+                // 1. Particle Life Physics
+                let sector = ((n.genes.appearance.hue * 6.0).floor() as usize).min(5);
+                let force = genes.particle_life.interactions[sector];
+                let strength = (1.0 - distance / interaction_radius) * force;
+                particle_force_x += (dx / distance) * strength;
+                particle_force_y += (dy / distance) * strength;
 
-                        // 2. Movement Targets (Predatory/Grazing logic)
-                        if let (Ok(nearby_energy), Ok(nearby_size)) =
-                            (world.get::<&Energy>(entity), world.get::<&Size>(entity))
-                        {
-                            if nearby_energy.current > 0.0
-                                && genes.can_eat(&nearby_genes, &nearby_size, &Size { radius: 1.0 })
-                            {
-                                // Simplified self size check for target finding
-                                let preference = genes.get_predation_preference(&nearby_genes);
-                                if preference > best_preference {
-                                    target_x = nearby_pos.x;
-                                    target_y = nearby_pos.y;
-                                    best_preference = preference;
-                                    found_target = true;
-                                }
+                // 2. Movement Targets (Predatory/Grazing logic)
+                if n.energy.current > 0.0 && genes.can_eat(&n.genes, &n.size, &Size { radius: 1.0 })
+                {
+                    // Simplified self size check for target finding
+                    let preference = genes.get_predation_preference(&n.genes);
+                    if preference > best_preference {
+                        target_x = n.pos.x;
+                        target_y = n.pos.y;
+                        best_preference = preference;
+                        found_target = true;
+                    }
+                }
+
+                // 3. Movement Styles
+                match genes.behavior.movement_style.style {
+                    MovementType::Flocking => {
+                        let gene_similarity = genes.calculate_gene_similarity(&n.genes);
+                        if gene_similarity < 0.7 {
+                            flock_center_x += n.pos.x;
+                            flock_center_y += n.pos.y;
+                            flock_velocity_x += n.velocity.x;
+                            flock_velocity_y += n.velocity.y;
+
+                            if distance < separation_dist {
+                                let sep_force = (separation_dist - distance) / distance;
+                                separation_x -= dx * sep_force;
+                                separation_y -= dy * sep_force;
                             }
-                        }
-
-                        // 3. Movement Styles
-                        match genes.behavior.movement_style.style {
-                            MovementType::Flocking => {
-                                let gene_similarity =
-                                    genes.calculate_gene_similarity(&nearby_genes);
-                                if gene_similarity < 0.7 {
-                                    flock_center_x += nearby_pos.x;
-                                    flock_center_y += nearby_pos.y;
-
-                                    if let Ok(nearby_vel) = world.get::<&Velocity>(entity) {
-                                        flock_velocity_x += nearby_vel.x;
-                                        flock_velocity_y += nearby_vel.y;
-                                    }
-
-                                    if distance < separation_dist {
-                                        let sep_force = (separation_dist - distance) / distance;
-                                        separation_x -= dx * sep_force;
-                                        separation_y -= dy * sep_force;
-                                    }
-                                    flock_count += 1;
-                                }
-                            }
-                            MovementType::Solitary => {
-                                let avoid_force = interaction_radius / (distance + 1.0);
-                                avoidance_x -= dx * avoid_force;
-                                avoidance_y -= dy * avoid_force;
-                            }
-                            MovementType::Predatory => {
-                                // Handled in target finding mostly, but we could add specific logic here if needed
-                            }
-                            _ => {}
+                            flock_count += 1;
                         }
                     }
+                    MovementType::Solitary => {
+                        let avoid_force = interaction_radius / (distance + 1.0);
+                        avoidance_x -= dx * avoid_force;
+                        avoidance_y -= dy * avoid_force;
+                    }
+                    MovementType::Predatory => {}
+                    _ => {}
                 }
             }
         }

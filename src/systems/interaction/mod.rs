@@ -1,7 +1,7 @@
-use crate::components::{Energy, Position, Size};
+use crate::components::{Position, Size};
 use crate::config::SimulationConfig;
 use crate::genes::Genes;
-use hecs::{Entity, World};
+use hecs::Entity;
 
 pub struct InteractionSystem;
 
@@ -13,7 +13,7 @@ impl crate::systems::System for InteractionSystem {
             size: ctx.size,
             genes: ctx.genes,
             nearby_entities: ctx.nearby_entities,
-            world: ctx.world,
+            cache: ctx.cache,
             config: ctx.config,
         });
         ctx.eaten_entity = eaten;
@@ -26,7 +26,7 @@ pub struct InteractionParams<'a> {
     pub size: &'a Size,
     pub genes: &'a Genes,
     pub nearby_entities: &'a [Entity],
-    pub world: &'a World,
+    pub cache: &'a crate::systems::NeighborCache,
     pub config: &'a SimulationConfig,
 }
 
@@ -38,12 +38,12 @@ impl InteractionSystem {
             size,
             genes,
             nearby_entities,
-            world,
+            cache,
             config,
         } = params;
         for &entity in nearby_entities {
-            if self.can_interact_with_entity(entity, new_pos, size, genes, world, config) {
-                self.process_interaction(entity, new_energy, genes, world);
+            if self.can_interact_with_entity(entity, new_pos, size, genes, cache, config) {
+                self.process_interaction(entity, new_energy, genes, cache);
                 return Some(entity); // Eat one entity per frame
             }
         }
@@ -56,20 +56,14 @@ impl InteractionSystem {
         new_pos: &Position,
         size: &Size,
         genes: &Genes,
-        world: &World,
+        cache: &crate::systems::NeighborCache,
         config: &SimulationConfig,
     ) -> bool {
-        if let Ok(nearby_pos) = world.get::<&Position>(entity) {
-            if let Ok(nearby_genes) = world.get::<&Genes>(entity) {
-                if let Ok(nearby_energy) = world.get::<&Energy>(entity) {
-                    if let Ok(nearby_size) = world.get::<&Size>(entity) {
-                        if nearby_energy.current > 0.0 {
-                            let distance = self.calculate_distance(new_pos, &nearby_pos);
-                            if distance < (size.radius + config.physics.interaction_radius_offset) {
-                                return genes.can_eat(&nearby_genes, &nearby_size, size);
-                            }
-                        }
-                    }
+        if let Some(n) = cache.get(&entity) {
+            if n.energy.current > 0.0 {
+                let distance = self.calculate_distance(new_pos, &n.pos);
+                if distance < (size.radius + config.physics.interaction_radius_offset) {
+                    return genes.can_eat(&n.genes, &n.size, size);
                 }
             }
         }
@@ -85,21 +79,13 @@ impl InteractionSystem {
         entity: Entity,
         new_energy: &mut f32,
         genes: &Genes,
-        world: &World,
+        cache: &crate::systems::NeighborCache,
     ) {
-        if let Ok(nearby_energy) = world.get::<&Energy>(entity) {
-            if let Ok(nearby_size) = world.get::<&Size>(entity) {
-                if let Ok(nearby_genes) = world.get::<&Genes>(entity) {
-                    let energy_gained = genes.get_energy_gain(
-                        nearby_energy.current,
-                        &nearby_size,
-                        &Size { radius: 1.0 },
-                        &nearby_genes,
-                    );
-                    *new_energy =
-                        (*new_energy + energy_gained - 0.5).min(genes.energy_efficiency() * 100.0);
-                }
-            }
+        if let Some(n) = cache.get(&entity) {
+            let energy_gained =
+                genes.get_energy_gain(n.energy.current, &n.size, &Size { radius: 1.0 }, &n.genes);
+            *new_energy =
+                (*new_energy + energy_gained - 0.5).min(genes.energy_efficiency() * 100.0);
         }
     }
 }

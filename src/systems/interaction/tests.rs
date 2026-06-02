@@ -1,7 +1,7 @@
 use super::*;
 use crate::components::{Position, Size};
 use crate::genes::Genes;
-use hecs::World;
+use crate::systems::NeighborCache;
 use rand::prelude::*;
 
 #[test]
@@ -13,7 +13,7 @@ fn test_interaction_system_handle_interactions() {
     let mut rng = thread_rng();
     let genes = Genes::new_random(&mut rng);
     let nearby_entities = vec![];
-    let world = World::new();
+    let cache = NeighborCache::new();
     let config = SimulationConfig::default();
 
     let eaten = system.handle_interactions(InteractionParams {
@@ -22,7 +22,7 @@ fn test_interaction_system_handle_interactions() {
         size: &size,
         genes: &genes,
         nearby_entities: &nearby_entities,
-        world: &world,
+        cache: &cache,
         config: &config,
     });
 

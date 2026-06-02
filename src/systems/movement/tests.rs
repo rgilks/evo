@@ -1,6 +1,7 @@
 use super::*;
 use crate::components::{Color, Energy, Position, Size, Velocity};
 use crate::genes::Genes;
+use crate::systems::{NeighborCache, NeighborSnapshot};
 use hecs::World;
 use rand::rngs::StdRng;
 use rand::thread_rng;
@@ -16,7 +17,7 @@ fn test_movement_system_update_movement() {
     let mut new_energy = 100.0;
     let pos = Position { x: 0.0, y: 0.0 };
     let nearby_entities = vec![];
-    let world = World::new();
+    let cache = NeighborCache::new();
     let config = SimulationConfig::default();
 
     system.update_movement(MovementUpdateParams {
@@ -26,7 +27,7 @@ fn test_movement_system_update_movement() {
         new_energy: &mut new_energy,
         pos: &pos,
         nearby_entities: &nearby_entities,
-        world: &world,
+        cache: &cache,
         config: &config,
         world_size: 100.0,
         rng: &mut StdRng::seed_from_u64(0),
@@ -91,8 +92,9 @@ fn test_movement_system_with_target() {
     let mut new_energy = 100.0;
     let pos = Position { x: 0.0, y: 0.0 };
 
-    // Create a world with a target entity
+    // A single target neighbour, captured in the per-tick cache.
     let mut world = World::new();
+    let target_genes = Genes::new_random(&mut rng);
     let target_entity = world.spawn((
         Position { x: 10.0, y: 10.0 },
         Energy {
@@ -100,8 +102,22 @@ fn test_movement_system_with_target() {
             max: 100.0,
         },
         Size { radius: 5.0 },
-        Genes::new_random(&mut rng),
+        target_genes.clone(),
     ));
+    let mut cache = NeighborCache::new();
+    cache.insert(
+        target_entity,
+        NeighborSnapshot {
+            pos: Position { x: 10.0, y: 10.0 },
+            genes: target_genes,
+            energy: Energy {
+                current: 50.0,
+                max: 100.0,
+            },
+            size: Size { radius: 5.0 },
+            velocity: Velocity { x: 0.0, y: 0.0 },
+        },
+    );
     let nearby_entities = vec![target_entity];
 
     let config = SimulationConfig::default();
@@ -113,7 +129,7 @@ fn test_movement_system_with_target() {
         new_energy: &mut new_energy,
         pos: &pos,
         nearby_entities: &nearby_entities,
-        world: &world,
+        cache: &cache,
         config: &config,
         world_size: 100.0,
         rng: &mut StdRng::seed_from_u64(0),
@@ -159,7 +175,7 @@ fn test_movement_drift_analysis() {
         new_energy: &mut energy,
         pos: &Position { x: 0.0, y: 0.0 },
         nearby_entities: &[],
-        world: &world,
+        cache: &NeighborCache::new(),
         config: &config,
         world_size: 100.0,
         rng: &mut StdRng::seed_from_u64(0),
@@ -264,7 +280,7 @@ fn test_velocity_distribution_analysis() {
             new_energy: &mut energy,
             pos: &Position { x: 0.0, y: 0.0 },
             nearby_entities: &[],
-            world: &world,
+            cache: &NeighborCache::new(),
             config: &config,
             world_size: 100.0,
             rng: &mut det_rng,
@@ -338,10 +354,11 @@ fn test_movement_target_bias() {
         ),
     ];
 
+    let mut cache = NeighborCache::new();
     let target_entities: Vec<Entity> = targets
         .iter()
         .map(|(pos, size, genes)| {
-            world.spawn((
+            let entity = world.spawn((
                 pos.clone(),
                 size.clone(),
                 genes.clone(),
@@ -349,7 +366,21 @@ fn test_movement_target_bias() {
                     current: 50.0,
                     max: 100.0,
                 },
-            ))
+            ));
+            cache.insert(
+                entity,
+                NeighborSnapshot {
+                    pos: pos.clone(),
+                    genes: genes.clone(),
+                    energy: Energy {
+                        current: 50.0,
+                        max: 100.0,
+                    },
+                    size: size.clone(),
+                    velocity: Velocity { x: 0.0, y: 0.0 },
+                },
+            );
+            entity
         })
         .collect();
 
@@ -365,7 +396,7 @@ fn test_movement_target_bias() {
         new_energy: &mut energy,
         pos: &Position { x: 0.0, y: 0.0 },
         nearby_entities: &target_entities,
-        world: &world,
+        cache: &cache,
         config: &config,
         world_size: 100.0,
         rng: &mut StdRng::seed_from_u64(0),
@@ -436,7 +467,7 @@ fn test_long_term_drift_simulation() {
             new_energy: &mut energy,
             pos: &old_pos.clone(),
             nearby_entities: &[],
-            world: &world,
+            cache: &NeighborCache::new(),
             config: &config,
             world_size: 100.0,
             rng: &mut det_rng,

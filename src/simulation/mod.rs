@@ -6,8 +6,8 @@ use crate::genes::Genes;
 use crate::spatial_grid::SpatialGrid;
 use crate::stats::SimulationStats;
 use crate::systems::{
-    creature_bundle, EnergySystem, EntityContext, InteractionSystem, MovementSystem,
-    ReproductionSystem, System,
+    creature_bundle, EnergySystem, EntityContext, InteractionSystem, MovementSystem, NeighborCache,
+    NeighborSnapshot, ReproductionSystem, System,
 };
 use hecs::*;
 use rand::prelude::*;
@@ -51,6 +51,7 @@ pub struct Simulation {
     world_size: f32,
     step: u32,
     grid: SpatialGrid,
+    neighbor_cache: NeighborCache,
     previous_positions: HashMap<Entity, Position>, // For smooth interpolation
     config: SimulationConfig,
     seed: u64,
@@ -93,6 +94,7 @@ impl Simulation {
             world_size,
             step: 0,
             grid,
+            neighbor_cache: NeighborCache::new(),
             previous_positions: HashMap::new(),
             config,
             seed,
@@ -169,17 +171,31 @@ impl Simulation {
         }
     }
 
+    /// Rebuild the spatial grid and the neighbour cache for this tick. Both are
+    /// derived from the same world snapshot in one serial pass, so neighbour
+    /// reads during the compute phase hit contiguous cached data instead of
+    /// scattered `world.get` lookups.
     fn rebuild_spatial_grid(&mut self) {
         self.grid.clear();
+        self.neighbor_cache.clear();
 
-        // Parallel inserts directly into DashMap (thread-safe)
-        self.world
-            .query::<(&Position,)>()
+        for (entity, (pos, genes, energy, size, velocity)) in self
+            .world
+            .query::<(&Position, &Genes, &Energy, &Size, &Velocity)>()
             .iter()
-            .par_bridge()
-            .for_each(|(entity, (pos,))| {
-                self.grid.insert(entity, pos.x, pos.y);
-            });
+        {
+            self.grid.insert(entity, pos.x, pos.y);
+            self.neighbor_cache.insert(
+                entity,
+                NeighborSnapshot {
+                    pos: pos.clone(),
+                    genes: genes.clone(),
+                    energy: energy.clone(),
+                    size: size.clone(),
+                    velocity: velocity.clone(),
+                },
+            );
+        }
     }
 
     fn process_entities_parallel(&self) -> Vec<EntityUpdate> {
@@ -226,7 +242,7 @@ impl Simulation {
             pos,
             size,
             nearby_entities: &nearby_entities,
-            world: &self.world,
+            cache: &self.neighbor_cache,
             config: &self.config,
             world_size: self.world_size,
             population_density,
@@ -283,9 +299,9 @@ impl Simulation {
         let mut scored: Vec<(f32, u64, Entity)> = candidates
             .iter()
             .filter_map(|&e| {
-                self.world.get::<&Position>(e).ok().and_then(|p| {
-                    let dx = p.x - pos.x;
-                    let dy = p.y - pos.y;
+                self.neighbor_cache.get(&e).and_then(|n| {
+                    let dx = n.pos.x - pos.x;
+                    let dy = n.pos.y - pos.y;
                     let d2 = dx * dx + dy * dy;
                     (d2 > 0.001 && d2 <= r2).then_some((d2, e.to_bits().get(), e))
                 })

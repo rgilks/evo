@@ -11,7 +11,6 @@
 | Language | Rust (edition 2021) | ~5,500 lines across `src/` |
 | ECS | `hecs` 0.9 | Lightweight archetypal ECS; systems are hand-orchestrated (no scheduler) |
 | Parallelism | `rayon` | Parallel per-entity processing over ECS queries |
-| Concurrency | `dashmap` | Backs the spatial grid for concurrent neighbour inserts |
 | Rendering | `wgpu` 24 (WebGPU) | Instanced quads with a glow shader |
 | In-browser threads | `wasm-bindgen-rayon` + `SharedArrayBuffer` | Requires cross-origin-isolation headers |
 | Toolchain | nightly-2024-08-02 | Needed for `-Z build-std` (atomics-enabled `std` for WASM threads) |
@@ -28,7 +27,7 @@ src/
 ├── components.rs       # ECS components: Position, Velocity, Energy, Size, Color, MovementStyle
 ├── genes/              # Genetic model: generation, mutation, similarity, particle-life weights
 ├── simulation/         # Per-tick orchestrator (the read → compute → apply loop)
-├── spatial_grid.rs     # DashMap-backed spatial hash for neighbour queries
+├── spatial_grid.rs     # Spatial hash (cells → entities) for neighbour queries
 ├── systems/            # movement/, interaction/ (predation), energy, reproduction
 ├── stats/              # Population statistics, serialized to JS
 ├── web/                # WebGPU renderer (wasm32-only)
@@ -45,11 +44,13 @@ The simulation is built from a small set of recurring patterns. Naming them once
 
 **Stateless system-as-unit-struct.** Each system is a zero-sized unit struct (`MovementSystem`, `InteractionSystem`, `EnergySystem`, `ReproductionSystem` in `systems/`), held as a field on `Simulation` and instantiated once. Systems hold no state; they are namespaces for behaviour that takes the world and components as arguments.
 
-**Read–Compute–Apply (deferred mutation).** The cardinal tick pattern. Each step: (1) **read** the world through immutable queries, (2) **compute** a `Vec<EntityUpdate>` in parallel under rayon — pure functions of the read state, no world mutation, and (3) **apply** the results serially in the orchestrator — writing each survivor's components in place, despawning the dead and any eaten prey, and spawning offspring. The invariant: *no system mutates `World` structure from inside a parallel query.* The one deliberate exception is the spatial-grid rebuild, which writes into a `DashMap` from a parallel iterator — sound precisely because the target is a thread-safe concurrent map, not the `World`.
+**Read–Compute–Apply (deferred mutation).** The cardinal tick pattern. Each step: (1) **read** the world through immutable queries, (2) **compute** a `Vec<EntityUpdate>` in parallel under rayon — pure functions of the read state, no world mutation, and (3) **apply** the results serially in the orchestrator — writing each survivor's components in place, despawning the dead and any eaten prey, and spawning offspring. The invariant: *no system mutates `World` structure from inside a parallel query* — the parallel compute reads only immutable state (the world plus a per-tick neighbour cache), and every structural change happens in the serial apply.
 
 **Command object (`EntityUpdate`).** The carrier between compute and apply (`simulation/mod.rs`). Every per-entity result — new position/velocity/energy/size, whether it reproduced, and any prey it ate — is packaged into one `EntityUpdate`, and the apply phase is its sole interpreter. This is what lets the compute phase stay pure and parallel.
 
-**Spatial hashing for neighbour queries.** `SpatialGrid` (`spatial_grid.rs`) buckets entities into fixed-size cells in a `DashMap`. A neighbour lookup scans only the cells within the query radius — never the whole population — turning O(N²) all-pairs into near-O(N). The grid is queried once per entity per tick and the result is shared by movement and interaction. From the candidate cells each entity keeps its **nearest 20** neighbours (ranked by distance, ties broken by id) — deterministic, free of directional bias, and capped for a bounded per-entity cost.
+**Spatial hashing for neighbour queries.** `SpatialGrid` (`spatial_grid.rs`) buckets entities into fixed-size cells (a `HashMap` of cell → entities, cleared and rebuilt each tick). A neighbour lookup scans only the cells within the query radius — never the whole population — turning O(N²) all-pairs into near-O(N). The grid is queried once per entity per tick and the result is shared by movement and interaction. From the candidate cells each entity keeps its **nearest 20** neighbours (ranked by distance, ties broken by id) — deterministic, free of directional bias, and capped for a bounded per-entity cost.
+
+**Per-tick neighbour cache.** The grid stores only entity handles, so reading a neighbour's data could mean a scatter of `world.get::<&T>()` calls per neighbour. Instead, the same pass that rebuilds the grid also captures each entity's hot fields — position, genes, energy, size, velocity — into a `NeighborCache` (`HashMap<Entity, NeighborSnapshot>`, `systems/mod.rs`), built once and then read immutably by every system. A neighbour read in the hot loop becomes one cache lookup rather than several component fetches, and because the cache is a fixed snapshot of the start-of-tick world it is safe to share across the parallel compute. Determinism is unaffected — the cached values are exactly what the world holds at rebuild.
 
 **System pipeline over a shared context.** All four systems implement one trait — `System::run(&mut EntityContext)` (`systems/`) — and the orchestrator runs them in a fixed order (movement → interaction → energy → reproduction) over a single `EntityContext` carrying the read-only inputs and the mutable `new_*` working state. The per-system `*Params` structs (`MovementUpdateParams`, `InteractionParams`) and the orchestrator's `ProcessEntityParams` are the parameter-object form used to pass many borrows without long argument lists.
 
@@ -78,7 +79,7 @@ Known consistency gaps and patterns under consideration are tracked in [BACKLOG.
 `Simulation::update()` ([src/simulation/mod.rs](../src/simulation/mod.rs)) runs each step in three phases:
 
 1. **Snapshot** — store previous positions (used for GPU-side interpolation between sim steps).
-2. **Build spatial grid** — rebuild the `SpatialGrid` from current positions (concurrent inserts via DashMap).
+2. **Build spatial grid + neighbour cache** — one serial pass over the world rebuilds the `SpatialGrid` (cell → entities) and the `NeighborCache` (each entity's hot fields), so the compute phase reads contiguous cached data instead of scattered `world.get`s.
 3. **Compute then apply** — process every entity *in parallel* into a list of `EntityUpdate`s, then apply that list *serially*: write each survivor's `Position`/`Velocity`/`Energy`/`Size` in place (via `query_mut`), despawn the starved/dead and any eaten prey, and spawn offspring.
 
 This split exists because hecs mutation (in-place writes and spawn/despawn) is single-threaded. Reads and per-entity math fan out across cores; only the apply step mutates the world.
@@ -89,7 +90,7 @@ Per-entity work (movement forces, predation targets, metabolism) is read-only ag
 
 ## Spatial Grid
 
-`src/spatial_grid.rs` partitions the world into a grid of cells and stores entity handles per cell in a `DashMap`. A neighbour query returns candidates from the cell containing an entity plus its surrounding cells, turning the O(N²) all-pairs scan into a near-O(N) local scan; the caller then keeps the nearest 20 (by distance, ties broken by id) — a deterministic, bias-free selection. Concurrent inserts during the build phase are why the map is a `DashMap`.
+`src/spatial_grid.rs` partitions the world into a grid of cells and stores entity handles per cell in a `HashMap`. A neighbour query returns candidates from the cell containing an entity plus its surrounding cells, turning the O(N²) all-pairs scan into a near-O(N) local scan; the caller then keeps the nearest 20 (by distance, ties broken by id) — a deterministic, bias-free selection. The grid is cleared and rebuilt every tick in a single serial pass — together with the per-tick neighbour cache (see Patterns) — so a plain `HashMap` suffices; no concurrent map is needed.
 
 ## Rendering Pipeline
 

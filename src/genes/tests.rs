@@ -187,12 +187,12 @@ fn test_predation_preference() {
 
     // Preference should be in valid range
     assert!(
-        preference_different >= 0.0 && preference_different <= 1.0,
+        (0.0..=1.0).contains(&preference_different),
         "Predation preference should be in [0,1], got: {}",
         preference_different
     );
     assert!(
-        preference_similar >= 0.0 && preference_similar <= 1.0,
+        (0.0..=1.0).contains(&preference_similar),
         "Predation preference should be in [0,1], got: {}",
         preference_similar
     );

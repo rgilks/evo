@@ -11,8 +11,23 @@ pub use reproduction::*;
 use crate::components::{Color, Energy, MovementStyle, Position, Size, Velocity};
 use crate::config::SimulationConfig;
 use crate::genes::Genes;
-use hecs::{Entity, World};
+use hecs::Entity;
 use rand::rngs::StdRng;
+use std::collections::HashMap;
+
+/// A read-only snapshot of a neighbour's hot fields, captured once per tick so
+/// the per-entity compute reads contiguous cached data instead of doing
+/// scattered `world.get` lookups. Keyed by entity in [`NeighborCache`].
+pub struct NeighborSnapshot {
+    pub pos: Position,
+    pub genes: Genes,
+    pub energy: Energy,
+    pub size: Size,
+    pub velocity: Velocity,
+}
+
+/// Per-tick neighbour data, rebuilt each tick alongside the spatial grid.
+pub type NeighborCache = HashMap<Entity, NeighborSnapshot>;
 
 /// Per-entity working state shared by every system during the compute phase.
 /// Systems read the immutable inputs and mutate the `new_*` fields in turn; the
@@ -22,7 +37,7 @@ pub struct EntityContext<'a> {
     pub pos: &'a Position,
     pub size: &'a Size,
     pub nearby_entities: &'a [Entity],
-    pub world: &'a World,
+    pub cache: &'a NeighborCache,
     pub config: &'a SimulationConfig,
     pub world_size: f32,
     pub population_density: f32,

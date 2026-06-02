@@ -1,19 +1,19 @@
-use dashmap::DashMap;
 use hecs::Entity;
-use rand::seq::SliceRandom;
-use rand::thread_rng;
+use std::collections::HashMap;
 
-/// Optimized spatial grid using DashMap for concurrent inserts
+/// Spatial grid: buckets entities into fixed-size cells for near-O(N) neighbour
+/// queries. Cleared and rebuilt serially every tick (so a plain `HashMap` is
+/// enough — no concurrent map needed).
 pub struct SpatialGrid {
     cell_size: f32,
-    grid: DashMap<(i32, i32), Vec<Entity>>,
+    grid: HashMap<(i32, i32), Vec<Entity>>,
 }
 
 impl Default for SpatialGrid {
     fn default() -> Self {
         Self {
             cell_size: 25.0,
-            grid: DashMap::new(),
+            grid: HashMap::new(),
         }
     }
 }
@@ -22,11 +22,11 @@ impl SpatialGrid {
     pub fn new(cell_size: f32) -> Self {
         Self {
             cell_size,
-            grid: DashMap::new(),
+            grid: HashMap::new(),
         }
     }
 
-    pub fn clear(&self) {
+    pub fn clear(&mut self) {
         self.grid.clear();
     }
 
@@ -37,34 +37,24 @@ impl SpatialGrid {
         (cell_x, cell_y)
     }
 
-    /// Thread-safe insert - can be called from parallel iterators
-    pub fn insert(&self, entity: Entity, x: f32, y: f32) {
+    pub fn insert(&mut self, entity: Entity, x: f32, y: f32) {
         let cell = self.get_cell_coords(x, y);
         self.grid.entry(cell).or_default().push(entity);
     }
 
+    /// Candidate entities in the cells within `radius` of the point. Order is
+    /// deterministic (fixed cell-scan order); the caller ranks by distance.
     pub fn get_nearby_entities(&self, x: f32, y: f32, radius: f32) -> Vec<Entity> {
         let mut nearby = Vec::new();
         let center_cell = self.get_cell_coords(x, y);
         let cell_radius = (radius / self.cell_size).ceil() as i32;
 
-        // Generate all cell coordinates in the search area
-        let mut cells = Vec::new();
         for dx in -cell_radius..=cell_radius {
             for dy in -cell_radius..=cell_radius {
                 let cell = (center_cell.0 + dx, center_cell.1 + dy);
-                cells.push(cell);
-            }
-        }
-
-        // Randomize the order of cell processing to eliminate bias
-        let mut rng = thread_rng();
-        cells.shuffle(&mut rng);
-
-        // Process cells in randomized order
-        for cell in cells {
-            if let Some(entities) = self.grid.get(&cell) {
-                nearby.extend(entities.iter().copied());
+                if let Some(entities) = self.grid.get(&cell) {
+                    nearby.extend(entities.iter().copied());
+                }
             }
         }
 
@@ -114,7 +104,7 @@ mod tests {
             Velocity { x: 0.0, y: 0.0 },
         ));
 
-        let grid = SpatialGrid::new(25.0);
+        let mut grid = SpatialGrid::new(25.0);
         grid.insert(entity, 10.0, 10.0);
 
         let nearby = grid.get_nearby_entities(10.0, 10.0, 30.0);
@@ -155,7 +145,7 @@ mod tests {
             Velocity { x: 0.0, y: 0.0 },
         ));
 
-        let grid = SpatialGrid::new(25.0);
+        let mut grid = SpatialGrid::new(25.0);
         grid.insert(entity1, 5.0, 5.0);
         grid.insert(entity2, 8.0, 8.0);
 
@@ -183,7 +173,7 @@ mod tests {
             Velocity { x: 0.0, y: 0.0 },
         ));
 
-        let grid = SpatialGrid::new(25.0);
+        let mut grid = SpatialGrid::new(25.0);
         grid.insert(entity, 10.0, 10.0);
         grid.clear();
 
@@ -225,7 +215,7 @@ mod tests {
             Velocity { x: 0.0, y: 0.0 },
         ));
 
-        let grid = SpatialGrid::new(25.0);
+        let mut grid = SpatialGrid::new(25.0);
         grid.insert(entity1, 0.0, 0.0);
         grid.insert(entity2, 100.0, 100.0);
 
@@ -257,7 +247,7 @@ mod tests {
 
     #[test]
     fn test_zero_radius_search() {
-        let grid = SpatialGrid::new(25.0);
+        let mut grid = SpatialGrid::new(25.0);
         let mut world = World::new();
         let entity = world.spawn((
             Position { x: 10.0, y: 10.0 },
@@ -284,7 +274,7 @@ mod tests {
 
     #[test]
     fn test_spatial_grid_bias() {
-        let grid = SpatialGrid::new(25.0);
+        let mut grid = SpatialGrid::new(25.0);
         let mut world = World::new();
 
         // Create entities in different cells
@@ -326,7 +316,7 @@ mod tests {
 
     #[test]
     fn test_spatial_grid_order_bias() {
-        let grid = SpatialGrid::new(25.0);
+        let mut grid = SpatialGrid::new(25.0);
         let mut world = World::new();
 
         // Create entities at specific positions

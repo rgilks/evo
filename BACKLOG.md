@@ -8,17 +8,14 @@ Pinned to `nightly-2024-08-02` because atomics + `-Z build-std` are nightly-only
 
 - Bump to a recent nightly and drop the `indexmap` exact-pin.
 - `wgpu` 24 → 29 (five majors; expect mechanical churn in `web/webgpu.rs` + the shader). Highest-effort item.
-- `rand` 0.8 → 0.9 (collapses the `getrandom` 0.2/0.3 split), `hecs` 0.9 → 0.11, `dashmap` 5 → 6.
+- `rand` 0.8 → 0.9 (collapses the `getrandom` 0.2/0.3 split) and `hecs` 0.9 → 0.11.
 - Treat as one coordinated upgrade — these cascade.
 
-## P1 — Performance: the neighbour read path
+## P2 — Performance: dense spatial grid (SoA)
 
-The dominant per-tick cost is the `world.get::<&T>()` storm — movement and interaction re-fetch each neighbour's components by random access (~12 scattered lookups per neighbour), and the deterministic nearest-N selection now also does a `Position` lookup per candidate. Fix the data layout, not the algorithm:
+The `world.get::<&T>()` storm is gone: the grid rebuild now also builds a per-tick `NeighborCache` (`systems/mod.rs`) of each entity's hot fields, so movement, interaction, and nearest-N selection read one cached snapshot per neighbour instead of a scatter of component fetches. The grid itself is a `HashMap` of cell → entities, rebuilt serially — no more `DashMap` shard-lock contention.
 
-- During the grid rebuild (already a full pass), capture the hot neighbour fields (position, hue, energy, size) into a contiguous per-tick **SoA cache** indexed by a dense id; the grid stores indices. Every `world.get` in the hot loop becomes an array index, and nearest-N gets its distances for free.
-- Replace the `DashMap` grid (cleared and rebuilt every tick; shard-lock contention in dense cells) with a **dense fixed grid** built by counting sort — lock-free, contiguous per-cell runs, no hashing. The world is bounded, so a flat grid fits.
-
-These share one data-layout insight and together are the biggest non-rewrite performance win.
+What remains is a smaller, more invasive refinement: replace the cell `HashMap` with a **dense fixed grid** built by counting sort (lock-free, contiguous per-cell runs, no hashing), and key the cache by a dense slot id so the grid stores indices and neighbour data is fully contiguous (true SoA). The world is bounded, so a flat grid fits. This is the step from "good locality" to "optimal locality" — measure it against the headless bench harness before taking on the churn.
 
 ## P2 — Headless run mode + benchmarks
 

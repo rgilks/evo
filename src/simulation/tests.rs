@@ -59,6 +59,32 @@ fn test_simulation_multiple_updates() {
 }
 
 #[test]
+fn test_browser_like_long_run_no_panic() {
+    // Mirror the browser path: ~846 world, default config (~1250 entities), many
+    // ticks, plus the render read-back each tick. Sweep seeds (including the exact
+    // browser time-seed) to catch seed-dependent panics the short determinism run
+    // (40 ticks, DEFAULT_SEED) would miss.
+    let seeds = [
+        1_780_440_263_372u64,
+        1,
+        42,
+        7,
+        999_999,
+        0xDEAD_BEEF,
+        2_000_000_000_000,
+    ];
+    for &seed in &seeds {
+        let mut sim = Simulation::new_with_config_seeded(846.0, SimulationConfig::default(), seed);
+        for _ in 0..600 {
+            sim.update();
+            let _ = sim.get_entities();
+            let _ = sim.get_interpolated_entities(0.5);
+        }
+        assert_eq!(sim.step(), 600, "seed {seed}");
+    }
+}
+
+#[test]
 fn test_simulation_get_entities() {
     let sim = Simulation::new(100.0);
     let entities = sim.get_entities();
