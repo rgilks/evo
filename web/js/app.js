@@ -51,7 +51,10 @@ class EvolutionApp {
     this.lastTime = 0;
     this.frameCount = 0;
     this.fps = 0;
-    this.targetFPS = 60;
+    // Simulation ticks per second. The renderer runs at full refresh rate and
+    // interpolates between ticks, so a low sim rate gives smooth, fluid, slow
+    // motion (and far less birth/death flicker) rather than 60 jumps a second.
+    this.targetFPS = 15;
 
     // Camera state
     this.camera = {
@@ -198,6 +201,15 @@ class EvolutionApp {
       const value = parseFloat(e.target.value);
       document.getElementById("predation-value").textContent = value.toFixed(0);
       this.simulation.update_param(SimParam.Predation, value);
+    });
+
+    // Sim Speed sets the simulation tick rate (ticks/sec); the renderer keeps
+    // interpolating at full refresh rate, so lower = slower, smoother motion.
+    const simSpeedSlider = document.getElementById("sim-speed");
+    simSpeedSlider.addEventListener("input", (e) => {
+      const value = parseFloat(e.target.value);
+      document.getElementById("sim-speed-value").textContent = value.toFixed(0);
+      this.targetFPS = value;
     });
 
     // Keyboard shortcuts
