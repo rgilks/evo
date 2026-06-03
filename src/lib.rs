@@ -99,6 +99,8 @@ impl WebSimulation {
             SimParam::BounceFactor => self.config.physics.velocity_bounce_factor = value,
             SimParam::ParticleForce => self.config.physics.particle_force_scale = value,
             SimParam::ParticleFriction => self.config.physics.particle_friction = value,
+            SimParam::Food => self.config.energy.ambient_energy_gain = value,
+            SimParam::Predation => self.config.physics.interaction_radius_offset = value,
         }
         self.simulation.update_config(self.config.clone());
     }
@@ -144,4 +146,6 @@ pub enum SimParam {
     BounceFactor,
     ParticleForce,
     ParticleFriction,
+    Food,
+    Predation,
 }

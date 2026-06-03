@@ -7,6 +7,9 @@ use rand::rngs::StdRng;
 use rand::thread_rng;
 use rand::SeedableRng;
 
+/// Zero matrix = no particle-life force; the movement tests exercise other behaviour.
+const TEST_MATRIX: [[f32; 6]; 6] = [[0.0; 6]; 6];
+
 #[test]
 fn test_movement_system_update_movement() {
     let system = MovementSystem;
@@ -28,6 +31,7 @@ fn test_movement_system_update_movement() {
         pos: &pos,
         nearby_entities: &nearby_entities,
         cache: &cache,
+        particle_matrix: &TEST_MATRIX,
         config: &config,
         world_size: 100.0,
         rng: &mut StdRng::seed_from_u64(0),
@@ -130,6 +134,7 @@ fn test_movement_system_with_target() {
         pos: &pos,
         nearby_entities: &nearby_entities,
         cache: &cache,
+        particle_matrix: &TEST_MATRIX,
         config: &config,
         world_size: 100.0,
         rng: &mut StdRng::seed_from_u64(0),
@@ -176,6 +181,7 @@ fn test_movement_drift_analysis() {
         pos: &Position { x: 0.0, y: 0.0 },
         nearby_entities: &[],
         cache: &NeighborCache::new(),
+        particle_matrix: &TEST_MATRIX,
         config: &config,
         world_size: 100.0,
         rng: &mut StdRng::seed_from_u64(0),
@@ -281,6 +287,7 @@ fn test_velocity_distribution_analysis() {
             pos: &Position { x: 0.0, y: 0.0 },
             nearby_entities: &[],
             cache: &NeighborCache::new(),
+            particle_matrix: &TEST_MATRIX,
             config: &config,
             world_size: 100.0,
             rng: &mut det_rng,
@@ -397,6 +404,7 @@ fn test_movement_target_bias() {
         pos: &Position { x: 0.0, y: 0.0 },
         nearby_entities: &target_entities,
         cache: &cache,
+        particle_matrix: &TEST_MATRIX,
         config: &config,
         world_size: 100.0,
         rng: &mut StdRng::seed_from_u64(0),
@@ -468,6 +476,7 @@ fn test_long_term_drift_simulation() {
             pos: &old_pos.clone(),
             nearby_entities: &[],
             cache: &NeighborCache::new(),
+            particle_matrix: &TEST_MATRIX,
             config: &config,
             world_size: 100.0,
             rng: &mut det_rng,

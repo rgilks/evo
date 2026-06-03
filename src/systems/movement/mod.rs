@@ -17,6 +17,7 @@ impl crate::systems::System for MovementSystem {
             pos: ctx.pos,
             nearby_entities: ctx.nearby_entities,
             cache: ctx.cache,
+            particle_matrix: ctx.particle_matrix,
             config: ctx.config,
             world_size: ctx.world_size,
             rng: &mut ctx.rng,
@@ -38,6 +39,7 @@ pub struct MovementUpdateParams<'a> {
     pub pos: &'a Position,
     pub nearby_entities: &'a [Entity],
     pub cache: &'a crate::systems::NeighborCache,
+    pub particle_matrix: &'a [[f32; 6]; 6],
     pub config: &'a SimulationConfig,
     pub world_size: f32,
     pub rng: &'a mut StdRng,
@@ -53,6 +55,7 @@ impl MovementSystem {
             pos,
             nearby_entities,
             cache,
+            particle_matrix,
             config,
             world_size,
             rng,
@@ -79,6 +82,9 @@ impl MovementSystem {
 
         let interaction_radius = genes.sense_radius();
         let separation_dist = genes.behavior.movement_style.separation_distance;
+        // Self's hue sector indexes into the shared particle-life matrix (constant
+        // across the neighbour loop).
+        let self_sector = ((genes.appearance.hue * 6.0).floor() as usize).min(5);
 
         // Single pass over nearby entities, reading from the per-tick cache.
         for &entity in nearby_entities {
@@ -92,9 +98,10 @@ impl MovementSystem {
             if distance_sq > 0.001 && distance_sq < interaction_radius * interaction_radius {
                 let distance = distance_sq.sqrt();
 
-                // 1. Particle Life Physics
-                let sector = ((n.genes.appearance.hue * 6.0).floor() as usize).min(5);
-                let force = genes.particle_life.interactions[sector];
+                // 1. Particle-life physics: coherent attraction/repulsion via the
+                // shared matrix, indexed by both creatures' hue sectors.
+                let other_sector = ((n.genes.appearance.hue * 6.0).floor() as usize).min(5);
+                let force = particle_matrix[self_sector][other_sector];
                 let strength = (1.0 - distance / interaction_radius) * force;
                 particle_force_x += (dx / distance) * strength;
                 particle_force_y += (dy / distance) * strength;
@@ -316,38 +323,24 @@ impl MovementSystem {
         config: &SimulationConfig,
         world_size: f32,
     ) {
+        // Containment, not a constant pull to the centre: push inward only within a
+        // margin of the boundary (ramping up quadratically toward the edge), leaving
+        // the interior free so clusters can form and roam instead of collapsing into
+        // a single central blob.
         let half_world = world_size / 2.0;
+        let margin = (half_world * 0.35).max(1.0);
+        let distance_from_edge = (half_world - pos.x.abs()).min(half_world - pos.y.abs());
 
-        // Calculate distance from center
-        let distance_from_center = (pos.x * pos.x + pos.y * pos.y).sqrt();
-
-        // Calculate distance from edge (how close to boundary)
-        let distance_from_edge_x = half_world - pos.x.abs();
-        let distance_from_edge_y = half_world - pos.y.abs();
-        let distance_from_edge = distance_from_edge_x.min(distance_from_edge_y);
-
-        // Only apply pressure if entity is away from center
-        if distance_from_center > 10.0 {
-            // Calculate direction towards center
-            let center_dx = -pos.x / distance_from_center;
-            let center_dy = -pos.y / distance_from_center;
-
-            // Base pressure strength
-            let base_pressure = config.physics.center_pressure_strength;
-
-            // Increase pressure strength when closer to edges
-            // Pressure is strongest at edges (distance_from_edge = 0) and weakest in center
-            let edge_multiplier = if distance_from_edge < 50.0 {
-                // Exponential increase as we get closer to edges
-                let edge_factor = (50.0 - distance_from_edge) / 50.0;
-                1.0 + edge_factor * edge_factor * 8.0 // Up to 9x stronger at edges
-            } else {
-                1.0
-            };
-
-            let pressure_strength = base_pressure * edge_multiplier;
-            velocity.x += center_dx * pressure_strength;
-            velocity.y += center_dy * pressure_strength;
+        if distance_from_edge < margin {
+            let distance_from_center = (pos.x * pos.x + pos.y * pos.y).sqrt();
+            if distance_from_center > 0.0 {
+                // 0 at the margin, 1 at the edge, >1 past it.
+                let edge_factor = (margin - distance_from_edge) / margin;
+                let pressure =
+                    config.physics.center_pressure_strength * edge_factor * edge_factor * 10.0;
+                velocity.x += (-pos.x / distance_from_center) * pressure;
+                velocity.y += (-pos.y / distance_from_center) * pressure;
+            }
         }
     }
 

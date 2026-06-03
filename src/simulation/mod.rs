@@ -34,6 +34,25 @@ fn mix_seed(seed: u64, entity_bits: u64, step: u64) -> u64 {
     x ^ (x >> 31)
 }
 
+/// Salt for the per-seed particle-life interaction matrix RNG stream.
+const MATRIX_SALT: u64 = 0xC0FF_EE15_600D_F00D;
+
+/// Build the global particle-life interaction matrix from the seed. Every creature
+/// shares it, indexed by `[self hue-sector][other hue-sector]`, so colour groups
+/// attract or repel each other *coherently* — that coherence is what makes clusters
+/// form and move as units instead of dissolving into a uniform haze. Per-seed, so
+/// each seed is a different "physics" (and shareable via the seed).
+fn generate_particle_matrix(seed: u64) -> [[f32; 6]; 6] {
+    let mut rng = StdRng::seed_from_u64(mix_seed(seed, MATRIX_SALT, 0));
+    let mut matrix = [[0.0f32; 6]; 6];
+    for row in matrix.iter_mut() {
+        for weight in row.iter_mut() {
+            *weight = rng.gen_range(-1.0..1.0);
+        }
+    }
+    matrix
+}
+
 // Simulation state
 pub struct EntityUpdate {
     pub entity: Entity,
@@ -55,6 +74,8 @@ pub struct Simulation {
     previous_positions: HashMap<Entity, Position>, // For smooth interpolation
     config: SimulationConfig,
     seed: u64,
+    /// Global particle-life interaction matrix (see `generate_particle_matrix`).
+    particle_matrix: [[f32; 6]; 6],
 
     // System instances
     movement_system: MovementSystem,
@@ -98,6 +119,7 @@ impl Simulation {
             previous_positions: HashMap::new(),
             config,
             seed,
+            particle_matrix: generate_particle_matrix(seed),
             movement_system: MovementSystem,
             interaction_system: InteractionSystem,
             energy_system: EnergySystem,
@@ -243,6 +265,7 @@ impl Simulation {
             size,
             nearby_entities: &nearby_entities,
             cache: &self.neighbor_cache,
+            particle_matrix: &self.particle_matrix,
             config: &self.config,
             world_size: self.world_size,
             population_density,

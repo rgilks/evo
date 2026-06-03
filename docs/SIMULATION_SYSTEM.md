@@ -57,7 +57,7 @@ Genes determine all behavior and attributes. They are mutable and heritable.
 | **Reproduction** | `rate`, `mutation_rate` |
 | **Shape/Color** | `hue`, `saturation` |
 | **Behavior** | `movement_style`, `social_tendency`, `gene_preference` |
-| **Particle Life** | `interactions` — per-hue-sector attraction/repulsion weights |
+| **Particle Life** | `interactions` — per-creature weights feeding genetic distance (the force itself uses a global, seed-derived matrix) |
 
 ### 3. Movement System
 
@@ -68,7 +68,7 @@ Entities exhibit one of five genetically determined movement styles:
 4. **Predatory**: Active pursuit of prey based on genetic preference and size advantage.
 5. **Grazing**: Slow, steady movement with minimal energy expenditure.
 
-On top of these styles, every creature carries **particle-life interaction weights** — a per-hue-sector attraction/repulsion table applied as a force during the same single neighbour pass. This adds emergent clustering and pattern formation over the style-based behaviour, and is tunable live via the `particle_force_scale` and `particle_friction` parameters.
+On top of these styles, a **global particle-life interaction matrix** — generated from the seed and indexed by *both* creatures' hue sectors — applies an attraction/repulsion force during the same single neighbour pass. Because every creature of a given hue reacts to each other hue the *same* way, colour groups coherently attract and repel: clusters form, move as units, and collide, instead of dissolving into a uniform haze. Each seed yields a different matrix — a different "physics" — and the strength is tunable live via `particle_force_scale` (with `particle_friction`).
 
 All of these forces — style behaviour, flocking, particle-life, and center pressure — accumulate into a single velocity that is then **capped at `max_velocity`** (by magnitude) each tick, so no combination of forces can push a creature past the speed limit.
 
@@ -81,7 +81,7 @@ All of these forces — style behaviour, flocking, particle-life, and center pre
 ### 5. Spatial System
 
 - **Spatial Grid**: The world is partitioned into cells to optimize neighbor lookups (O(1) instead of O(N²)).
-- **Boundaries**: Soft boundaries with increasing "center pressure" to keep populations active.
+- **Boundaries**: Edge containment — an inward push that ramps up only near the boundary, leaving the interior free so clusters can roam (rather than a constant pull toward the centre that would collapse everything into one blob).
 
 ## Statistics
 

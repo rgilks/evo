@@ -181,6 +181,21 @@ class EvolutionApp {
       this.simulation.update_param(SimParam.ParticleFriction, value);
     });
 
+    const foodSlider = document.getElementById("ambient-energy");
+    const predationSlider = document.getElementById("predation-reach");
+
+    foodSlider.addEventListener("input", (e) => {
+      const value = parseFloat(e.target.value);
+      document.getElementById("food-value").textContent = value.toFixed(2);
+      this.simulation.update_param(SimParam.Food, value);
+    });
+
+    predationSlider.addEventListener("input", (e) => {
+      const value = parseFloat(e.target.value);
+      document.getElementById("predation-value").textContent = value.toFixed(0);
+      this.simulation.update_param(SimParam.Predation, value);
+    });
+
     // Keyboard shortcuts
     document.addEventListener("keydown", (e) => {
       if (e.key === "h" || e.key === "H") {

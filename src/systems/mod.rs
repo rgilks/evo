@@ -38,6 +38,8 @@ pub struct EntityContext<'a> {
     pub size: &'a Size,
     pub nearby_entities: &'a [Entity],
     pub cache: &'a NeighborCache,
+    /// Global particle-life interaction matrix, indexed `[self_sector][other_sector]`.
+    pub particle_matrix: &'a [[f32; 6]; 6],
     pub config: &'a SimulationConfig,
     pub world_size: f32,
     pub population_density: f32,
