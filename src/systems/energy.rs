@@ -7,7 +7,13 @@ pub struct EnergySystem;
 
 impl super::System for EnergySystem {
     fn run(&self, ctx: &mut super::EntityContext) {
-        self.update_energy(&mut ctx.new_energy, ctx.size, ctx.genes, ctx.config);
+        self.update_energy(
+            &mut ctx.new_energy,
+            ctx.size,
+            ctx.genes,
+            ctx.config,
+            ctx.population_density,
+        );
     }
 }
 
@@ -18,8 +24,14 @@ impl EnergySystem {
         size: &Size,
         genes: &Genes,
         config: &SimulationConfig,
+        population_density: f32,
     ) {
-        // Energy changes based on genes and size (larger entities cost more to maintain)
+        // Primary production: graze the ambient food field. The field is finite, so
+        // the per-capita share shrinks as the population grows — this is what gives
+        // the ecosystem a carrying capacity instead of decaying to a few survivors.
+        *new_energy += config.energy.ambient_energy_gain * (1.0 - population_density).max(0.0);
+
+        // Metabolism: larger entities cost more to maintain.
         let size_energy_cost = size.radius * config.energy.size_energy_cost_factor;
         *new_energy -= (genes.energy_loss_rate() + size_energy_cost) / genes.energy_efficiency();
     }
@@ -49,7 +61,7 @@ mod tests {
         let genes = Genes::new_random(&mut rng);
         let config = SimulationConfig::default();
 
-        system.update_energy(&mut new_energy, &size, &genes, &config);
+        system.update_energy(&mut new_energy, &size, &genes, &config, 0.5);
 
         // Energy should have changed due to loss and gain
         assert_ne!(new_energy, 50.0);
@@ -79,7 +91,7 @@ mod tests {
         let genes = Genes::new_random(&mut rng);
         let config = SimulationConfig::default();
 
-        system.update_energy(&mut new_energy, &size, &genes, &config);
+        system.update_energy(&mut new_energy, &size, &genes, &config, 0.5);
 
         // Energy can go below 0 due to energy loss, but should be finite
         assert!(new_energy.is_finite());

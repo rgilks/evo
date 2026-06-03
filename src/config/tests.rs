@@ -20,7 +20,8 @@ fn test_default_config() {
     assert_eq!(config.physics.velocity_bounce_factor, 0.8);
     assert_eq!(config.energy.size_energy_cost_factor, 0.15);
     assert_eq!(config.energy.movement_energy_cost, 0.1);
-    assert_eq!(config.reproduction.reproduction_energy_threshold, 0.8);
+    assert_eq!(config.energy.ambient_energy_gain, 0.9);
+    assert_eq!(config.reproduction.reproduction_energy_threshold, 0.6);
     assert_eq!(config.reproduction.reproduction_energy_cost, 0.7);
     assert_eq!(config.reproduction.child_energy_factor, 0.4);
     assert_eq!(config.reproduction.child_spawn_radius, 15.0);

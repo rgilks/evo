@@ -74,7 +74,7 @@ On top of these styles, every creature carries **particle-life interaction weigh
 
 - **Predation**: Larger entities eat smaller specific prey.
 - **Gene Preference**: Predators prefer genetically distinct prey (promoting diversity).
-- **Energy Transfer**: Eating yields energy; movement and existence consume it.
+- **Energy economy**: Movement and existence consume energy; predation transfers it between creatures. The only *input* is **primary production** — every creature draws a little energy from an ambient food field each tick (`energy.ambient_energy_gain`), scaled by `(1 - population_density)` so the field is finite. That finite input gives the ecosystem a **carrying capacity**: the population settles around the density where production balances metabolism, instead of decaying to a few survivors the way a closed, input-free system does.
 
 ### 5. Spatial System
 

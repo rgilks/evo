@@ -85,6 +85,23 @@ fn test_browser_like_long_run_no_panic() {
 }
 
 #[test]
+fn test_population_sustains_via_primary_production() {
+    // The ambient energy field (primary production) gives the ecosystem a carrying
+    // capacity, so the population recovers from the initial overshoot instead of
+    // decaying to a handful of survivors. Without it (ambient_energy_gain = 0) this
+    // same run collapses to single digits — so this guards the fix.
+    let mut sim = Simulation::new_with_config_seeded(846.0, SimulationConfig::default(), 12345);
+    for _ in 0..1000 {
+        sim.update();
+    }
+    let pop = sim.world().len();
+    assert!(
+        pop > 250,
+        "population collapsed to {pop}; primary production should sustain a healthy level"
+    );
+}
+
+#[test]
 fn test_simulation_get_entities() {
     let sim = Simulation::new(100.0);
     let entities = sim.get_entities();

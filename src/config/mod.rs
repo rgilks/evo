@@ -28,6 +28,12 @@ pub struct PhysicsConfig {
 pub struct EnergyConfig {
     pub size_energy_cost_factor: f32,
     pub movement_energy_cost: f32,
+    /// Primary production: energy each creature grazes from the ambient food field
+    /// per tick, scaled by `(1 - population_density)` so the field is finite. This
+    /// is the ecosystem's only energy *input* (eating just transfers it), so it
+    /// sets the carrying capacity — without it the closed system decays to a few
+    /// survivors.
+    pub ambient_energy_gain: f32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -73,9 +79,10 @@ impl Default for SimulationConfig {
             energy: EnergyConfig {
                 size_energy_cost_factor: 0.15,
                 movement_energy_cost: 0.1,
+                ambient_energy_gain: 0.9,
             },
             reproduction: ReproductionConfig {
-                reproduction_energy_threshold: 0.8,
+                reproduction_energy_threshold: 0.6,
                 reproduction_energy_cost: 0.7,
                 child_energy_factor: 0.4,
                 child_spawn_radius: 15.0,

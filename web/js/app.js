@@ -29,9 +29,10 @@ const DEFAULT_CONFIG = {
   energy: {
     size_energy_cost_factor: 0.15,
     movement_energy_cost: 0.1,
+    ambient_energy_gain: 0.9,
   },
   reproduction: {
-    reproduction_energy_threshold: 0.8,
+    reproduction_energy_threshold: 0.6,
     reproduction_energy_cost: 0.7,
     child_energy_factor: 0.4,
     child_spawn_radius: 15.0,
