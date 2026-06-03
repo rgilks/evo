@@ -88,7 +88,7 @@ impl Default for SimulationConfig {
                 child_spawn_radius: 15.0,
                 population_density_factor: 0.8,
                 min_reproduction_chance: 0.05,
-                death_chance_factor: 0.1,
+                death_chance_factor: 0.04,
             },
         }
     }

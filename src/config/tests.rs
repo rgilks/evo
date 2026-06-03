@@ -27,7 +27,7 @@ fn test_default_config() {
     assert_eq!(config.reproduction.child_spawn_radius, 15.0);
     assert_eq!(config.reproduction.population_density_factor, 0.8);
     assert_eq!(config.reproduction.min_reproduction_chance, 0.05);
-    assert_eq!(config.reproduction.death_chance_factor, 0.1);
+    assert_eq!(config.reproduction.death_chance_factor, 0.04);
 }
 
 #[test]
