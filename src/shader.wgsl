@@ -62,7 +62,10 @@ fn vs_main(
     let screen_y = (world_to_screen_y + uniforms.camera_y) * uniforms.camera_zoom;
     let screen_pos = vec2<f32>(screen_x, screen_y);
 
-    let screen_radius = (radius / world_size * 2.0 / 10.0) * uniforms.camera_zoom; // Simplified scaling for vertex shader
+    // Render creatures as visible glowing discs, not sub-pixel specks: scale up
+    // generously and enforce a minimum on-screen size so even the smallest
+    // creature reads as a dot rather than a flickering pixel.
+    let screen_radius = max(radius / world_size * 2.0, 0.006) * uniforms.camera_zoom;
 
     // Expand quad by radius with glow extension
     let glow_extension = screen_radius * 0.5;
