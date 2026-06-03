@@ -81,7 +81,7 @@ All of these forces — style behaviour, flocking, particle-life, and center pre
 ### 5. Spatial System
 
 - **Spatial Grid**: The world is partitioned into cells to optimize neighbor lookups (O(1) instead of O(N²)).
-- **Boundaries**: Edge containment — an inward push that ramps up only near the boundary, leaving the interior free so clusters can roam (rather than a constant pull toward the centre that would collapse everything into one blob).
+- **Boundaries**: Edge repulsion — each edge pushes organisms back perpendicular to itself, ramping up quadratically as they approach, so the interior is free to roam and organisms are kept off the edges (rather than a constant pull toward the centre that would collapse everything into one blob).
 
 ## Statistics
 

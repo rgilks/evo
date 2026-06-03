@@ -217,7 +217,7 @@ impl MovementSystem {
         self.cap_velocity(new_velocity, config);
 
         self.update_position(new_pos, new_velocity);
-        self.apply_center_pressure(new_pos, new_velocity, config, world_size);
+        self.apply_edge_repulsion(new_pos, new_velocity, config, world_size);
         self.validate_position(new_pos);
         self.apply_movement_cost(new_velocity, new_energy, genes, config);
     }
@@ -316,31 +316,31 @@ impl MovementSystem {
         }
     }
 
-    fn apply_center_pressure(
+    fn apply_edge_repulsion(
         &self,
         pos: &Position,
         velocity: &mut Velocity,
         config: &SimulationConfig,
         world_size: f32,
     ) {
-        // Containment, not a constant pull to the centre: push inward only within a
-        // margin of the boundary (ramping up quadratically toward the edge), leaving
-        // the interior free so clusters can form and roam instead of collapsing into
-        // a single central blob.
+        // Each window edge repels organisms *perpendicular to itself*, ramping up
+        // quadratically as they approach — so the interior is free to roam and the
+        // edges push them back in, rather than a constant pull toward the centre
+        // (which collapsed everything into one central blob).
         let half_world = world_size / 2.0;
-        let margin = (half_world * 0.5).max(1.0);
-        let distance_from_edge = (half_world - pos.x.abs()).min(half_world - pos.y.abs());
+        let margin = (half_world * 0.4).max(1.0);
+        let strength = config.physics.center_pressure_strength * 12.0;
 
-        if distance_from_edge < margin {
-            let distance_from_center = (pos.x * pos.x + pos.y * pos.y).sqrt();
-            if distance_from_center > 0.0 {
-                // 0 at the margin, 1 at the edge, >1 past it.
-                let edge_factor = (margin - distance_from_edge) / margin;
-                let pressure =
-                    config.physics.center_pressure_strength * edge_factor * edge_factor * 10.0;
-                velocity.x += (-pos.x / distance_from_center) * pressure;
-                velocity.y += (-pos.y / distance_from_center) * pressure;
-            }
+        // 0 at the margin, 1 at the edge, >1 past it.
+        let dist_x = half_world - pos.x.abs();
+        if dist_x < margin {
+            let f = (margin - dist_x) / margin;
+            velocity.x -= pos.x.signum() * strength * f * f;
+        }
+        let dist_y = half_world - pos.y.abs();
+        if dist_y < margin {
+            let f = (margin - dist_y) / margin;
+            velocity.y -= pos.y.signum() * strength * f * f;
         }
     }
 
