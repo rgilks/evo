@@ -16,7 +16,7 @@ fn test_default_config() {
     assert_eq!(config.physics.min_entity_radius, 1.0);
     assert_eq!(config.physics.grid_cell_size, 25.0);
     assert_eq!(config.physics.boundary_margin, 5.0);
-    assert_eq!(config.physics.interaction_radius_offset, 15.0);
+    assert_eq!(config.physics.interaction_radius_offset, 6.0);
     assert_eq!(config.physics.velocity_bounce_factor, 0.8);
     assert_eq!(config.energy.size_energy_cost_factor, 0.15);
     assert_eq!(config.energy.movement_energy_cost, 0.1);

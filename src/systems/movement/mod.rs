@@ -204,6 +204,11 @@ impl MovementSystem {
         new_velocity.x *= config.physics.particle_friction;
         new_velocity.y *= config.physics.particle_friction;
 
+        // Enforce the speed limit on the final accumulated velocity. Previously only
+        // `move_randomly`'s base velocity was capped, so the additive forces (targets,
+        // flocking, particle-life) could drive entities far past `max_velocity`.
+        self.cap_velocity(new_velocity, config);
+
         self.update_position(new_pos, new_velocity);
         self.apply_center_pressure(new_pos, new_velocity, config, world_size);
         self.validate_position(new_pos);
@@ -278,12 +283,15 @@ impl MovementSystem {
         }
     }
 
+    /// Clamp speed (the velocity *magnitude*) to `max_velocity`, preserving
+    /// direction. Applied to the final accumulated velocity each tick.
     fn cap_velocity(&self, velocity: &mut Velocity, config: &SimulationConfig) {
-        if velocity.x.abs() > config.physics.max_velocity {
-            velocity.x = velocity.x.signum() * config.physics.max_velocity;
-        }
-        if velocity.y.abs() > config.physics.max_velocity {
-            velocity.y = velocity.y.signum() * config.physics.max_velocity;
+        let max = config.physics.max_velocity;
+        let speed_sq = velocity.x * velocity.x + velocity.y * velocity.y;
+        if speed_sq > max * max {
+            let scale = max / speed_sq.sqrt();
+            velocity.x *= scale;
+            velocity.y *= scale;
         }
     }
 

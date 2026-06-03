@@ -70,6 +70,8 @@ Entities exhibit one of five genetically determined movement styles:
 
 On top of these styles, every creature carries **particle-life interaction weights** — a per-hue-sector attraction/repulsion table applied as a force during the same single neighbour pass. This adds emergent clustering and pattern formation over the style-based behaviour, and is tunable live via the `particle_force_scale` and `particle_friction` parameters.
 
+All of these forces — style behaviour, flocking, particle-life, and center pressure — accumulate into a single velocity that is then **capped at `max_velocity`** (by magnitude) each tick, so no combination of forces can push a creature past the speed limit.
+
 ### 4. Interaction System
 
 - **Predation**: Larger entities eat smaller specific prey.
