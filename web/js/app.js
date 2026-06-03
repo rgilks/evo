@@ -89,10 +89,14 @@ class EvolutionApp {
 
       const configJson = JSON.stringify(DEFAULT_CONFIG);
       console.log("Config being passed to WebSimulation:", configJson);
-      this.simulation = new WebSimulation(
-        Math.max(this.canvas.width, this.canvas.height),
-        configJson
-      );
+      // Honour the seed box, which is prefilled with a curated seed that reliably
+      // produces bold, roaming clusters. Clear it (or change it) for a different run.
+      const worldSize = Math.max(this.canvas.width, this.canvas.height);
+      const seedText = document.getElementById("seed-input")?.value.trim();
+      const seed = seedText ? Number(seedText) : NaN;
+      this.simulation = Number.isFinite(seed)
+        ? WebSimulation.with_seed(worldSize, configJson, seed)
+        : new WebSimulation(worldSize, configJson);
       this.updateSeedDisplay();
 
       // Initialize WebGPU renderer (required - no fallback)
