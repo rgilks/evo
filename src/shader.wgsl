@@ -62,10 +62,10 @@ fn vs_main(
     let screen_y = (world_to_screen_y + uniforms.camera_y) * uniforms.camera_zoom;
     let screen_pos = vec2<f32>(screen_x, screen_y);
 
-    // Render creatures as visible glowing discs, not sub-pixel specks: scale up
-    // generously and enforce a minimum on-screen size so even the smallest
-    // creature reads as a dot rather than a flickering pixel.
-    let screen_radius = max(radius / world_size * 2.0, 0.006) * uniforms.camera_zoom;
+    // Render creatures as visible glowing discs: clamp on-screen size to a tight
+    // band so the smallest still reads as a dot and the largest never becomes a
+    // giant blob.
+    let screen_radius = clamp(radius / world_size * 2.0, 0.005, 0.011) * uniforms.camera_zoom;
 
     // Expand quad by radius with glow extension
     let glow_extension = screen_radius * 0.5;
@@ -82,21 +82,15 @@ fn vs_main(
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     // Distance from center (uv is -1 to 1)
     let dist = length(in.uv);
-    
-    // Create glowing ball effect
-    let core = smoothstep(1.0, 0.0, dist * 2.0);
-    let glow_inner = smoothstep(1.0, 0.0, dist * 1.5) * 0.9;
-    let glow_middle = smoothstep(1.0, 0.0, dist * 1.2) * 0.7;
-    let glow_outer = smoothstep(1.0, 0.0, dist * 0.8) * 0.5;
-    let glow_far = smoothstep(1.0, 0.0, dist * 0.5) * 0.3;
 
-    let glow = core + glow_inner + glow_middle + glow_outer + glow_far;
-    let alpha = glow * 0.95;
-    let final_color = in.color * glow;
-    
-    // White glow for definition
-    let white_glow = smoothstep(1.0, 0.0, dist * 0.4) * 0.2;
-    let final_color_with_glow = final_color + vec3<f32>(white_glow);
+    // Soft radial falloff that reaches zero at the quad edge, so there is no hard
+    // rim — squared for a rounder, gentler profile.
+    let falloff = smoothstep(1.0, 0.0, dist);
+    let soft = falloff * falloff;
+    let core = smoothstep(0.5, 0.0, dist); // brighter centre
 
-    return vec4<f32>(final_color_with_glow, alpha);
+    let alpha = soft * 0.9;
+    let final_color = in.color * (0.55 + core * 0.6) + vec3<f32>(core * 0.25);
+
+    return vec4<f32>(final_color, alpha);
 }

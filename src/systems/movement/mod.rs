@@ -328,7 +328,7 @@ impl MovementSystem {
         // the interior free so clusters can form and roam instead of collapsing into
         // a single central blob.
         let half_world = world_size / 2.0;
-        let margin = (half_world * 0.35).max(1.0);
+        let margin = (half_world * 0.5).max(1.0);
         let distance_from_edge = (half_world - pos.x.abs()).min(half_world - pos.y.abs());
 
         if distance_from_edge < margin {
