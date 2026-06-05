@@ -20,7 +20,6 @@ const FLOATS_PER_ENTITY: usize = 8;
 #[wasm_bindgen]
 pub struct WebSimulation {
     simulation: simulation::Simulation,
-    config: config::SimulationConfig,
     seed: u64,
     entity_buffer: Vec<f32>, // Reusable buffer for entity data
 }
@@ -79,10 +78,11 @@ impl WebSimulation {
     }
 
     pub fn get_stats(&self) -> JsValue {
+        let config = self.simulation.config();
         let stats = stats::SimulationStats::from_world(
             self.simulation.world(),
-            self.config.population.max_population as f32,
-            self.config.population.entity_scale,
+            config.population.max_population as f32,
+            config.population.entity_scale,
         );
         serde_wasm_bindgen::to_value(&stats).unwrap_or_else(|e| {
             web_sys::console::error_1(&JsValue::from_str(&format!(
@@ -97,21 +97,20 @@ impl WebSimulation {
     }
 
     pub fn update_param(&mut self, param: SimParam, value: f32) {
+        // Mutate the single config the Simulation owns — no duplicate, no clone.
+        let config = self.simulation.config_mut();
         match param {
-            SimParam::MaxVelocity => self.config.physics.max_velocity = value,
-            SimParam::CenterPressure => self.config.physics.center_pressure_strength = value,
-            SimParam::DeathChance => self.config.reproduction.death_chance_factor = value,
-            SimParam::ReproThreshold => {
-                self.config.reproduction.reproduction_energy_threshold = value
-            }
-            SimParam::EnergyCost => self.config.energy.size_energy_cost_factor = value,
-            SimParam::BounceFactor => self.config.physics.velocity_bounce_factor = value,
-            SimParam::ParticleForce => self.config.physics.particle_force_scale = value,
-            SimParam::ParticleFriction => self.config.physics.particle_friction = value,
-            SimParam::Food => self.config.energy.ambient_energy_gain = value,
-            SimParam::Predation => self.config.physics.interaction_radius_offset = value,
+            SimParam::MaxVelocity => config.physics.max_velocity = value,
+            SimParam::CenterPressure => config.physics.center_pressure_strength = value,
+            SimParam::DeathChance => config.reproduction.death_chance_factor = value,
+            SimParam::ReproThreshold => config.reproduction.reproduction_energy_threshold = value,
+            SimParam::EnergyCost => config.energy.size_energy_cost_factor = value,
+            SimParam::BounceFactor => config.physics.velocity_bounce_factor = value,
+            SimParam::ParticleForce => config.physics.particle_force_scale = value,
+            SimParam::ParticleFriction => config.physics.particle_friction = value,
+            SimParam::Food => config.energy.ambient_energy_gain = value,
+            SimParam::Predation => config.physics.interaction_radius_offset = value,
         }
-        self.simulation.update_config(self.config.clone());
     }
 
     pub fn get_step(&self) -> u32 {
@@ -135,12 +134,10 @@ impl WebSimulation {
             .map_err(|e| JsValue::from_str(&format!("Config parse error: {}", e)))?;
 
         web_sys::console::log_1(&JsValue::from_str(&format!("Simulation seed: {seed}")));
-        let simulation =
-            simulation::Simulation::new_with_config_seeded(world_size, config.clone(), seed);
+        let simulation = simulation::Simulation::new_with_config_seeded(world_size, config, seed);
 
         Ok(WebSimulation {
             simulation,
-            config,
             seed,
             entity_buffer: Vec::with_capacity(80000), // 10000 entities * 8 floats
         })

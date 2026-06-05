@@ -460,13 +460,11 @@ fn test_entity_buffer_conversion() {
 }
 
 #[test]
-fn test_update_config() {
+fn test_config_mut_updates_in_place() {
     let mut sim = Simulation::new(100.0);
     let original_velocity = sim.config.physics.max_velocity;
 
-    let mut new_config = sim.config.clone();
-    new_config.physics.max_velocity = 5.0;
-    sim.update_config(new_config);
+    sim.config_mut().physics.max_velocity = 5.0;
 
     assert_ne!(sim.config.physics.max_velocity, original_velocity);
     assert_eq!(sim.config.physics.max_velocity, 5.0);

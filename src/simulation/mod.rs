@@ -504,8 +504,14 @@ impl Simulation {
         self.step
     }
 
-    pub fn update_config(&mut self, config: SimulationConfig) {
-        self.config = config;
+    pub fn config(&self) -> &SimulationConfig {
+        &self.config
+    }
+
+    /// Mutable access to the live config, so a single tunable can be changed in
+    /// place without cloning the whole struct. `Simulation` owns the only copy.
+    pub fn config_mut(&mut self) -> &mut SimulationConfig {
+        &mut self.config
     }
 }
 
