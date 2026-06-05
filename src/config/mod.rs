@@ -1,8 +1,6 @@
 use serde::{Deserialize, Serialize};
-use std::fs;
-use std::path::Path;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PopulationConfig {
     pub entity_scale: f32,
     pub max_population: u32,
@@ -10,7 +8,7 @@ pub struct PopulationConfig {
     pub spawn_radius_factor: f32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PhysicsConfig {
     pub max_velocity: f32,
     pub max_entity_radius: f32,
@@ -24,7 +22,7 @@ pub struct PhysicsConfig {
     pub particle_friction: f32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct EnergyConfig {
     pub size_energy_cost_factor: f32,
     pub movement_energy_cost: f32,
@@ -36,7 +34,7 @@ pub struct EnergyConfig {
     pub ambient_energy_gain: f32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ReproductionConfig {
     pub reproduction_energy_threshold: f32,
     pub reproduction_energy_cost: f32,
@@ -47,7 +45,7 @@ pub struct ReproductionConfig {
     pub death_chance_factor: f32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SimulationConfig {
     pub population: PopulationConfig,
     pub physics: PhysicsConfig,
@@ -91,28 +89,6 @@ impl Default for SimulationConfig {
                 death_chance_factor: 0.04,
             },
         }
-    }
-}
-
-impl SimulationConfig {
-    pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<Self, Box<dyn std::error::Error>> {
-        let content = fs::read_to_string(path)?;
-        let config: SimulationConfig = serde_json::from_str(&content)?;
-        Ok(config)
-    }
-
-    pub fn save_to_file<P: AsRef<Path>>(&self, path: P) -> Result<(), Box<dyn std::error::Error>> {
-        let content = serde_json::to_string_pretty(self)?;
-        fs::write(path, content)?;
-        Ok(())
-    }
-
-    pub fn create_default_config_file<P: AsRef<Path>>(
-        path: P,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let default_config = SimulationConfig::default();
-        default_config.save_to_file(path)?;
-        Ok(())
     }
 }
 
