@@ -194,6 +194,16 @@ main {
   transform: translateY(1px);
 }
 
+/* Instant-action buttons (Cull / Bloom) — split the row evenly. */
+.actions {
+  display: flex;
+  gap: 8px;
+}
+.actions .act {
+  flex: 1;
+  text-align: center;
+}
+
 /* ===== Stats ===== */
 .stats {
   display: grid;

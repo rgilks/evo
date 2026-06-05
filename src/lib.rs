@@ -117,6 +117,16 @@ impl WebSimulation {
     pub fn get_step(&self) -> u32 {
         self.simulation.step()
     }
+
+    /// Instantly cull a fraction of the population (user action, immediate effect).
+    pub fn cull(&mut self, fraction: f32) {
+        self.simulation.cull(fraction);
+    }
+
+    /// Instantly spawn a burst of new creatures (user action, immediate effect).
+    pub fn bloom(&mut self, count: u32) {
+        self.simulation.bloom(count);
+    }
 }
 
 impl WebSimulation {

@@ -127,6 +127,17 @@ class EvolutionApp {
     toggleUiBtn.addEventListener("click", () => this.toggleUI());
     showUiBtn.addEventListener("click", () => this.toggleUI());
 
+    // Instant actions — immediate, visible effect on the population without
+    // touching the (deliberately gradual) ecosystem balance.
+    document.getElementById("cull").addEventListener("click", () => {
+      this.simulation.cull(0.5);
+      this.updateStats();
+    });
+    document.getElementById("bloom").addEventListener("click", () => {
+      this.simulation.bloom(500);
+      this.updateStats();
+    });
+
     // Parameter sliders
     const velocitySlider = document.getElementById("max-velocity");
     const pressureSlider = document.getElementById("center-pressure");

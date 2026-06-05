@@ -22,6 +22,10 @@ const DEFAULT_SEED: u64 = 0x9E37_79B9_7F4A_7C15;
 /// from its movement stream within the same tick.
 const OFFSPRING_SALT: u64 = 0x0FF5_0FF5_0FF5_0FF5;
 
+/// Salts for the user "cull"/"bloom" action RNG streams.
+const CULL_SALT: u64 = 0xCADE_1234_5678_9ABC;
+const BLOOM_SALT: u64 = 0xB100_4321_8765_CBA9;
+
 /// Mix a base seed with an entity id and tick into a well-distributed seed
 /// (splitmix64 finaliser). Keying RNG per entity+tick makes results independent
 /// of thread scheduling, so the simulation is reproducible from a single seed.
@@ -157,6 +161,56 @@ impl Simulation {
                 genes,
                 config.physics.max_entity_radius,
                 config.physics.min_entity_radius,
+            ));
+        }
+    }
+
+    /// Instantly remove roughly `fraction` of the population (the user "cull"
+    /// action). Not part of the deterministic tick — it's an external
+    /// perturbation, and the ecosystem re-settles afterwards.
+    pub fn cull(&mut self, fraction: f32) {
+        let frac = fraction.clamp(0.0, 1.0);
+        if frac <= 0.0 {
+            return;
+        }
+        let mut rng = StdRng::seed_from_u64(mix_seed(self.seed, CULL_SALT, self.step as u64));
+        let doomed: Vec<Entity> = self
+            .world
+            .query::<&Position>()
+            .iter()
+            .map(|(entity, _)| entity)
+            .filter(|_| rng.gen::<f32>() < frac)
+            .collect();
+        for entity in doomed {
+            let _ = self.world.despawn(entity);
+        }
+    }
+
+    /// Instantly spawn a burst of `count` fresh random creatures near the centre
+    /// (the user "bloom" action), capped so it cannot exceed the population limit.
+    pub fn bloom(&mut self, count: u32) {
+        let cap = (self.config.population.max_population as f32
+            * self.config.population.entity_scale) as usize;
+        let room = cap.saturating_sub(self.world.len() as usize);
+        let n = (count as usize).min(room);
+        let spawn_radius = self.world_size * self.config.population.spawn_radius_factor;
+        for i in 0..n {
+            let mut rng =
+                StdRng::seed_from_u64(mix_seed(self.seed, BLOOM_SALT ^ i as u64, self.step as u64));
+            let angle = rng.gen_range(0.0..std::f32::consts::TAU);
+            let distance = spawn_radius * rng.gen::<f32>().sqrt();
+            let genes = Genes::new_random(&mut rng);
+            let energy = rng.gen_range(15.0..75.0);
+            self.world.spawn(creature_bundle(
+                Position {
+                    x: distance * angle.cos(),
+                    y: distance * angle.sin(),
+                },
+                energy,
+                energy * 1.3,
+                genes,
+                self.config.physics.max_entity_radius,
+                self.config.physics.min_entity_radius,
             ));
         }
     }
