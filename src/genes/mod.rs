@@ -131,10 +131,21 @@ impl Genes {
             .clamp(0.001, 0.25);
         }
 
-        // Appearance mutations
-        if rng.random::<f32>() < self.reproduction.mutation_rate {
+        // Appearance mutations. Hue inheritance is *assortative*: offspring stay
+        // very close to the parent's hue (a tight drift), so a lineage reads as a
+        // persistent colour cluster rather than smearing across the wheel. A rare
+        // large jump founds a brand-new colour lineage — the source of new species.
+        // Together with the frequency-dependent reproduction throttle, this is what
+        // makes several distinct colours emerge, persist, and compete.
+        if rng.random::<f32>() < 0.02 {
+            // Rare founder mutation: jump to a far-off hue (wrapping the wheel).
+            new_genes.appearance.hue = (new_genes.appearance.hue
+                + rng.random_range(0.2..0.8))
+            .rem_euclid(1.0);
+        } else if rng.random::<f32>() < self.reproduction.mutation_rate {
+            // Common case: tight drift so the lineage colour stays coherent.
             new_genes.appearance.hue =
-                (new_genes.appearance.hue + rng.random_range(-0.1..0.1)).clamp(0.0, 1.0);
+                (new_genes.appearance.hue + rng.random_range(-0.02..0.02)).clamp(0.0, 1.0);
         }
         if rng.random::<f32>() < self.reproduction.mutation_rate {
             new_genes.appearance.saturation =

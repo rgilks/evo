@@ -29,7 +29,11 @@ const DEFAULT_CONFIG = {
   energy: {
     size_energy_cost_factor: 0.15,
     movement_energy_cost: 0.1,
-    ambient_energy_gain: 0.9,
+    // Richer field lifts the carrying capacity so the boom/bust waves play out
+    // well above the safety floor (see Rust SimulationConfig::default).
+    ambient_energy_gain: 1.3,
+    predator_graze_fraction: 0.6,
+    predator_upkeep: 0.0,
   },
   reproduction: {
     reproduction_energy_threshold: 0.6,
@@ -39,6 +43,10 @@ const DEFAULT_CONFIG = {
     population_density_factor: 0.8,
     min_reproduction_chance: 0.05,
     death_chance_factor: 0.04,
+    // Lagged-mortality boom/bust + its safety floor, and the speciation throttle.
+    crowding_pressure_rate: 0.006,
+    death_floor_density: 0.03,
+    hue_crowding_factor: 1.2,
   },
 };
 

@@ -24,6 +24,7 @@ fn empty_food() -> FoodField {
             drift_speed: 0.0,
             regen_rate: 0.0,
             graze_rate: 0.0,
+            graze_floor: 0.05,
             base: 0.0,
             patch_peak: 0.0,
         },

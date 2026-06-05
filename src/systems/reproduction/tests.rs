@@ -66,11 +66,38 @@ fn test_reproduction_system_create_offspring() {
 #[test]
 fn test_reproduction_system_check_death() {
     let system = ReproductionSystem;
-    let population_density = 0.9; // High density
+    let pressure = 0.9; // High lagged pressure
+    let live_density = 0.9; // High live density (above the floor → death active)
     let config = SimulationConfig::default();
     let mut rng = rng();
 
-    let _should_die = system.check_death(population_density, &config, &mut rng);
+    let _should_die = system.check_death(pressure, live_density, &config, &mut rng);
+}
+
+#[test]
+fn test_death_floor_blocks_extinction() {
+    // Below the death floor, density-dependent death is gated off entirely, even
+    // when the lagged pressure is saturated — the safety floor that keeps a deep
+    // bust from spiralling to extinction.
+    let system = ReproductionSystem;
+    let config = SimulationConfig::default();
+    let mut rng = rng();
+    // Live density well below the floor: no density-death regardless of pressure.
+    let below = config.reproduction.death_floor_density * 0.5;
+    for _ in 0..10_000 {
+        assert!(
+            !system.check_death(1.0, below, &config, &mut rng),
+            "density-death must be gated off below the safety floor"
+        );
+    }
+    // Well above the floor with max pressure, death does fire sometimes.
+    let mut deaths = 0;
+    for _ in 0..10_000 {
+        if system.check_death(1.0, 1.0, &config, &mut rng) {
+            deaths += 1;
+        }
+    }
+    assert!(deaths > 0, "density-death should fire above the floor");
 }
 
 #[test]

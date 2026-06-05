@@ -24,12 +24,6 @@ use rand::{Rng, SeedableRng};
 /// Salt for the food-field RNG stream, distinct from every other per-tick stream.
 const FOOD_SALT: u64 = 0xF00D_5EED_1234_ABCD;
 
-/// Grazing never strips a patch below this fraction of its capacity, so a crowded
-/// patch visibly dips (the "graze it down then move on" pressure) but always
-/// keeps a gradient for creatures to climb — the gathering spot persists instead
-/// of vanishing under a large crowd.
-const GRAZE_FLOOR: f32 = 0.3;
-
 /// A single circular nourishment patch sitting on top of the uniform base.
 /// `intensity` is the patch's current bonus richness at its centre (energy per
 /// tick a creature grazes there, above the base); it regrows toward `capacity`
@@ -68,6 +62,10 @@ pub struct FoodFieldConfig {
     /// patch refills proportionally faster.
     pub regen_rate: f32,
     pub graze_rate: f32,
+    /// Lowest fraction of capacity grazing can strip a patch to (0..1). A low
+    /// floor lets a crowded patch crash to near-empty (driving the boom/bust),
+    /// while still leaving a faint gradient for creatures to find it.
+    pub graze_floor: f32,
     /// Uniform production everywhere (energy/tick), keeping between-patch
     /// creatures alive so the population stays stable.
     pub base: f32,
@@ -195,7 +193,7 @@ impl FoodField {
             let r2 = p.radius * p.radius;
             if d2 < r2 {
                 let t = 1.0 - d2 / r2;
-                let floor = p.capacity * GRAZE_FLOOR;
+                let floor = p.capacity * self.cfg.graze_floor;
                 p.intensity = (p.intensity - amount * self.cfg.graze_rate * t * t).max(floor);
             }
         }

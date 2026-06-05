@@ -20,7 +20,9 @@ fn test_default_config() {
     assert_eq!(config.physics.particle_friction, 0.95);
     assert_eq!(config.energy.size_energy_cost_factor, 0.15);
     assert_eq!(config.energy.movement_energy_cost, 0.1);
-    assert_eq!(config.energy.ambient_energy_gain, 0.9);
+    assert_eq!(config.energy.ambient_energy_gain, 1.3);
+    assert_eq!(config.energy.predator_graze_fraction, 0.6);
+    assert_eq!(config.energy.predator_upkeep, 0.0);
     assert_eq!(config.reproduction.reproduction_energy_threshold, 0.6);
     assert_eq!(config.reproduction.reproduction_energy_cost, 0.7);
     assert_eq!(config.reproduction.child_energy_factor, 0.4);
@@ -28,6 +30,9 @@ fn test_default_config() {
     assert_eq!(config.reproduction.population_density_factor, 0.8);
     assert_eq!(config.reproduction.min_reproduction_chance, 0.05);
     assert_eq!(config.reproduction.death_chance_factor, 0.04);
+    assert_eq!(config.reproduction.crowding_pressure_rate, 0.006);
+    assert_eq!(config.reproduction.death_floor_density, 0.03);
+    assert_eq!(config.reproduction.hue_crowding_factor, 1.2);
 }
 
 #[test]
@@ -66,6 +71,11 @@ fn test_custom_config_values() {
     config.energy.size_energy_cost_factor = 0.2;
     config.energy.movement_energy_cost = 0.15;
     config.energy.ambient_energy_gain = 1.5;
+    config.energy.predator_graze_fraction = 0.5;
+    config.energy.predator_upkeep = 0.4;
+    config.reproduction.hue_crowding_factor = 2.0;
+    config.reproduction.crowding_pressure_rate = 0.1;
+    config.reproduction.death_floor_density = 0.05;
     config.reproduction.reproduction_energy_threshold = 0.9;
     config.reproduction.reproduction_energy_cost = 0.8;
     config.reproduction.child_energy_factor = 0.5;
@@ -91,6 +101,9 @@ fn test_custom_config_values() {
     assert_eq!(config.energy.size_energy_cost_factor, 0.2);
     assert_eq!(config.energy.movement_energy_cost, 0.15);
     assert_eq!(config.energy.ambient_energy_gain, 1.5);
+    assert_eq!(config.energy.predator_graze_fraction, 0.5);
+    assert_eq!(config.energy.predator_upkeep, 0.4);
+    assert_eq!(config.reproduction.hue_crowding_factor, 2.0);
     assert_eq!(config.reproduction.reproduction_energy_threshold, 0.9);
     assert_eq!(config.reproduction.reproduction_energy_cost, 0.8);
     assert_eq!(config.reproduction.child_energy_factor, 0.5);
@@ -98,6 +111,8 @@ fn test_custom_config_values() {
     assert_eq!(config.reproduction.population_density_factor, 0.9);
     assert_eq!(config.reproduction.min_reproduction_chance, 0.1);
     assert_eq!(config.reproduction.death_chance_factor, 0.2);
+    assert_eq!(config.reproduction.crowding_pressure_rate, 0.1);
+    assert_eq!(config.reproduction.death_floor_density, 0.05);
 }
 
 #[test]

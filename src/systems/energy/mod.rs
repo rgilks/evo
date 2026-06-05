@@ -1,4 +1,4 @@
-use crate::components::Size;
+use crate::components::{MovementType, Size};
 use crate::config::SimulationConfig;
 use crate::genes::Genes;
 
@@ -13,8 +13,19 @@ impl super::System for EnergySystem {
         // world is balanced to the old uniform field (see `food_field_config`),
         // so the carrying capacity is preserved — the food is concentrated in
         // space, not removed. `(1 - density)` still makes the field finite.
-        let local_gain = ctx.food_field.gain_at(ctx.new_pos.x, ctx.new_pos.y)
+        //
+        // Predators are carnivores: they graze only a fraction of the field
+        // (`predator_graze_fraction`), so they live mostly off prey and crash when
+        // they have eaten the prey down — the decoupling that drives boom/bust.
+        // Prey keep the full floor, so the prey population can never go extinct.
+        let mut local_gain = ctx.food_field.gain_at(ctx.new_pos.x, ctx.new_pos.y)
             * (1.0 - ctx.population_density).max(0.0);
+        if matches!(
+            ctx.genes.behavior.movement_style.style,
+            MovementType::Predatory
+        ) {
+            local_gain *= ctx.config.energy.predator_graze_fraction;
+        }
         ctx.grazed = local_gain;
         ctx.new_energy += local_gain;
         self.apply_metabolism(&mut ctx.new_energy, ctx.size, ctx.genes, ctx.config);
@@ -23,7 +34,9 @@ impl super::System for EnergySystem {
 
 impl EnergySystem {
     /// Metabolic upkeep: every creature pays a base loss plus a size-dependent
-    /// maintenance cost each tick, scaled down by its efficiency gene.
+    /// maintenance cost each tick, scaled down by its efficiency gene. Predators
+    /// pay an extra `predator_upkeep` tax so their numbers recede quickly once
+    /// prey thins (the bust half of the cycle).
     fn apply_metabolism(
         &self,
         new_energy: &mut f32,
@@ -32,7 +45,16 @@ impl EnergySystem {
         config: &SimulationConfig,
     ) {
         let size_energy_cost = size.radius * config.energy.size_energy_cost_factor;
-        *new_energy -= (genes.energy_loss_rate() + size_energy_cost) / genes.energy_efficiency();
+        let predator_tax = if matches!(
+            genes.behavior.movement_style.style,
+            MovementType::Predatory
+        ) {
+            config.energy.predator_upkeep
+        } else {
+            0.0
+        };
+        *new_energy -=
+            (genes.energy_loss_rate() + size_energy_cost + predator_tax) / genes.energy_efficiency();
     }
 
     /// Direct primary-production + metabolism step, used by tests that exercise

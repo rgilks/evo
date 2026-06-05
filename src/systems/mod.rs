@@ -47,6 +47,10 @@ pub struct EntityContext<'a> {
     pub config: &'a SimulationConfig,
     pub world_size: f32,
     pub population_density: f32,
+    /// Slow-moving (lagged) crowding pressure — the death rate reads this instead
+    /// of `population_density` so mortality lags the population (boom/bust). See
+    /// `Simulation::crowding_pressure`.
+    pub crowding_pressure: f32,
     pub energy_max: f32,
 
     pub new_pos: Position,

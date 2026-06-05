@@ -35,6 +35,28 @@ pub struct EnergyConfig {
     /// a creature is to food. `ambient_energy_gain` is the live "Food" slider that
     /// scales the whole field's richness up or down.
     pub ambient_energy_gain: f32,
+    /// Fraction of primary production a *predator* (Predatory movement style) can
+    /// graze from the food field, in `0..1`. Carnivores live off prey, not the
+    /// field: at `0.25` a predator grazes a quarter of what a grazer would, so a
+    /// predator lineage only thrives where prey is abundant and **starves when it
+    /// has eaten the prey down** — the decoupling that drives predator/prey
+    /// boom/bust. Crucially this only throttles predators: every prey lineage
+    /// keeps the full food floor, so the *prey* population can never go extinct.
+    #[serde(default = "default_predator_graze_fraction")]
+    pub predator_graze_fraction: f32,
+    /// Extra metabolic upkeep paid only by predators (added to `loss_rate` before
+    /// the efficiency divide). A hungry-predator tax: it makes predator numbers
+    /// recede quickly once prey thins, so the boom is followed by a real bust
+    /// rather than a high predator plateau.
+    #[serde(default = "default_predator_upkeep")]
+    pub predator_upkeep: f32,
+}
+
+fn default_predator_graze_fraction() -> f32 {
+    0.6
+}
+fn default_predator_upkeep() -> f32 {
+    0.0
 }
 
 /// The drifting food field (see `simulation::food`). Production is split into a
@@ -65,6 +87,18 @@ pub struct FoodConfig {
     /// but a barer field between them; the base keeps the between-patch creatures
     /// alive so the population stays stable instead of collapsing onto the patches.
     pub patch_fraction: f32,
+    /// How far grazing can strip a patch, as a fraction of its capacity (0..1). A
+    /// *low* floor lets a crowded patch be eaten down to almost nothing, so the
+    /// patch food crashes under heavy grazing and recovers only as the crowd
+    /// starves and disperses — the renewable-resource cycle that drives the whole
+    /// population's boom/bust. The inexhaustible uniform `base` (not the patches)
+    /// is the real extinction floor, so the patches are free to swing hard.
+    #[serde(default = "default_graze_floor")]
+    pub graze_floor: f32,
+}
+
+fn default_graze_floor() -> f32 {
+    0.2
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -76,6 +110,44 @@ pub struct ReproductionConfig {
     pub population_density_factor: f32,
     pub min_reproduction_chance: f32,
     pub death_chance_factor: f32,
+    /// Speed at which the lagged "crowding pressure" tracks the live population
+    /// density, per tick (0..1). The density-dependent death rate is driven by
+    /// this slow-moving pressure rather than the instantaneous density, so
+    /// mortality *lags* the population: the crowd overshoots its carrying
+    /// capacity before mortality catches up, then the accumulated pressure pulls
+    /// it back under, and the cycle repeats. This delayed density dependence is
+    /// what turns a flat equilibrium into visible boom/bust waves. Smaller = a
+    /// longer, deeper cycle; `1.0` collapses back to the old instantaneous death.
+    /// The food floor still guarantees recovery from any trough, so the cycle is
+    /// bounded — it can never spiral to extinction.
+    #[serde(default = "default_crowding_pressure_rate")]
+    pub crowding_pressure_rate: f32,
+    /// Population density below which density-dependent mortality is switched off
+    /// entirely (and above which it ramps in smoothly over a short band). This is
+    /// the **hard safety floor**: the boom/bust trough can dive toward it for
+    /// drama, but mortality can never push the population *through* it, so a deep
+    /// bust can't spiral to extinction. Set as a fraction of the population cap.
+    #[serde(default = "default_death_floor_density")]
+    pub death_floor_density: f32,
+    /// Negative frequency-dependent selection on hue: how much *same-hue* local
+    /// crowding throttles reproduction, beyond plain crowding. A creature ringed
+    /// by its own colour is suppressed (the niche is full of its kind), while a
+    /// rare colour breeds freely — so no single hue can take the whole world and
+    /// several colour lineages coexist. `0` disables it. This is the engine of
+    /// visible speciation: distinct colour clusters that wax and wane instead of
+    /// collapsing to one hue.
+    #[serde(default = "default_hue_crowding_factor")]
+    pub hue_crowding_factor: f32,
+}
+
+fn default_hue_crowding_factor() -> f32 {
+    1.2
+}
+fn default_crowding_pressure_rate() -> f32 {
+    0.006
+}
+fn default_death_floor_density() -> f32 {
+    0.03
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -112,7 +184,12 @@ impl Default for SimulationConfig {
             energy: EnergyConfig {
                 size_energy_cost_factor: 0.15,
                 movement_energy_cost: 0.1,
-                ambient_energy_gain: 0.9,
+                // A richer field than the bare-sustenance 0.9: it lifts the
+                // carrying capacity so even the weakest seeds stay comfortably
+                // above the safety floor while the boom/bust waves play out.
+                ambient_energy_gain: 1.3,
+                predator_graze_fraction: default_predator_graze_fraction(),
+                predator_upkeep: default_predator_upkeep(),
             },
             reproduction: ReproductionConfig {
                 reproduction_energy_threshold: 0.6,
@@ -122,6 +199,9 @@ impl Default for SimulationConfig {
                 population_density_factor: 0.8,
                 min_reproduction_chance: 0.05,
                 death_chance_factor: 0.04,
+                crowding_pressure_rate: default_crowding_pressure_rate(),
+                death_floor_density: default_death_floor_density(),
+                hue_crowding_factor: default_hue_crowding_factor(),
             },
             food: FoodConfig::default(),
         }
@@ -130,13 +210,16 @@ impl Default for SimulationConfig {
 
 impl Default for FoodConfig {
     fn default() -> Self {
-        // 65% of production stays as a thin uniform base and 35% is concentrated
-        // into ten broad, overlapping, drifting patches (see `patch_fraction`).
-        // The base keeps between-patch creatures alive so the population is stable
-        // across seeds, while the patches and the food-seeking force make
-        // creatures visibly migrate to and gather at the brighter cores. Tuned via
-        // the `sweep_food_tuning` harness against many seeds to keep the ecosystem
-        // healthy (see `test_population_sustains_via_primary_production`).
+        // Production is split between a thin inexhaustible uniform base and a
+        // handful of broad, drifting patches. The base is the ecosystem's
+        // extinction floor — it keeps between-patch creatures alive so the
+        // population can never die out — while the patches are a *renewable
+        // resource* that the population grazes down and that regrows slowly. That
+        // graze-down/regrow loop, with a low `graze_floor` and a slow `regen_rate`
+        // against a heavier `graze_rate`, is the engine of the population's
+        // boom/bust: the crowd eats the patches out, starves back, and recovers as
+        // the patches refill. Tuned across many seeds to stay strictly bounded —
+        // never extinct, never pinned at the cap (see the dynamics tests).
         Self {
             patch_count: 7,
             patch_radius_frac: 0.11,
@@ -145,6 +228,7 @@ impl Default for FoodConfig {
             graze_rate: 0.008,
             seek_strength: 1.0,
             patch_fraction: 0.35,
+            graze_floor: default_graze_floor(),
         }
     }
 }

@@ -529,6 +529,140 @@ fn test_predation_keeps_population_bounded() {
     );
 }
 
+/// Run a seed for `ticks` and return the population each tick (the headless
+/// dynamics measurement used by the boom/bust + safety tests below).
+fn population_series(seed: u64, ticks: usize) -> Vec<usize> {
+    let mut sim = Simulation::new_with_config_seeded(846.0, SimulationConfig::default(), seed);
+    let mut pops = Vec::with_capacity(ticks);
+    for _ in 0..ticks {
+        sim.update();
+        pops.push(sim.world().len() as usize);
+    }
+    pops
+}
+
+/// Bucket the current population's hues into 12 sectors; return (number of
+/// sectors holding ≥4% of the population, dominant sector's share).
+fn hue_modes(sim: &Simulation) -> (usize, f32) {
+    let mut bins = [0usize; 12];
+    let mut total = 0usize;
+    for g in sim.world().query::<&Genes>().iter() {
+        let h = g.appearance.hue.clamp(0.0, 0.9999);
+        bins[(h * 12.0) as usize] += 1;
+        total += 1;
+    }
+    if total == 0 {
+        return (0, 0.0);
+    }
+    let modes = bins.iter().filter(|&&c| c as f32 / total as f32 >= 0.04).count();
+    let dom = *bins.iter().max().unwrap() as f32 / total as f32;
+    (modes, dom)
+}
+
+#[test]
+fn test_population_stays_in_safe_band_long_run() {
+    // SAFETY (load-bearing). Over a long run across several seeds — including the
+    // browser default 21 and historically fragile ones — the population must stay
+    // strictly bounded at *every* tick after warm-up: never near extinction
+    // (the lagged-mortality boom/bust must never spiral down, guarded by the
+    // death-floor gate) and never pinned at the cap (no runaway). Do NOT weaken
+    // this to make a tuning change "pass".
+    let cap = {
+        let c = SimulationConfig::default();
+        (c.population.max_population as f32 * c.population.entity_scale) as usize
+    };
+    const HARD_FLOOR: usize = 90;
+    for &seed in &[21u64, 12345, 7, 1, 999, 2024] {
+        let pops = population_series(seed, 5200);
+        // Allow a warm-up window for the initial overshoot to settle.
+        let warm = &pops[1200..];
+        let lo = *warm.iter().min().unwrap();
+        let hi = *warm.iter().max().unwrap();
+        assert!(
+            lo >= HARD_FLOOR,
+            "seed {seed}: population dipped to {lo} (< hard floor {HARD_FLOOR}) — extinction risk"
+        );
+        assert!(
+            hi < cap,
+            "seed {seed}: population reached {hi} (>= cap {cap}) — runaway"
+        );
+    }
+}
+
+#[test]
+fn test_population_oscillates() {
+    // BOOM/BUST. On a representative seed the lagged-mortality + predator coupling
+    // produces a real, sustained periodic swing — the population repeatedly rises
+    // and falls rather than settling to a flat line. We assert a meaningful
+    // peak/trough amplitude and several turning points over the run.
+    let pops = population_series(12345, 6000);
+    // Smooth hard to ignore tick noise, then measure over the warm tail.
+    let w = 60usize;
+    let warm = &pops[1000..];
+    let sm: Vec<f32> = (0..warm.len() - w)
+        .map(|i| warm[i..i + w].iter().sum::<usize>() as f32 / w as f32)
+        .collect();
+    let peak = sm.iter().cloned().fold(0.0f32, f32::max);
+    let trough = sm.iter().cloned().fold(f32::INFINITY, f32::min);
+    assert!(
+        peak / trough > 1.3,
+        "no boom/bust amplitude: smoothed peak {peak:.0} vs trough {trough:.0} (want ratio > 1.3)"
+    );
+    // Count smoothed turning points with a deadband, a proxy for cycle count.
+    let mean = sm.iter().sum::<f32>() / sm.len() as f32;
+    let deadband = mean * 0.06;
+    let mut turns = 0;
+    let mut rising = true;
+    let mut anchor = sm[0];
+    for &v in &sm {
+        if rising && v < anchor - deadband {
+            turns += 1;
+            rising = false;
+            anchor = v;
+        } else if !rising && v > anchor + deadband {
+            turns += 1;
+            rising = true;
+            anchor = v;
+        }
+        anchor = if rising { anchor.max(v) } else { anchor.min(v) };
+    }
+    assert!(
+        turns >= 4,
+        "population does not cycle: only {turns} smoothed turning points (want >= 4)"
+    );
+}
+
+#[test]
+fn test_speciation_multiple_persistent_hues() {
+    // SPECIATION. Assortative hue inheritance + frequency-dependent reproduction
+    // keep several distinct colour lineages coexisting: at multiple snapshots over
+    // a long run there are >=3 well-populated hue sectors and no single hue
+    // dominates the world. Guards against collapse to a uniform colour (one mode)
+    // and confirms the diversity *persists* rather than being a transient.
+    let mut sim = Simulation::new_with_config_seeded(846.0, SimulationConfig::default(), 21);
+    for _ in 0..1500 {
+        sim.update();
+    }
+    let mut checks = 0;
+    for _ in 0..6 {
+        for _ in 0..400 {
+            sim.update();
+        }
+        let (modes, dom) = hue_modes(&sim);
+        assert!(
+            modes >= 3,
+            "speciation collapsed: only {modes} populated hue sectors (want >= 3)"
+        );
+        assert!(
+            dom < 0.7,
+            "one hue dominates ({:.0}% of the population) — not multiple lineages",
+            dom * 100.0
+        );
+        checks += 1;
+    }
+    assert_eq!(checks, 6);
+}
+
 #[test]
 fn test_same_seed_produces_identical_runs() {
     // Bit-exact reproducibility: the same seed must yield identical state after

@@ -50,12 +50,24 @@ pub struct Simulation {
     particle_matrix: [[f32; 6]; 6],
     /// Drifting, regenerating food patches — the spatial primary-production field.
     food_field: FoodField,
+    /// Slow-moving "crowding pressure": a low-pass filter of the population
+    /// density that the density-dependent death rate reads instead of the live
+    /// density. Because it *lags* the population, mortality arrives late — the
+    /// crowd overshoots its carrying capacity, the accumulated pressure then
+    /// crashes it back, and the cycle repeats. This delayed density dependence is
+    /// the engine of the boom/bust waves. Updated once per tick in the serial
+    /// phase; read immutably by the parallel compute.
+    crowding_pressure: f32,
 
     // System instances
     movement_system: MovementSystem,
     interaction_system: InteractionSystem,
     energy_system: EnergySystem,
     reproduction_system: ReproductionSystem,
+
+    /// THROWAWAY instrumentation (tests only): predation events in the last tick.
+    #[cfg(test)]
+    pub(crate) last_eaten: usize,
 }
 
 struct ProcessEntityParams<'a> {
@@ -66,6 +78,7 @@ struct ProcessEntityParams<'a> {
     genes: &'a Genes,
     velocity: &'a Velocity,
     population_density: f32,
+    crowding_pressure: f32,
 }
 
 impl Simulation {
@@ -90,6 +103,10 @@ impl Simulation {
             Self::food_field_config(&config, world_size),
         );
 
+        // Start the pressure at the initial density so the very first ticks aren't
+        // an artificial mortality holiday (computed before `config` is moved in).
+        let crowding_pressure = Self::initial_density(&config);
+
         Self {
             world,
             world_size,
@@ -101,10 +118,13 @@ impl Simulation {
             seed,
             particle_matrix: generate_particle_matrix(seed),
             food_field,
+            crowding_pressure,
             movement_system: MovementSystem,
             interaction_system: InteractionSystem,
             energy_system: EnergySystem,
             reproduction_system: ReproductionSystem,
+            #[cfg(test)]
+            last_eaten: 0,
         }
     }
 
@@ -134,6 +154,7 @@ impl Simulation {
             drift_speed: f.drift_speed * world_size,
             regen_rate: f.regen_rate,
             graze_rate: f.graze_rate,
+            graze_floor: f.graze_floor.clamp(0.0, 1.0),
             base: ambient * (1.0 - frac),
             patch_peak,
         }
@@ -229,11 +250,16 @@ impl Simulation {
         self.step += 1;
         self.update_simulation();
 
+        // Periodic console metrics for the browser run. Skipped under test so the
+        // long headless dynamics probes aren't drowned in per-tick output (the log
+        // is pure output — gating it changes no simulation state).
+        #[cfg(not(test))]
         if self.step.is_multiple_of(60) {
             self.log_simulation_metrics();
         }
     }
 
+    #[cfg_attr(test, allow(dead_code))]
     fn log_simulation_metrics(&self) {
         let stats = SimulationStats::from_world(
             &self.world,
@@ -249,9 +275,32 @@ impl Simulation {
         // fixed for the whole tick and the parallel per-entity reads see a stable
         // snapshot (determinism + the read→compute→apply invariant).
         self.food_field.update(self.seed, self.step);
+        // Relax the lagged crowding pressure toward the live density. Reading this
+        // (rather than the instantaneous density) in the death rate makes mortality
+        // lag the population, producing the boom/bust overshoot. Updated here in the
+        // serial phase so the parallel compute sees one fixed value for the tick.
+        let density = self.calculate_population_density();
+        let rate = self
+            .config
+            .reproduction
+            .crowding_pressure_rate
+            .clamp(0.0, 1.0);
+        self.crowding_pressure += (density - self.crowding_pressure) * rate;
         self.rebuild_spatial_grid();
         let updates = self.process_entities_parallel();
         self.apply_entity_updates(updates);
+    }
+
+    /// The initial population density (used to seed the crowding pressure).
+    fn initial_density(config: &SimulationConfig) -> f32 {
+        let initial =
+            config.population.initial_entities as f32 * config.population.entity_scale;
+        let cap = config.population.max_population as f32 * config.population.entity_scale;
+        if cap > 0.0 {
+            initial / cap
+        } else {
+            0.0
+        }
     }
 
     fn store_previous_positions(&mut self) {
@@ -292,6 +341,7 @@ impl Simulation {
         // Population density is constant across the tick (the world is not mutated
         // during the compute phase), so compute it once rather than per entity.
         let population_density = self.calculate_population_density();
+        let crowding_pressure = self.crowding_pressure;
         self.world
             .query::<(Entity, &Position, &Energy, &Size, &Genes, &Velocity)>()
             .iter()
@@ -309,6 +359,7 @@ impl Simulation {
                     genes,
                     velocity,
                     population_density,
+                    crowding_pressure,
                 })
             })
             .collect()
@@ -323,6 +374,7 @@ impl Simulation {
             genes,
             velocity,
             population_density,
+            crowding_pressure,
         } = params;
 
         let nearby_entities = self.get_nearby_entities_for_entity(pos, genes);
@@ -338,6 +390,7 @@ impl Simulation {
             config: &self.config,
             world_size: self.world_size,
             population_density,
+            crowding_pressure,
             energy_max: energy.max,
             new_pos: pos.clone(),
             new_velocity: velocity.clone(),
@@ -424,6 +477,10 @@ impl Simulation {
         // Entities eaten by a predator this tick are removed. Collect them first
         // so they are neither updated in place nor allowed to reproduce.
         let eaten: HashSet<Entity> = updates.iter().filter_map(|u| u.eaten_entity).collect();
+        #[cfg(test)]
+        {
+            self.last_eaten = eaten.len();
+        }
 
         // Collect deaths and queue offspring (read-only over self and the world).
         let mut dead: Vec<Entity> = Vec::new();
@@ -569,3 +626,6 @@ impl Simulation {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod dynamics_probe;

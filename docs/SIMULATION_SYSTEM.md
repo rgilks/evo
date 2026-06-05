@@ -31,6 +31,13 @@ Genes determine all behaviour and appearance. They are mutable and heritable: an
 
 Genetic *similarity* between two creatures — a weighted distance over these traits — drives predation preference and flocking cohesion.
 
+**Speciation.** Distinct coloured lineages emerge, persist, and compete rather than blurring into a uniform rainbow. Two mechanisms produce this:
+
+- **Assortative hue inheritance** (`Genes::mutate`) — an offspring's hue normally drifts only a *tiny* amount from its parent's, so a lineage reads as a coherent colour cluster; a rare large jump founds a brand-new colour lineage (a new "species").
+- **Negative frequency-dependent reproduction** (`src/systems/reproduction`) — a creature ringed by neighbours of its *own* hue is throttled harder (its colour's local niche is saturated), while a rare colour breeds freely (`hue_crowding_factor`). No single hue can take the whole world, so several lineages coexist and trade dominance over time.
+
+Together with the coherent clustering from the particle-life matrix, these make the population resolve into several persistent colour territories that wax and wane. See the asserting test `test_speciation_multiple_persistent_hues`.
+
 ## Movement
 
 Entities exhibit one of five genetically determined movement styles:
@@ -51,9 +58,18 @@ All these forces — style, flocking, particle-life, food-seeking, and edge repu
 
 ## Interaction & Energy
 
-- **Predation** — larger, faster creatures eat smaller specific prey, and predators prefer genetically *distinct* prey (`gene_preference_strength`), which promotes diversity. Eating transfers the prey's energy and despawns it.
+- **Predation** — larger, faster creatures eat smaller specific prey, and predators prefer genetically *distinct* prey (`gene_preference_strength`), which promotes diversity. Eating transfers the prey's energy and despawns it. Creatures with the **Predatory** movement style are carnivore-specialists: they graze only a fraction of the food field (`predator_graze_fraction`), so they live mostly off prey and **starve once they have eaten the prey down** — the decoupling that makes predator and prey numbers cycle.
 - **Energy economy** — movement and existence cost energy; predation transfers it between creatures. The only *input* is **primary production**: each creature grazes energy from the food field at its position each tick, scaled by `(1 − population_density)` so the field is finite. That finite input gives the ecosystem a **carrying capacity** — the population settles where production balances metabolism instead of decaying to a few survivors.
-- **Local-crowding reproduction** — a creature with enough energy reproduces, but the chance is throttled by *local* crowding (neighbours within sense range), not the global count. A lineage that reaches an open patch reproduces freely and blooms into it as a spreading patch of its inherited colour, while crowded areas stall. Death, by contrast, scales with *global* density — a system-wide culling pressure.
+- **Local-crowding reproduction** — a creature with enough energy reproduces, but the chance is throttled by *local* crowding (neighbours within sense range), not the global count. A lineage that reaches an open patch reproduces freely and blooms into it as a spreading patch of its inherited colour, while crowded areas stall.
+
+## Population Dynamics — Boom/Bust
+
+The ecosystem does not sit at a flat equilibrium; total and predator/prey numbers rise and fall in visible **boom/bust waves**, kept strictly bounded between the carrying-capacity ceiling and a hard safety floor. Two coupled mechanisms drive the cycle, both in `src/systems/reproduction`:
+
+- **Lagged density-dependent mortality (the oscillator).** Death scales not with the *instantaneous* population density but with a slow low-pass of it — a **crowding pressure** reservoir (`Simulation::crowding_pressure`) that relaxes toward the live density at `crowding_pressure_rate` each tick. Because mortality *lags* the population, the crowd overshoots its carrying capacity before deaths catch up, then the accumulated pressure pulls it back under, and the cycle repeats. Predator booms (predators thriving on abundant prey, then starving) ride on top of this, sharpening the swings.
+- **The death-floor gate (the safety bound).** Density-dependent death is switched off entirely once the *live* density falls to `death_floor_density`, ramping back in smoothly above it. So a deep bust dives **toward** the floor for drama but mortality can never push the population **through** it — combined with the inexhaustible base of the food field (which keeps prey fed), this makes extinction impossible regardless of how hard the lag is tuned. The cap caps the top; the floor gate caps the bottom.
+
+This is delayed density dependence — the classic source of limit cycles in population models — fenced between two hard bounds. See the asserting tests `test_population_stays_in_safe_band_long_run`, `test_population_oscillates`, and `test_death_floor_blocks_extinction`.
 
 ## Food Field
 

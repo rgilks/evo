@@ -7,6 +7,7 @@ fn test_cfg() -> FoodFieldConfig {
         drift_speed: 0.3,
         regen_rate: 0.02,
         graze_rate: 0.01,
+        graze_floor: 0.3,
         base: 0.3,
         patch_peak: 3.0,
     }
