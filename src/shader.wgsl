@@ -83,16 +83,13 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     // Distance from center (uv is -1 to 1)
     let dist = length(in.uv);
 
-    // Soft radial falloff that reaches zero at the quad edge, so there is no hard
-    // rim — squared for a rounder, gentler profile.
-    let falloff = smoothstep(1.0, 0.0, dist);
-    let soft = falloff * falloff;
-    let core = smoothstep(0.5, 0.0, dist); // brighter centre
+    // Additive glow: a tight bright core plus a soft wide halo. Additive blending
+    // sums these into the HDR scene target, so overlapping creatures build cores
+    // that exceed 1.0 and feed the bloom pass.
+    let glow = max(0.0, 1.0 - dist);
+    let halo = glow * glow;
+    let core = pow(glow, 6.0);
+    let rgb = in.color * (halo * 0.6 + core * 2.2);
 
-    let alpha = soft * 0.95;
-    // Keep the colour vivid across the whole disc (only mild dimming toward the
-    // rim) with a small bright core highlight, rather than washing the centre to white.
-    let final_color = in.color * (0.85 + core * 0.5) + vec3<f32>(core * core * 0.15);
-
-    return vec4<f32>(final_color, alpha);
+    return vec4<f32>(rgb, halo);
 }

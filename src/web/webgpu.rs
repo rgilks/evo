@@ -2,6 +2,8 @@ use bytemuck::{Pod, Zeroable};
 use wasm_bindgen::prelude::*;
 use wgpu::util::DeviceExt;
 
+use super::postprocess::{PostProcess, HDR_FORMAT};
+
 /// Instance data for each entity (32 bytes each)
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable)]
@@ -35,6 +37,7 @@ pub struct WebGpuRenderer {
     bind_group: wgpu::BindGroup,
     num_instances: u32,
     instance_capacity: u32,
+    postprocess: PostProcess,
 }
 
 #[wasm_bindgen]
@@ -188,8 +191,21 @@ impl WebGpuRenderer {
                 module: &shader,
                 entry_point: Some("fs_main"),
                 targets: &[Some(wgpu::ColorTargetState {
-                    format: config.format,
-                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                    // Render into the HDR scene target with additive blending, so
+                    // overlapping creatures accumulate brightness for the bloom pass.
+                    format: HDR_FORMAT,
+                    blend: Some(wgpu::BlendState {
+                        color: wgpu::BlendComponent {
+                            src_factor: wgpu::BlendFactor::One,
+                            dst_factor: wgpu::BlendFactor::One,
+                            operation: wgpu::BlendOperation::Add,
+                        },
+                        alpha: wgpu::BlendComponent {
+                            src_factor: wgpu::BlendFactor::One,
+                            dst_factor: wgpu::BlendFactor::One,
+                            operation: wgpu::BlendOperation::Add,
+                        },
+                    }),
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
@@ -229,6 +245,8 @@ impl WebGpuRenderer {
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
         });
 
+        let postprocess = PostProcess::new(&device, surface_format, (width, height));
+
         Ok(WebGpuRenderer {
             device,
             queue,
@@ -240,6 +258,7 @@ impl WebGpuRenderer {
             bind_group,
             num_instances: 0,
             instance_capacity: INITIAL_INSTANCE_CAPACITY as u32,
+            postprocess,
         })
     }
 
@@ -248,6 +267,7 @@ impl WebGpuRenderer {
             self.config.width = width;
             self.config.height = height;
             self.surface.configure(&self.device, &self.config);
+            self.postprocess.resize(&self.device, (width, height));
         }
     }
 
@@ -319,18 +339,14 @@ impl WebGpuRenderer {
             });
 
         {
+            // Particles draw additively into the HDR scene target (not the swapchain).
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("Render Pass"),
+                label: Some("Scene Pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &view,
+                    view: self.postprocess.scene_view(),
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.0,
-                            g: 0.0,
-                            b: 0.0,
-                            a: 1.0,
-                        }),
+                        load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
                         store: wgpu::StoreOp::Store,
                     },
                 })],
@@ -344,6 +360,9 @@ impl WebGpuRenderer {
             render_pass.set_vertex_buffer(0, self.instance_buffer.slice(..));
             render_pass.draw(0..6, 0..self.num_instances);
         }
+
+        // Bloom: bright-pass → blur → tonemapped composite into the swapchain.
+        self.postprocess.run(&mut encoder, &view);
 
         self.queue.submit(std::iter::once(encoder.finish()));
         output.present();
