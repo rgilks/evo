@@ -44,8 +44,8 @@ impl SeedableRng for FastRng {
         }
     }
 
-    /// Seed directly from a `u64`, matching the `StdRng::seed_from_u64` call
-    /// sites that drive every RNG stream off `mix_seed(...)`.
+    /// Seed directly from a `u64` so the `seed_from_u64(mix_seed(...))` call
+    /// sites drive every RNG stream off the mixed seed.
     fn seed_from_u64(state: u64) -> Self {
         Self { state }
     }
