@@ -45,9 +45,15 @@ impl ReproductionSystem {
         config: &SimulationConfig,
         rng: &mut impl Rng,
     ) -> bool {
-        let reproduction_chance = genes.reproduction_rate()
-            * (1.0 - crowding * config.reproduction.population_density_factor)
-                .max(config.reproduction.min_reproduction_chance);
+        // Local crowding scales the base reproduction rate down, but the
+        // multiplier is floored at `min_reproduction_chance` so a saturated patch
+        // never suppresses reproduction *completely*. The floor is on the crowding
+        // multiplier, not the final probability — and with default params
+        // (factor 0.8, crowding ≤ 1) the multiplier stays ≥ 0.2, so the floor only
+        // binds when `population_density_factor` is pushed high.
+        let crowding_factor = (1.0 - crowding * config.reproduction.population_density_factor)
+            .max(config.reproduction.min_reproduction_chance);
+        let reproduction_chance = genes.reproduction_rate() * crowding_factor;
 
         energy > max_energy * config.reproduction.reproduction_energy_threshold
             && rng.gen::<f32>() < reproduction_chance
