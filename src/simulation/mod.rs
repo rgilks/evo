@@ -63,7 +63,6 @@ pub struct EntityUpdate {
     pub pos: Position,
     pub energy: Energy,
     pub size: Size,
-    pub genes: Genes,
     pub velocity: Velocity,
     pub should_reproduce: bool,
     pub eaten_entity: Option<Entity>,
@@ -357,7 +356,6 @@ impl Simulation {
             size: Size {
                 radius: new_size_radius,
             },
-            genes: genes.clone(),
             velocity: ctx.new_velocity,
             should_reproduce: ctx.should_reproduce,
             eaten_entity: ctx.eaten_entity,
@@ -419,18 +417,24 @@ impl Simulation {
                 && !eaten.contains(&update.entity)
                 && baseline < max_population
             {
-                let mut rng = StdRng::seed_from_u64(mix_seed(
-                    self.seed ^ OFFSPRING_SALT,
-                    update.entity.to_bits().get(),
-                    self.step as u64,
-                ));
-                offspring.push(self.reproduction_system.create_offspring(
-                    &update.genes,
-                    update.energy.max,
-                    &update.pos,
-                    &self.config,
-                    &mut rng,
-                ));
+                // Genes never change for a living entity, so its current genes in
+                // the world equal what it carried through the compute phase. Fetch
+                // them here rather than cloning genes into every EntityUpdate —
+                // only the <1% that reproduce each tick ever need them.
+                if let Ok(parent_genes) = self.world.get::<&Genes>(update.entity) {
+                    let mut rng = StdRng::seed_from_u64(mix_seed(
+                        self.seed ^ OFFSPRING_SALT,
+                        update.entity.to_bits().get(),
+                        self.step as u64,
+                    ));
+                    offspring.push(self.reproduction_system.create_offspring(
+                        &parent_genes,
+                        update.energy.max,
+                        &update.pos,
+                        &self.config,
+                        &mut rng,
+                    ));
+                }
             }
         }
 

@@ -259,7 +259,6 @@ fn test_simulation_apply_updates() {
             max: 100.0,
         },
         size: Size { radius: 6.0 },
-        genes: Genes::new_random(&mut thread_rng()),
         velocity: Velocity { x: 1.0, y: 1.0 },
         should_reproduce: false,
         eaten_entity: None,
