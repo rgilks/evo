@@ -33,7 +33,6 @@ Reaching 100K–1M is a **separate GPU-compute engine**, not an optimization of 
 ## P2 — Build robustness
 
 - **Replace the `sed` cache-busting.** `scripts/build-web.sh` injects a git-SHA `?v=` query via a chain of `sed` rewrites — brittle string-surgery on generated output, and largely redundant with `web/_headers`. As a first step, deduplicate it: run every rewrite on `pkg/` first, then `cp -r pkg web/` last so the web copy inherits the patched files (removes the duplicated `web/pkg` rewrite blocks). Longer term, fix the one load-bearing worker-import path via `wasm-bindgen-rayon`'s `no-bundler` feature, or move to content-hashed filenames / an import map.
-- **Cache assets as immutable.** `/pkg/*` and `/js/*` are always loaded with a `?v=<sha>` query, so they can be `Cache-Control: public, max-age=31536000, immutable` in `web/_headers` (keep `/index.html` at `max-age=0`). Verify in a foreground browser that a fresh deploy still loads the new assets (the worker import path must carry the query).
 - **One wasm-pack source.** CI installs wasm-pack via `curl` *and* `package.json` lists it as a devDependency; `npm run build` would prefer the npm copy. Pick one (drop the devDependency, or switch the script to `npx wasm-pack` and drop the curl step) so the build uses a single known version.
 
 ## P2 — Deploy URL
