@@ -23,6 +23,8 @@ impl super::System for ReproductionSystem {
             ctx.config,
             &mut ctx.rng,
         );
+        // Death scales with GLOBAL density — a system-wide culling pressure,
+        // deliberately unlike reproduction's local throttle above.
         if self.check_death(global_density, ctx.config, &mut ctx.rng) {
             ctx.new_energy = 0.0; // Kill the entity
         }

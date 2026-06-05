@@ -37,7 +37,9 @@ impl EnergySystem {
     }
 
     pub fn calculate_new_size(&self, energy: f32, genes: &Genes, config: &SimulationConfig) -> f32 {
-        (energy / 15.0 * genes.size_factor()).clamp(
+        super::derive_radius(
+            energy,
+            genes.size_factor(),
             config.physics.min_entity_radius,
             config.physics.max_entity_radius,
         )

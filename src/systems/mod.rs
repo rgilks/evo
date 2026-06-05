@@ -73,6 +73,17 @@ pub type CreatureBundle = (
     MovementStyle,
 );
 
+/// Energy needed per unit of body radius; radius scales with current energy and
+/// the size-factor gene.
+const ENERGY_PER_RADIUS_UNIT: f32 = 15.0;
+
+/// Body radius derived from current energy and the size-factor gene, clamped to
+/// `[min, max]`. The single source of truth for sizing — used by both the
+/// creature bundle (spawn/reproduction) and the per-tick size update.
+pub fn derive_radius(energy: f32, size_factor: f32, min: f32, max: f32) -> f32 {
+    (energy / ENERGY_PER_RADIUS_UNIT * size_factor).clamp(min, max)
+}
+
 /// Build a creature from its genes and energy, deriving size, color, and
 /// movement style. `max_radius` / `min_radius` bound the size clamp (offspring
 /// and the initial population use different upper clamps).
@@ -84,7 +95,7 @@ pub fn creature_bundle(
     max_radius: f32,
     min_radius: f32,
 ) -> CreatureBundle {
-    let radius = (energy_current / 15.0 * genes.size_factor()).clamp(min_radius, max_radius);
+    let radius = derive_radius(energy_current, genes.size_factor(), min_radius, max_radius);
     let color = genes.get_color();
     let movement_style = genes.behavior.movement_style.clone();
     (

@@ -207,13 +207,12 @@ impl MovementSystem {
         new_velocity.x += particle_force_x * config.physics.particle_force_scale;
         new_velocity.y += particle_force_y * config.physics.particle_force_scale;
 
-        // Friction damps both axes equally (Y-only damping biased motion horizontally)
+        // Friction damps both axes equally.
         new_velocity.x *= config.physics.particle_friction;
         new_velocity.y *= config.physics.particle_friction;
 
-        // Enforce the speed limit on the final accumulated velocity. Previously only
-        // `move_randomly`'s base velocity was capped, so the additive forces (targets,
-        // flocking, particle-life) could drive entities far past `max_velocity`.
+        // Cap the final accumulated velocity so the additive forces (targets,
+        // flocking, particle-life) cannot drive entities past `max_velocity`.
         self.cap_velocity(new_velocity, config);
 
         self.update_position(new_pos, new_velocity);
@@ -324,9 +323,8 @@ impl MovementSystem {
         world_size: f32,
     ) {
         // Each window edge repels organisms *perpendicular to itself*, ramping up
-        // quadratically as they approach — so the interior is free to roam and the
-        // edges push them back in, rather than a constant pull toward the centre
-        // (which collapsed everything into one central blob).
+        // quadratically as they approach, so the interior is free to roam and the
+        // edges push them back in.
         let half_world = world_size / 2.0;
         let margin = (half_world * 0.4).max(1.0);
         let strength = config.physics.center_pressure_strength * 12.0;

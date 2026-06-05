@@ -14,6 +14,9 @@ mod web;
 // Re-export the thread pool initialization
 pub use wasm_bindgen_rayon::init_thread_pool;
 
+/// Floats packed per entity in the render buffer: prev_x, prev_y, x, y, radius, r, g, b.
+const FLOATS_PER_ENTITY: usize = 8;
+
 #[wasm_bindgen]
 pub struct WebSimulation {
     simulation: simulation::Simulation,
@@ -70,8 +73,9 @@ impl WebSimulation {
         self.entity_buffer.as_ptr()
     }
 
+    /// Number of entities in the last buffered frame (from `update_entity_buffer`).
     pub fn entity_count(&self) -> u32 {
-        (self.entity_buffer.len() / 8) as u32
+        (self.entity_buffer.len() / FLOATS_PER_ENTITY) as u32
     }
 
     pub fn get_stats(&self) -> JsValue {
@@ -80,7 +84,12 @@ impl WebSimulation {
             self.config.population.max_population as f32,
             self.config.population.entity_scale,
         );
-        serde_wasm_bindgen::to_value(&stats).unwrap_or(JsValue::NULL)
+        serde_wasm_bindgen::to_value(&stats).unwrap_or_else(|e| {
+            web_sys::console::error_1(&JsValue::from_str(&format!(
+                "get_stats serialization failed: {e}"
+            )));
+            JsValue::NULL
+        })
     }
 
     pub fn get_world_size(&self) -> f32 {
