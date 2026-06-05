@@ -78,7 +78,6 @@ fn test_browser_like_long_run_no_panic() {
         for _ in 0..600 {
             sim.update();
             let _ = sim.get_entities();
-            let _ = sim.get_interpolated_entities(0.5);
         }
         assert_eq!(sim.step(), 600, "seed {seed}");
     }
@@ -109,21 +108,6 @@ fn test_simulation_get_entities() {
     // Should return data for all entities
     // Note: We can't easily compare lengths due to type mismatches
     assert!(!entities.is_empty() || sim.world.is_empty());
-}
-
-#[test]
-fn test_simulation_get_interpolated_entities() {
-    let sim = Simulation::new(100.0);
-    let _entities = sim.get_interpolated_entities(0.5);
-
-    // Should return data for all entities
-    // Note: We can't easily compare lengths due to type mismatches
-
-    // Interpolation factor should be between 0 and 1
-    let entities_0 = sim.get_interpolated_entities(0.0);
-    let entities_1 = sim.get_interpolated_entities(1.0);
-
-    assert_eq!(entities_0.len(), entities_1.len());
 }
 
 #[test]

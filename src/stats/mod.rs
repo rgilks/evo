@@ -117,21 +117,20 @@ impl SimulationStats {
             .iter()
             .par_bridge()
             .fold(
-                || [0.0f32; 6], // [speed, sense, efficiency, repro, size, energy]
+                || [0.0f32; 5], // [speed, sense, efficiency, repro, size]
                 |mut stats, (_, (genes,))| {
                     stats[0] += genes.speed();
                     stats[1] += genes.sense_radius();
                     stats[2] += genes.energy_efficiency();
                     stats[3] += genes.reproduction_rate();
                     stats[4] += genes.size_factor();
-                    stats[5] += 0.0; // Will be calculated separately
                     stats
                 },
             )
             .reduce(
-                || [0.0f32; 6],
+                || [0.0f32; 5],
                 |mut a, b| {
-                    for i in 0..6 {
+                    for i in 0..5 {
                         a[i] += b[i];
                     }
                     a
@@ -175,41 +174,6 @@ impl SimulationStats {
             );
 
         (sum_x / total_entities as f32, sum_y / total_entities as f32)
-    }
-
-    /// Format statistics for console output
-    pub fn format_summary(&self, step: u32) -> String {
-        let red_count = self
-            .entity_counts
-            .get(&EntityType::RedDominant)
-            .unwrap_or(&0);
-        let green_count = self
-            .entity_counts
-            .get(&EntityType::GreenDominant)
-            .unwrap_or(&0);
-        let blue_count = self
-            .entity_counts
-            .get(&EntityType::BlueDominant)
-            .unwrap_or(&0);
-        let purple_count = self.entity_counts.get(&EntityType::Purple).unwrap_or(&0);
-        let mixed_count = self.entity_counts.get(&EntityType::Mixed).unwrap_or(&0);
-
-        format!(
-            "Step {}: {} entities (Red:{} Green:{} Blue:{} Purple:{} Mixed:{}) | AvgEnergy:{:.1} AvgSpeed:{:.2} AvgSize:{:.2} AvgRepro:{:.3} | Drift:({:.1}, {:.1})",
-            step,
-            self.total_entities,
-            red_count,
-            green_count,
-            blue_count,
-            purple_count,
-            mixed_count,
-            self.average_metrics.average_energy,
-            self.average_metrics.average_speed,
-            self.average_metrics.average_size,
-            self.average_metrics.average_reproduction_rate,
-            self.world_center_drift.0,
-            self.world_center_drift.1,
-        )
     }
 
     /// Format detailed metrics for analysis

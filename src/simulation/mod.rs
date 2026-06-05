@@ -438,37 +438,6 @@ impl Simulation {
             .collect()
     }
 
-    pub fn get_interpolated_entities(
-        &self,
-        interpolation_factor: f32,
-    ) -> Vec<(f32, f32, f32, f32, f32, f32)> {
-        self.world
-            .query::<(&Position, &Size, &Color)>()
-            .iter()
-            .par_bridge()
-            .map(|(entity, (pos, size, color))| {
-                let interpolated_pos = if let Some(prev_pos) = self.previous_positions.get(&entity)
-                {
-                    // Interpolate between previous and current position
-                    let x = prev_pos.x + (pos.x - prev_pos.x) * interpolation_factor;
-                    let y = prev_pos.y + (pos.y - prev_pos.y) * interpolation_factor;
-                    (x, y)
-                } else {
-                    (pos.x, pos.y)
-                };
-
-                (
-                    interpolated_pos.0,
-                    interpolated_pos.1,
-                    size.radius,
-                    color.r,
-                    color.g,
-                    color.b,
-                )
-            })
-            .collect()
-    }
-
     pub fn world(&self) -> &World {
         &self.world
     }

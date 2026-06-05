@@ -35,8 +35,6 @@ pub struct WebGpuRenderer {
     bind_group: wgpu::BindGroup,
     num_instances: u32,
     instance_capacity: u32,
-    width: u32,
-    height: u32,
 }
 
 #[wasm_bindgen]
@@ -242,15 +240,11 @@ impl WebGpuRenderer {
             bind_group,
             num_instances: 0,
             instance_capacity: INITIAL_INSTANCE_CAPACITY as u32,
-            width,
-            height,
         })
     }
 
     pub fn resize(&mut self, width: u32, height: u32) {
         if width > 0 && height > 0 {
-            self.width = width;
-            self.height = height;
             self.config.width = width;
             self.config.height = height;
             self.surface.configure(&self.device, &self.config);

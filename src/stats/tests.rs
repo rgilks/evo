@@ -173,24 +173,6 @@ fn test_world_center_drift_calculation() {
 }
 
 #[test]
-fn test_format_summary() {
-    let world = create_test_world();
-    let stats = SimulationStats::from_world(&world, 1000.0, 1.0);
-    let summary = stats.format_summary(42);
-
-    // Should contain step number
-    assert!(summary.contains("42"));
-
-    // Should contain entity count
-    assert!(summary.contains("10"));
-
-    // Should contain entity type counts
-    assert!(summary.contains("Red:"));
-    assert!(summary.contains("Green:"));
-    assert!(summary.contains("Blue:"));
-}
-
-#[test]
 fn test_format_detailed() {
     let world = create_test_world();
     let stats = SimulationStats::from_world(&world, 1000.0, 1.0);
