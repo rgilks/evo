@@ -67,8 +67,9 @@ fn vs_main(
     // giant blob.
     let screen_radius = clamp(radius / world_size * 2.0, 0.005, 0.011) * uniforms.camera_zoom;
 
-    // Expand quad by radius with glow extension
-    let glow_extension = screen_radius * 0.5;
+    // Expand quad by radius with glow extension. A wide extension gives the soft
+    // halo room to fall off, so each creature throws a lush glow into the bloom.
+    let glow_extension = screen_radius * 1.5;
     let quad_size = screen_radius + glow_extension;
 
     out.position = vec4<f32>(screen_pos + quad_pos * quad_size, 0.0, 1.0);
@@ -88,8 +89,8 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     // that exceed 1.0 and feed the bloom pass.
     let glow = max(0.0, 1.0 - dist);
     let halo = glow * glow;
-    let core = pow(glow, 6.0);
-    let rgb = in.color * (halo * 0.6 + core * 2.2);
+    let core = pow(glow, 5.0);
+    let rgb = in.color * (halo * 1.0 + core * 2.6);
 
     return vec4<f32>(rgb, halo);
 }
