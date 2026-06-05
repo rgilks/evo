@@ -153,7 +153,6 @@ class EvolutionApp {
     // New sliders
     const reproSlider = document.getElementById("repro-threshold");
     const energySlider = document.getElementById("energy-cost");
-    const bounceSlider = document.getElementById("bounce-factor");
 
     reproSlider.addEventListener("input", (e) => {
       const value = parseFloat(e.target.value);
@@ -165,12 +164,6 @@ class EvolutionApp {
       const value = parseFloat(e.target.value);
       document.getElementById("energy-value").textContent = value.toFixed(2);
       this.simulation.update_param(SimParam.EnergyCost, value);
-    });
-
-    bounceSlider.addEventListener("input", (e) => {
-      const value = parseFloat(e.target.value);
-      document.getElementById("bounce-value").textContent = value.toFixed(2);
-      this.simulation.update_param(SimParam.BounceFactor, value);
     });
 
     const particleForceSlider = document.getElementById("particle-force");
