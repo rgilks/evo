@@ -341,8 +341,15 @@ impl WebGpuRenderer {
                 label: Some("Render Encoder"),
             });
 
+        // Motion trails: decay the persisted HDR scene before drawing this frame's
+        // particles, so creature movement leaves glowing comet-like tails that the
+        // bloom pass then picks up. (Screen-space — see PostProcess::fade_scene.)
+        self.postprocess.fade_scene(&mut encoder);
+
         {
-            // Particles draw additively into the HDR scene target (not the swapchain).
+            // Particles draw additively into the HDR scene target (not the
+            // swapchain). LoadOp::Load preserves the faded previous frame so the
+            // new particles accumulate on top of the decaying trails.
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Scene Pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -350,7 +357,7 @@ impl WebGpuRenderer {
                     depth_slice: None,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                        load: wgpu::LoadOp::Load,
                         store: wgpu::StoreOp::Store,
                     },
                 })],

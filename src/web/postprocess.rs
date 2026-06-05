@@ -28,6 +28,7 @@ pub struct PostProcess {
     blur_layout: wgpu::BindGroupLayout,
     bloom_layout: wgpu::BindGroupLayout,
     sampler: wgpu::Sampler,
+    fade_pipeline: wgpu::RenderPipeline,
     bright_pipeline: wgpu::RenderPipeline,
     blur_h_pipeline: wgpu::RenderPipeline,
     blur_v_pipeline: wgpu::RenderPipeline,
@@ -126,6 +127,40 @@ impl PostProcess {
         let blur_v_pipeline = pipeline("blur_v", &blur_pl, HDR_FORMAT);
         let composite_pipeline = pipeline("composite", &composite_pl, surface_format);
 
+        // Trail-fade pipeline: a fullscreen black quad with alpha blending that
+        // decays the HDR scene each frame before particles are redrawn on top.
+        // It samples nothing, so its layout is empty.
+        let fade_pl = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("Post Fade Pipeline Layout"),
+            bind_group_layouts: &[],
+            immediate_size: 0,
+        });
+        let fade_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("fade"),
+            layout: Some(&fade_pl),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: Some("fs_vert"),
+                buffers: &[],
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: Some("fade"),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: HDR_FORMAT,
+                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+            }),
+            primitive: wgpu::PrimitiveState::default(),
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState::default(),
+            multiview_mask: None,
+            cache: None,
+        });
+
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             label: Some("Post Sampler"),
             address_mode_u: wgpu::AddressMode::ClampToEdge,
@@ -143,6 +178,7 @@ impl PostProcess {
             blur_layout,
             bloom_layout,
             sampler,
+            fade_pipeline,
             bright_pipeline,
             blur_h_pipeline,
             blur_v_pipeline,
@@ -232,6 +268,34 @@ impl PostProcess {
     /// The HDR target the particle pass renders into.
     pub fn scene_view(&self) -> &wgpu::TextureView {
         &self.targets.scene_view
+    }
+
+    /// Decay the persisted HDR scene by `TRAIL_PERSISTENCE` (a fullscreen
+    /// alpha-blended black quad), leaving motion trails for the next particle
+    /// pass to build on. Must run BEFORE the particle pass, which loads (does not
+    /// clear) this same target. Trails are screen-space, so panning/zooming the
+    /// camera smears them — an accepted trade-off for the default near-static
+    /// view. The renderer draws interpolated positions at 60fps, so trails stay
+    /// smooth even though the sim ticks far slower.
+    pub fn fade_scene(&self, encoder: &mut wgpu::CommandEncoder) {
+        let mut rp = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("Trail Fade"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: &self.targets.scene_view,
+                depth_slice: None,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Load,
+                    store: wgpu::StoreOp::Store,
+                },
+            })],
+            depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
+            multiview_mask: None,
+        });
+        rp.set_pipeline(&self.fade_pipeline);
+        rp.draw(0..3, 0..1);
     }
 
     /// Run bright-pass → blur (H, V) → tonemapped composite into `output`.

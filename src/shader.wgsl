@@ -90,7 +90,10 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let glow = max(0.0, 1.0 - dist);
     let halo = glow * glow;
     let core = pow(glow, 5.0);
-    let rgb = in.color * (halo * 1.0 + core * 2.6);
+    // Core gain is kept moderate so that, with motion trails accumulating in the
+    // HDR scene, dense overlapping clusters stay vividly coloured instead of
+    // clipping to white. The wide halo carries the soft glow + comet tails.
+    let rgb = in.color * (halo * 1.0 + core * 2.3);
 
     return vec4<f32>(rgb, halo);
 }
