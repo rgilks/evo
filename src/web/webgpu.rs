@@ -47,10 +47,12 @@ impl WebGpuRenderer {
         let height = canvas.height();
 
         // Create wgpu instance with WebGPU backend
-        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
+        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: wgpu::Backends::BROWSER_WEBGPU,
             flags: wgpu::InstanceFlags::default(),
+            memory_budget_thresholds: wgpu::MemoryBudgetThresholds::default(),
             backend_options: wgpu::BackendOptions::default(),
+            display: None,
         });
 
         // Create surface using raw-window-handle
@@ -62,9 +64,9 @@ impl WebGpuRenderer {
         let surface = unsafe {
             instance
                 .create_surface_unsafe(wgpu::SurfaceTargetUnsafe::RawHandle {
-                    raw_display_handle: raw_window_handle::RawDisplayHandle::Web(
+                    raw_display_handle: Some(raw_window_handle::RawDisplayHandle::Web(
                         raw_window_handle::WebDisplayHandle::new(),
-                    ),
+                    )),
                     raw_window_handle: raw_window_handle::RawWindowHandle::WebCanvas(canvas_handle),
                 })
                 .map_err(|e| JsValue::from_str(&format!("Failed to create surface: {:?}", e)))?
@@ -78,11 +80,11 @@ impl WebGpuRenderer {
                 force_fallback_adapter: false,
             })
             .await
-            .ok_or("Failed to find adapter")?;
+            .map_err(|e| JsValue::from_str(&format!("Failed to find adapter: {:?}", e)))?;
 
         // Request device
         let (device, queue) = adapter
-            .request_device(&wgpu::DeviceDescriptor::default(), None)
+            .request_device(&wgpu::DeviceDescriptor::default())
             .await
             .map_err(|e| JsValue::from_str(&format!("Failed to get device: {:?}", e)))?;
 
@@ -158,8 +160,8 @@ impl WebGpuRenderer {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[&bind_group_layout],
-                push_constant_ranges: &[],
+                bind_group_layouts: &[Some(&bind_group_layout)],
+                immediate_size: 0,
             });
 
         // Create render pipeline with instanced rendering
@@ -225,7 +227,7 @@ impl WebGpuRenderer {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            multiview: None,
+            multiview_mask: None,
             cache: None,
         });
 
@@ -324,8 +326,9 @@ impl WebGpuRenderer {
 
         // Render
         let output = match self.surface.get_current_texture() {
-            Ok(t) => t,
-            Err(_) => return,
+            wgpu::CurrentSurfaceTexture::Success(t)
+            | wgpu::CurrentSurfaceTexture::Suboptimal(t) => t,
+            _ => return,
         };
 
         let view = output
@@ -344,6 +347,7 @@ impl WebGpuRenderer {
                 label: Some("Scene Pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: self.postprocess.scene_view(),
+                    depth_slice: None,
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
@@ -353,6 +357,7 @@ impl WebGpuRenderer {
                 depth_stencil_attachment: None,
                 occlusion_query_set: None,
                 timestamp_writes: None,
+                multiview_mask: None,
             });
 
             render_pass.set_pipeline(&self.render_pipeline);
