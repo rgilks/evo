@@ -6,7 +6,7 @@ This guide explains how to deploy the Evolution Simulation to Cloudflare Pages.
 
 1. **Cloudflare Account**: [Sign up](https://cloudflare.com)
 2. **Wrangler CLI**: `npm install -g wrangler`
-3. **Rust Toolchain**: `rustup default nightly-2024-08-02 && rustup target add wasm32-unknown-unknown`
+3. **Rust Toolchain**: `rustup default nightly-2026-05-01 && rustup target add wasm32-unknown-unknown`
 
 ## One-Command Deployment
 

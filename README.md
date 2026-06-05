@@ -10,7 +10,7 @@ A beautiful and performant evolution simulation written in Rust with WebGPU-acce
 
 ### Prerequisites
 
-1. **Rust Nightly**: `rustup toolchain install nightly-2024-08-02`
+1. **Rust Nightly**: `rustup toolchain install nightly-2026-05-01`
 2. **WASM Target**: `rustup target add wasm32-unknown-unknown`
 3. **Node.js & npm**: [Install Node.js](https://nodejs.org/)
 4. **WebGPU-capable browser**: Chromium-based (Chrome / Edge / Brave) 113+

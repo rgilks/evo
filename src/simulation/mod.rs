@@ -185,7 +185,7 @@ impl Simulation {
         self.step += 1;
         self.update_simulation();
 
-        if self.step % 60 == 0 {
+        if self.step.is_multiple_of(60) {
             self.log_simulation_metrics();
         }
     }

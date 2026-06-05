@@ -21,7 +21,7 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           # Keep in sync with rust-toolchain.toml — build-std needs this exact nightly.
-          toolchain: nightly-2024-08-02
+          toolchain: nightly-2026-05-01
           targets: wasm32-unknown-unknown
           components: rustfmt, clippy
 
@@ -62,7 +62,7 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           # Keep in sync with rust-toolchain.toml — build-std needs this exact nightly.
-          toolchain: nightly-2024-08-02
+          toolchain: nightly-2026-05-01
           targets: wasm32-unknown-unknown
 
       - name: Cache Cargo

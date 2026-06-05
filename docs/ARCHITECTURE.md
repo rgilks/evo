@@ -13,7 +13,7 @@
 | Parallelism | `rayon` | Parallel per-entity processing over ECS queries |
 | Rendering | `wgpu` 24 (WebGPU) | Instanced quads → HDR scene target → bloom post-process |
 | In-browser threads | `wasm-bindgen-rayon` + `SharedArrayBuffer` | Requires cross-origin-isolation headers |
-| Toolchain | nightly-2024-08-02 | Needed for `-Z build-std` (atomics-enabled `std` for WASM threads) |
+| Toolchain | nightly-2026-05-01 | Needed for `-Z build-std` (atomics-enabled `std` for WASM threads) |
 | Host | Cloudflare Pages | Static `web/` directory served with `_headers` |
 
 The toolchain is pinned because atomics + `build-std` are nightly-only. This pin is the project's main maintenance constraint — see [BACKLOG.md](../BACKLOG.md).

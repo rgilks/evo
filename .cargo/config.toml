@@ -1,4 +1,17 @@
 [target.wasm32-unknown-unknown]
-rustflags = ["-C", "target-feature=+atomics,+bulk-memory"]
-
- 
+# wasm threads (rayon + SharedArrayBuffer) need an imported *shared* memory and the
+# TLS-init symbols exported so wasm-bindgen's threading transform can find them.
+# On current nightlies lld no longer auto-exports these, so request them explicitly.
+# This flag set mirrors wasm-bindgen's own threading reference build. `-Z build-std`
+# (atomics-enabled std) is supplied via CARGO_UNSTABLE_BUILD_STD in the build script/CI.
+rustflags = [
+    "-C", "target-feature=+atomics,+bulk-memory",
+    "-C", "link-arg=--shared-memory",
+    "-C", "link-arg=--max-memory=1073741824",
+    "-C", "link-arg=--import-memory",
+    "-C", "link-arg=--export=__heap_base",
+    "-C", "link-arg=--export=__wasm_init_tls",
+    "-C", "link-arg=--export=__tls_size",
+    "-C", "link-arg=--export=__tls_align",
+    "-C", "link-arg=--export=__tls_base",
+]

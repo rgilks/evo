@@ -2,19 +2,17 @@
 
 Forward-looking work, roughly ordered by what unblocks or de-risks the most. Present tense; this is intent, not history.
 
-## P1 — Toolchain & dependency modernization (blocked on wasm threads)
+## P1 — Dependency modernization
 
-Pinned to `nightly-2024-08-02` because atomics + `-Z build-std` are nightly-only (still true in 2026 — unavoidable, not debt). The pin is ~21 months stale, which forces the `indexmap = "=2.2.6"` workaround, and the dep tree has drifted.
+The toolchain is pinned to `nightly-2026-05-01` (rustc 1.97). atomics + `-Z build-std` are nightly-only (still true in 2026 — unavoidable, not debt), so a nightly pin is required.
 
-**Blocker — newer nightlies break wasm threads.** On `nightly-2026-05-01` (rustc 1.97) the wasm build stops emitting a *shared* memory, so `wasm-bindgen-rayon`'s `initThreadPool` fails at load (`DataCloneError: #<Memory> could not be cloned`; `Atomics.waitAsync` on a non-shared `Int32Array`) and the app never initializes. The same `wasm-bindgen` (0.2.100) and `wasm-bindgen-rayon` (1.3.0) work on the old nightly and break on the new one, so it is the compiler's shared-memory emission that changed — not the JS glue. Resolve this first (likely an explicit `-C link-arg=--shared-memory -C link-arg=--max-memory=…`, or an added target-feature) and confirm `initThreadPool` succeeds in the browser before bumping anything else.
+**WASM threads on a current nightly require the full link-arg set in `.cargo/config.toml`.** On modern nightlies lld no longer auto-exports the TLS-init symbols, and wasm-bindgen-rayon needs an imported *shared* memory. The wasm target therefore builds with `target-feature=+atomics,+bulk-memory` plus link args `--shared-memory --max-memory=1073741824 --import-memory` and explicit `--export=` of `__heap_base`, `__wasm_init_tls`, `__tls_size`, `__tls_align`, `__tls_base` — mirroring wasm-bindgen's own threading reference build. Without the `--export=__wasm_init_tls` family, `wasm-bindgen` fails with `failed to find __wasm_init_tls`; without `--import-memory`/`--shared-memory`, `initThreadPool` fails at load (`DataCloneError: #<Memory> could not be cloned`). The CI workflow's pinned nightly must stay in sync with `rust-toolchain.toml`: the workflow installs rustfmt/clippy/wasm components for its own pinned value, so a mismatch fails the build.
 
-Once threads work on a recent nightly, the rest follows and has been scouted:
+Remaining dep bumps, scouted but not yet done — each is independent and should be landed and browser-verified on its own:
 
-- Drop the `indexmap = "=2.2.6"` exact-pin (newer nightlies accept current indexmap; it's only a transitive of wgpu/naga).
-- `hecs` 0.9 → 0.11: query iterators now yield `Q::Item` instead of `(Entity, Q::Item)`, and `Entity` implements `Query` — add `Entity` to the queries that need the id and flatten the bindings. Also `rand` 0.8 → 0.9.
-- `wgpu` 24 → 29: mechanical churn in `web/webgpu.rs` — by-value `InstanceDescriptor` (no `Default`), `request_adapter` returns `Result`, `request_device` takes one arg, `bind_group_layouts: &[Option<&_>]` + `immediate_size`, `multiview` → `multiview_mask`, `get_current_texture` returns the `CurrentSurfaceTexture` enum, and `RenderPassColorAttachment.depth_slice`. wgpu 29 forces `wasm-bindgen` 0.2.122, which needs the newer nightly — so it is gated behind the threads fix above.
-
-Keep the CI workflow's pinned nightly in sync with `rust-toolchain.toml`: the workflow installs rustfmt/clippy/wasm components for its own pinned value, so a mismatch fails the build.
+- Drop the `indexmap = "=2.2.6"` exact-pin (the current nightly accepts current indexmap; it's only a transitive of wgpu/naga).
+- `hecs` 0.9 → 0.11: query iterators now yield `Q::Item` instead of `(Entity, Q::Item)`, and `Entity` implements `Query` — add `Entity` to the queries that need the id and flatten the bindings. Also `rand` 0.8 → 0.9 (touches `src/simulation/rng.rs`'s `FastRng: RngCore`/`SeedableRng` and the systems).
+- `wgpu` 24 → 29: mechanical churn in **both** `src/web/webgpu.rs` and `src/web/postprocess.rs` (the bloom post-process) — by-value `InstanceDescriptor` (no `Default`), `request_adapter` returns `Result`, `request_device` takes one arg, `bind_group_layouts: &[Option<&_>]` + `immediate_size`, `multiview` → `multiview_mask`, `get_current_texture` returns the `CurrentSurfaceTexture` enum, and `RenderPassColorAttachment.depth_slice`. wgpu 29 forces `wasm-bindgen` 0.2.122 (the current 0.2.100 + 0.2.122's threading transform both still look up `__wasm_init_tls`, so the link-arg set above already covers it).
 
 ## P2 — Performance: dense spatial grid (SoA)
 
