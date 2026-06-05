@@ -119,13 +119,87 @@ class EvolutionApp {
   }
 
   setupEventListeners() {
-    const resetBtn = document.getElementById("reset");
-    const toggleUiBtn = document.getElementById("toggle-ui");
-    const showUiBtn = document.getElementById("show-ui-btn");
+    // Control panel: a ⚙ handle toggles it (tap) and drags it (press + move),
+    // matching the galacto sandbox. The dragged position persists across loads.
+    const panel = document.getElementById("controls");
+    const handle = document.getElementById("controls-toggle");
+    const setCollapsed = (collapsed) => {
+      panel.classList.toggle("collapsed", collapsed);
+      handle.setAttribute("aria-expanded", String(!collapsed));
+      handle.title = collapsed
+        ? "Show controls (drag to move)"
+        : "Hide controls (drag to move)";
+    };
+    const moveTo = (left, top) => {
+      panel.style.left = left + "px";
+      panel.style.top = top + "px";
+      panel.style.right = "auto";
+    };
+    const clampIntoView = () => {
+      if (!panel.style.left) return;
+      const r = panel.getBoundingClientRect();
+      moveTo(
+        Math.max(4, Math.min(parseFloat(panel.style.left), window.innerWidth - r.width - 4)),
+        Math.max(4, Math.min(parseFloat(panel.style.top), window.innerHeight - r.height - 4))
+      );
+    };
+    try {
+      const saved = JSON.parse(localStorage.getItem("evo-panel-pos") || "null");
+      if (saved && Number.isFinite(saved.left) && Number.isFinite(saved.top)) {
+        moveTo(saved.left, saved.top);
+        clampIntoView();
+      }
+    } catch {}
+    let startX, startY, baseLeft, baseTop, dragging = false, moved = false;
+    handle.addEventListener("pointerdown", (e) => {
+      dragging = true;
+      moved = false;
+      const r = panel.getBoundingClientRect();
+      baseLeft = r.left;
+      baseTop = r.top;
+      startX = e.clientX;
+      startY = e.clientY;
+      handle.setPointerCapture(e.pointerId);
+    });
+    handle.addEventListener("pointermove", (e) => {
+      if (!dragging) return;
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      if (!moved && Math.hypot(dx, dy) > 4) moved = true;
+      if (!moved) return;
+      moveTo(baseLeft + dx, baseTop + dy);
+      clampIntoView();
+    });
+    const endDrag = (e) => {
+      if (!dragging) return;
+      dragging = false;
+      try {
+        handle.releasePointerCapture(e.pointerId);
+      } catch {}
+      if (moved) {
+        try {
+          localStorage.setItem(
+            "evo-panel-pos",
+            JSON.stringify({
+              left: parseFloat(panel.style.left),
+              top: parseFloat(panel.style.top),
+            })
+          );
+        } catch {}
+      }
+    };
+    handle.addEventListener("pointerup", endDrag);
+    handle.addEventListener("pointercancel", endDrag);
+    handle.addEventListener("click", () => {
+      if (moved) {
+        moved = false;
+        return;
+      }
+      setCollapsed(!panel.classList.contains("collapsed"));
+      clampIntoView();
+    });
 
-    resetBtn.addEventListener("click", () => this.reset());
-    toggleUiBtn.addEventListener("click", () => this.toggleUI());
-    showUiBtn.addEventListener("click", () => this.toggleUI());
+    document.getElementById("reset").addEventListener("click", () => this.reset());
 
     // Instant actions — immediate, visible effect on the population without
     // touching the (deliberately gradual) ecosystem balance.
@@ -220,10 +294,10 @@ class EvolutionApp {
     document.addEventListener("keydown", (e) => {
       if (e.target.tagName === "INPUT") return;
       if (e.key === "h" || e.key === "H") {
-        this.toggleUI();
+        setCollapsed(!panel.classList.contains("collapsed"));
+        clampIntoView();
       } else if (e.key === "Escape") {
-        const c = document.querySelector(".container");
-        if (!c.classList.contains("ui-hidden")) this.toggleUI();
+        setCollapsed(true);
       } else if (e.key === "r" || e.key === "R") {
         this.reset();
       }
@@ -265,11 +339,6 @@ class EvolutionApp {
         this.camera.isPanning = false;
       }
     });
-  }
-
-  toggleUI() {
-    // The close (×) and reopen (⋮) buttons are icons, so just flip the class.
-    document.querySelector(".container").classList.toggle("ui-hidden");
   }
 
   reset() {

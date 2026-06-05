@@ -14,109 +14,107 @@
     <link rel="stylesheet" href="css/style.css?v=dev" />
   </head>
   <body>
-    <div class="container ui-hidden">
-      <div id="ui-toggle-corner" class="ui-toggle-corner">
-        <button id="show-ui-btn" title="Show controls (H)">⋮</button>
-      </div>
-
+    <div class="container">
       <main>
         <canvas id="simulation-canvas"></canvas>
 
-        <div class="ui-panel">
-          <!-- Brand -->
-          <div class="brand">
-            <svg viewBox="0 0 512 512" aria-hidden="true">
-              <rect x="214" y="288" width="80" height="206" fill="#39FF14" transform="rotate(22,262,295)" />
-              <path d="M256 36 L72 476 L440 476 Z" fill="none" stroke="#F5F5F5" stroke-width="30" stroke-linejoin="round" stroke-linecap="round" />
-              <circle cx="256" cy="288" r="40" fill="#F5F5F5" />
-            </svg>
-            <div>
-              <h1>Evolution</h1>
-              <span class="sub">Living ecosystem</span>
-            </div>
-            <button id="toggle-ui" class="panel-close" type="button" aria-label="Close controls" title="Close (Esc or H)">×</button>
-          </div>
+        <!-- Glass control panel: a ⚙ handle toggles it (tap) and drags it
+             (press + move). Starts collapsed to a discreet cog over the art. -->
+        <div id="controls" class="collapsed">
+          <button
+            id="controls-toggle"
+            type="button"
+            aria-expanded="false"
+            aria-controls="controls-body"
+            aria-label="Toggle controls"
+            title="Show controls (drag to move)"
+          >
+            <span id="controls-icon" aria-hidden="true">⚙</span>
+            <span id="controls-label">Evolution</span>
+          </button>
 
-          <!-- Seed + actions -->
-          <div class="toprow">
-            <input type="text" id="seed-input" value="42" placeholder="seed (blank = random)" />
-            <button id="reset" class="btn">Reset</button>
-          </div>
+          <div id="controls-body">
+            <!-- Seed + reset -->
+            <div class="toprow">
+              <input type="text" id="seed-input" value="42" placeholder="seed (blank = random)" />
+              <button id="reset" class="btn">Reset</button>
+            </div>
 
-          <!-- Instant actions: visible effect on click, without destabilising the ecosystem -->
-          <div class="actions">
-            <button id="cull" class="btn act" type="button" title="Remove half the population">Cull</button>
-            <button id="bloom" class="btn act" type="button" title="Spawn a burst of new life">Bloom</button>
-          </div>
+            <!-- Instant actions -->
+            <div class="actions">
+              <button id="cull" class="btn act" type="button" title="Remove half the population">Cull</button>
+              <button id="bloom" class="btn act" type="button" title="Spawn a burst of new life">Bloom</button>
+            </div>
 
-          <!-- Stats -->
-          <div class="stats">
-            <div class="stat"><span class="k">Population</span><span class="v" id="population">0</span></div>
-            <div class="stat"><span class="k">Step</span><span class="v" id="step-count">0</span></div>
-            <div class="stat"><span class="k">FPS</span><span class="v" id="fps">0</span></div>
-            <div class="stat"><span class="k">Seed</span><span class="v" id="seed-display">—</span></div>
-          </div>
+            <!-- Stats -->
+            <div class="stats">
+              <div class="stat"><span class="k">Population</span><span class="v" id="population">0</span></div>
+              <div class="stat"><span class="k">Step</span><span class="v" id="step-count">0</span></div>
+              <div class="stat"><span class="k">FPS</span><span class="v" id="fps">0</span></div>
+              <div class="stat"><span class="k">Seed</span><span class="v" id="seed-display">—</span></div>
+            </div>
 
-          <!-- Ecosystem controls -->
-          <div class="group">
-            <div class="group-title">Ecosystem</div>
-            <div class="ctrl">
-              <div class="row"><label for="ambient-energy">Food</label><span class="val" id="food-value">0.90</span></div>
-              <input type="range" id="ambient-energy" min="0" max="2" step="0.05" value="0.9" />
+            <!-- Ecosystem controls -->
+            <div class="group">
+              <div class="group-title">Ecosystem</div>
+              <div class="ctrl">
+                <div class="row"><label for="ambient-energy">Food</label><span class="val" id="food-value">0.90</span></div>
+                <input type="range" id="ambient-energy" min="0" max="2" step="0.05" value="0.9" />
+              </div>
+              <div class="ctrl">
+                <div class="row"><label for="repro-threshold">Breeding</label><span class="val" id="repro-value">0.60</span></div>
+                <input type="range" id="repro-threshold" min="0.1" max="1" step="0.05" value="0.6" />
+              </div>
+              <div class="ctrl">
+                <div class="row"><label for="death-chance">Mortality</label><span class="val" id="death-value">0.04</span></div>
+                <input type="range" id="death-chance" min="0" max="1" step="0.01" value="0.04" />
+              </div>
+              <div class="ctrl">
+                <div class="row"><label for="predation-reach">Predators</label><span class="val" id="predation-value">6</span></div>
+                <input type="range" id="predation-reach" min="0" max="20" step="1" value="6" />
+              </div>
+              <div class="ctrl">
+                <div class="row"><label for="energy-cost">Metabolism</label><span class="val" id="energy-value">0.15</span></div>
+                <input type="range" id="energy-cost" min="0" max="1" step="0.01" value="0.15" />
+              </div>
             </div>
-            <div class="ctrl">
-              <div class="row"><label for="repro-threshold">Breeding</label><span class="val" id="repro-value">0.60</span></div>
-              <input type="range" id="repro-threshold" min="0.1" max="1" step="0.05" value="0.6" />
-            </div>
-            <div class="ctrl">
-              <div class="row"><label for="death-chance">Mortality</label><span class="val" id="death-value">0.04</span></div>
-              <input type="range" id="death-chance" min="0" max="1" step="0.01" value="0.04" />
-            </div>
-            <div class="ctrl">
-              <div class="row"><label for="predation-reach">Predators</label><span class="val" id="predation-value">6</span></div>
-              <input type="range" id="predation-reach" min="0" max="20" step="1" value="6" />
-            </div>
-            <div class="ctrl">
-              <div class="row"><label for="energy-cost">Metabolism</label><span class="val" id="energy-value">0.15</span></div>
-              <input type="range" id="energy-cost" min="0" max="1" step="0.01" value="0.15" />
-            </div>
-          </div>
 
-          <!-- Motion & physics controls (collapsible) -->
-          <details class="group" open>
-            <summary>Motion &amp; Physics</summary>
-            <div class="ctrl">
-              <div class="row"><label for="max-velocity">Speed</label><span class="val" id="velocity-value">2.0</span></div>
-              <input type="range" id="max-velocity" min="0.1" max="10" step="0.1" value="2.0" />
-            </div>
-            <div class="ctrl">
-              <div class="row"><label for="sim-speed">Tempo</label><span class="val" id="sim-speed-value">15</span></div>
-              <input type="range" id="sim-speed" min="4" max="60" step="1" value="15" />
-            </div>
-            <div class="ctrl">
-              <div class="row"><label for="particle-force">Clustering</label><span class="val" id="pforce-value">0.15</span></div>
-              <input type="range" id="particle-force" min="0" max="2.0" step="0.1" value="0.15" />
-            </div>
-            <div class="ctrl">
-              <div class="row"><label for="particle-friction">Drag</label><span class="val" id="pfriction-value">0.95</span></div>
-              <input type="range" id="particle-friction" min="0.8" max="0.99" step="0.01" value="0.95" />
-            </div>
-            <div class="ctrl">
-              <div class="row"><label for="center-pressure">Edge push</label><span class="val" id="pressure-value">0.30</span></div>
-              <input type="range" id="center-pressure" min="0" max="2" step="0.05" value="0.3" />
-            </div>
-          </details>
+            <!-- Motion & physics controls (collapsible) -->
+            <details class="group" open>
+              <summary>Motion &amp; Physics</summary>
+              <div class="ctrl">
+                <div class="row"><label for="max-velocity">Speed</label><span class="val" id="velocity-value">2.0</span></div>
+                <input type="range" id="max-velocity" min="0.1" max="10" step="0.1" value="2.0" />
+              </div>
+              <div class="ctrl">
+                <div class="row"><label for="sim-speed">Tempo</label><span class="val" id="sim-speed-value">15</span></div>
+                <input type="range" id="sim-speed" min="4" max="60" step="1" value="15" />
+              </div>
+              <div class="ctrl">
+                <div class="row"><label for="particle-force">Clustering</label><span class="val" id="pforce-value">0.15</span></div>
+                <input type="range" id="particle-force" min="0" max="2.0" step="0.1" value="0.15" />
+              </div>
+              <div class="ctrl">
+                <div class="row"><label for="particle-friction">Drag</label><span class="val" id="pfriction-value">0.95</span></div>
+                <input type="range" id="particle-friction" min="0.8" max="0.99" step="0.01" value="0.95" />
+              </div>
+              <div class="ctrl">
+                <div class="row"><label for="center-pressure">Edge push</label><span class="val" id="pressure-value">0.30</span></div>
+                <input type="range" id="center-pressure" min="0" max="2" step="0.05" value="0.3" />
+              </div>
+            </details>
 
-          <!-- Footer: support + credit (hidden with the panel, so off the art) -->
-          <div class="panel-footer">
-            <a class="coffee" id="bmc-link" href="https://ko-fi.com/N4N31DPNUS" target="_blank" rel="noopener noreferrer">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 3H4v10a5 5 0 0 0 5 5h6a5 5 0 0 0 5-5v-2h1a3 3 0 0 0 0-6h-1V3zm0 4h1a1 1 0 0 1 0 2h-1V7zM2 21h18v2H2z" /></svg>
-              Buy me a coffee
-            </a>
-            <a class="credit" href="https://tre.systems" target="_blank" rel="noopener">
-              <svg viewBox="0 0 512 512" aria-hidden="true"><rect x="214" y="288" width="80" height="206" fill="#888" transform="rotate(22,262,295)" /><path d="M256 36 L72 476 L440 476 Z" fill="none" stroke="#888" stroke-width="34" stroke-linejoin="round" /><circle cx="256" cy="288" r="40" fill="#888" /></svg>
-              Total Reality Engineering
-            </a>
+            <!-- Footer: support + credit -->
+            <div class="panel-footer">
+              <a class="coffee" id="bmc-link" href="https://ko-fi.com/N4N31DPNUS" target="_blank" rel="noopener noreferrer">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 3H4v10a5 5 0 0 0 5 5h6a5 5 0 0 0 5-5v-2h1a3 3 0 0 0 0-6h-1V3zm0 4h1a1 1 0 0 1 0 2h-1V7zM2 21h18v2H2z" /></svg>
+                Buy me a coffee
+              </a>
+              <a class="credit" href="https://tre.systems" target="_blank" rel="noopener noreferrer">
+                <svg viewBox="0 0 512 512" aria-hidden="true"><rect x="214" y="288" width="80" height="206" fill="#888" transform="rotate(22,262,295)" /><path d="M256 36 L72 476 L440 476 Z" fill="none" stroke="#888" stroke-width="34" stroke-linejoin="round" /><circle cx="256" cy="288" r="40" fill="#888" /></svg>
+                Total Reality Engineering
+              </a>
+            </div>
           </div>
         </div>
       </main>

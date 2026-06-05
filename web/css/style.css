@@ -1,6 +1,6 @@
 /* Total Reality Engineering house style — terminal/CRT on black, neon-green
-   accent (#39FF14), Inter + JetBrains Mono. The control panel is an overlay on
-   the WebGPU canvas and hides entirely (it is "the art" with the UI off). */
+   accent (#39FF14), Inter + JetBrains Mono. The control panel is a transparent
+   glass overlay that collapses to a discreet, draggable ⚙ cog over the art. */
 
 :root {
   --tre-green: #39ff14;
@@ -8,7 +8,6 @@
   --tre-green-dim: #2ecc71;
   --text: #f5f5f5;
   --muted: rgba(245, 245, 245, 0.55);
-  --panel: rgba(8, 10, 8, 0.72);
   --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
 }
@@ -47,110 +46,104 @@ main {
   background: #000;
 }
 
-/* ===== Panel ===== */
-.ui-panel {
+/* ===== Glass control panel (galacto pattern) ===== */
+#controls {
   position: fixed;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  width: 340px;
-  max-width: 92vw;
+  top: 16px;
+  left: 16px;
   z-index: 100;
+  width: 320px;
+  max-width: 92vw;
+  max-height: calc(100vh - 32px);
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  padding: 20px 18px 16px;
+  background: rgba(8, 12, 8, 0.5);
+  border: 1px solid rgba(var(--tre-green-rgb), 0.22);
+  border-radius: 16px;
+  -webkit-backdrop-filter: blur(10px) saturate(1.1);
+  backdrop-filter: blur(10px) saturate(1.1);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  color: var(--text);
+  user-select: none;
+  overflow: hidden;
+}
+
+/* The ⚙ + label: toggles on tap, drags the whole panel on press-and-move. */
+#controls-toggle {
+  appearance: none;
+  -webkit-appearance: none;
+  background: none;
+  border: none;
+  margin: 0;
+  padding: 13px 15px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--tre-green);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+#controls-toggle:active {
+  cursor: grabbing;
+}
+#controls-icon {
+  font-size: 18px;
+  line-height: 1;
+  filter: drop-shadow(0 0 5px rgba(var(--tre-green-rgb), 0.5));
+}
+
+#controls-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 4px 16px 16px;
   overflow-y: auto;
-  background: var(--panel);
-  -webkit-backdrop-filter: blur(16px) saturate(1.1);
-  backdrop-filter: blur(16px) saturate(1.1);
-  border-right: 1px solid rgba(var(--tre-green-rgb), 0.22);
-  box-shadow: 2px 0 40px rgba(0, 0, 0, 0.6),
-    inset -1px 0 0 rgba(var(--tre-green-rgb), 0.06);
-  transition: opacity 0.3s ease, transform 0.3s ease;
 }
-/* Subtle CRT scanlines */
-.ui-panel::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0.5;
-  background: repeating-linear-gradient(
-    0deg,
-    transparent 0 2px,
-    rgba(var(--tre-green-rgb), 0.025) 2px 3px
-  );
-  mix-blend-mode: screen;
-}
-.ui-panel > * {
-  position: relative;
-  z-index: 1;
-}
-.ui-panel::-webkit-scrollbar {
+#controls-body::-webkit-scrollbar {
   width: 8px;
 }
-.ui-panel::-webkit-scrollbar-thumb {
+#controls-body::-webkit-scrollbar-thumb {
   background: rgba(var(--tre-green-rgb), 0.25);
   border-radius: 4px;
 }
 
-/* ===== Brand header ===== */
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 11px;
+/* Collapsed: a discreet circular ⚙ cog only — no panel chrome or body. */
+#controls.collapsed {
+  width: auto;
+  max-height: none;
+  background: none;
+  border-color: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: none;
+  overflow: visible;
 }
-.brand svg {
-  width: 30px;
-  height: 30px;
-  flex: none;
-  filter: drop-shadow(0 0 5px rgba(var(--tre-green-rgb), 0.5));
+#controls.collapsed #controls-body,
+#controls.collapsed #controls-label {
+  display: none;
 }
-.brand h1 {
-  font-size: 17px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  line-height: 1;
+#controls.collapsed #controls-toggle {
+  padding: 9px;
+  border-radius: 999px;
+  background: rgba(8, 12, 8, 0.55);
+  border: 1px solid rgba(var(--tre-green-rgb), 0.4);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 0 12px rgba(var(--tre-green-rgb), 0.25);
+  opacity: 0.9;
 }
-.brand .sub {
-  display: block;
-  font-family: var(--font-mono);
-  font-size: 9.5px;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--tre-green);
-  opacity: 0.85;
-  margin-top: 4px;
-}
-
-/* Standard close (×) at the panel's top-right; the ⋮ corner button reopens it. */
-.panel-close {
-  margin-left: auto;
-  align-self: flex-start;
-  flex: none;
-  width: 30px;
-  height: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 22px;
-  line-height: 1;
-  color: var(--muted);
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
-}
-.panel-close:hover {
-  color: var(--tre-green);
-  border-color: rgba(var(--tre-green-rgb), 0.4);
-  background: rgba(var(--tre-green-rgb), 0.08);
+#controls.collapsed #controls-toggle:hover {
+  opacity: 1;
+  box-shadow: 0 0 18px rgba(var(--tre-green-rgb), 0.5);
 }
 
-/* ===== Top controls ===== */
+/* ===== Seed + actions ===== */
 .toprow {
   display: flex;
   gap: 8px;
@@ -158,7 +151,7 @@ main {
 #seed-input {
   flex: 1;
   min-width: 0;
-  background: rgba(0, 0, 0, 0.55);
+  background: rgba(0, 0, 0, 0.45);
   border: 1px solid rgba(var(--tre-green-rgb), 0.25);
   color: var(--tre-green);
   font-family: var(--font-mono);
@@ -177,7 +170,7 @@ main {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--tre-green);
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.5);
   border: 1px solid rgba(var(--tre-green-rgb), 0.45);
   border-radius: 7px;
   padding: 8px 12px;
@@ -193,8 +186,6 @@ main {
 .btn:active {
   transform: translateY(1px);
 }
-
-/* Instant-action buttons (Cull / Bloom) — split the row evenly. */
 .actions {
   display: flex;
   gap: 8px;
@@ -211,7 +202,7 @@ main {
   gap: 9px;
 }
 .stat {
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.4);
   border: 1px solid rgba(var(--tre-green-rgb), 0.16);
   border-radius: 10px;
   padding: 9px 11px;
@@ -328,7 +319,6 @@ input[type='range']::-moz-range-thumb {
 
 /* ===== Footer: coffee + credit ===== */
 .panel-footer {
-  margin-top: auto;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -346,7 +336,7 @@ input[type='range']::-moz-range-thumb {
   letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--tre-green);
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.5);
   border: 1px solid rgba(var(--tre-green-rgb), 0.4);
   border-radius: 9px;
   padding: 11px;
@@ -380,59 +370,6 @@ input[type='range']::-moz-range-thumb {
 }
 .credit:hover {
   color: var(--tre-green);
-}
-
-/* ===== Show-UI corner button (visible only when the panel is hidden) ===== */
-.ui-toggle-corner {
-  position: absolute;
-  top: 14px;
-  left: 14px;
-  z-index: 50;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.3s ease;
-}
-.ui-hidden .ui-toggle-corner {
-  opacity: 1;
-  pointer-events: all;
-  animation: fadeInPulse 0.5s ease-out;
-}
-.ui-toggle-corner button {
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-  line-height: 1;
-  cursor: pointer;
-  color: var(--tre-green);
-  background: rgba(0, 0, 0, 0.6);
-  border: 1px solid rgba(var(--tre-green-rgb), 0.45);
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
-  box-shadow: 0 0 12px rgba(var(--tre-green-rgb), 0.25);
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.ui-toggle-corner button:hover {
-  background: var(--tre-green);
-  color: #000;
-  transform: scale(1.1);
-  box-shadow: 0 0 18px rgba(var(--tre-green-rgb), 0.6);
-}
-
-/* ===== Hidden state ===== */
-.ui-hidden .ui-panel {
-  opacity: 0;
-  pointer-events: none;
-  transform: translateX(-12px);
-}
-
-@keyframes fadeInPulse {
-  0% { opacity: 0; transform: scale(0.8); }
-  50% { opacity: 1; transform: scale(1.1); }
-  100% { opacity: 1; transform: scale(1); }
 }
 
 @media (prefers-reduced-motion: reduce) {
