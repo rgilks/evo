@@ -41,34 +41,24 @@ The public URL is the custom domain `https://evo.tre.systems` (in the README). T
 
 ## P3 — Rendering polish
 
-- **Skip redundant re-uploads.** The render loop repacks/re-uploads the instance buffer every `requestAnimationFrame`, even on frames where the sim didn't tick (only the interpolation uniform changed). Track the last rendered step (`get_step` exists) and gate the repack+upload on a sim tick — free FPS on high-refresh displays.
 - **WebGPU-unavailable UX.** Replace the 5-second error toast with a persistent "WebGPU required" message, and request `downlevel` device limits so low-end adapters degrade rather than fail. (The renderer is WebGPU-only — the `wgpu` `webgl` feature has been dropped — so a real WebGL2 fallback would be a deliberate re-addition, only worth it for broad reach.)
 
 ## P3 — Code cleanups (from the architecture review)
 
-- **Drop `Genes` from `EntityUpdate`.** It's cloned (~96 B) for every entity every tick but only reproducers use it (<1%); fetch the parent's genes in the apply phase instead. `NeighborSnapshot` clones `Genes` per entity too.
-- **Single config owner.** `WebSimulation` duplicates `SimulationConfig` alongside `Simulation`'s copy and clones the whole struct on every `update_param`; give `Simulation` a `set_param` and drop the duplicate.
-- **Predation self-size bug.** Target-finding (`movement/mod.rs`) passes a dummy `Size { radius: 1.0 }` into `can_eat`, while `InteractionSystem` passes the real size — so "what I chase" and "what I can eat" use different size logic. Thread the real predator size through. Behaviour-affecting: smoke-test the live sim after.
-- **Reproduction floor.** In `check_reproduction`, `min_reproduction_chance` is `.max`'d onto the *crowding factor*, not the final chance — decide which is intended and make it explicit (the current reading is ambiguous). Behaviour-affecting.
-- **Rename `center_pressure_strength` → `edge_repulsion_strength`** (and `SimParam::CenterPressure` → `EdgeRepulsion`, the `#center-pressure` slider, the JS `DEFAULT_CONFIG` key). The field now scales edge repulsion, not a centre pull; the name is left over from the old behaviour. Cross-cuts the Rust serde field and the JS config, so do it in one change and smoke-test.
-- **Split the two oversized files.** `simulation/mod.rs` (~460 lines) and `systems/movement/mod.rs` (~390) exceed the 200-line guideline. Extract `simulation/rng.rs` (`mix_seed`, the salts, `generate_particle_matrix`) and the render-extract getters; in movement, extract the neighbour-accumulation loop and the flocking/solitary force helpers. Pure refactors — preserve arithmetic order so seed-determinism is unchanged.
-- **Co-locate the remaining tests.** `energy.rs` and `reproduction.rs` use inline `#[cfg(test)] mod tests { … }`; every other module uses a co-located `tests.rs`. Convert them to match.
+- **Split `systems/movement/mod.rs`** (~390 lines, over the 200-line guideline). Extract the neighbour-accumulation loop and the flocking/solitary force helpers from `update_movement`. Pure refactor — preserve arithmetic order so seed-determinism is unchanged. (`simulation/mod.rs` already had its seeding helpers pulled into `simulation/rng.rs`.)
 - **Trim unused stats.** `SimulationStats::from_world` computes `entity_counts`, per-colour classification, several averages, and `world_center_drift` on every `get_stats()`, but the UI consumes only `total_entities`. Either surface them in the UI or trim the struct (crosses the WASM boundary, so update `lib.rs`/JS/tests together).
-- **Faster hot-loop RNG.** The per-entity-per-tick RNG is `StdRng` (ChaCha, cryptographic-grade). A small fast PRNG (the `splitmix64` finaliser already in `mix_seed`, or wyrand/pcg) would cut hot-loop cost and shrink the `rand`/`getrandom` footprint, keeping determinism. Re-seeds every run, so re-curate the default seed after.
+- **Faster hot-loop RNG.** The per-entity-per-tick RNG is `StdRng` (ChaCha, cryptographic-grade). A small fast PRNG (the `splitmix64` finaliser already in `mix_seed`, or wyrand/pcg) would cut hot-loop cost and shrink the `rand`/`getrandom` footprint, keeping determinism. Deferred deliberately: it changes every seed's output (the algorithm is unchanged, but each seed maps to a different run), so the curated default seed and any shared seeds need re-curating — a poor trade for a marginal speedup on a visual piece, and best done as its own visually-verified pass.
 
 ## P3 — Frontend
 
-- **Data-driven slider registry.** `app.js` `setupEventListeners` wires ~10 sliders by hand (~140 lines). Replace with a `SLIDERS` table (`{id, valueId, param, decimals}`) iterated to attach listeners, and split the button/keyboard/mouse wiring into small focused methods. Adding a slider becomes a one-line change.
-- **De-duplicate sim construction.** `init()` and `reset()` repeat the canvas-size → worldSize → seed → `WebSimulation` construction; extract one `createSimulation()` and hoist `const CONFIG_JSON = JSON.stringify(DEFAULT_CONFIG)` to module scope.
-- **Remove the no-op mobile block.** The `@media (max-width: 768px)` rules in `web/css/style.css` don't do anything useful; delete them (real mobile support is a separate item).
+- **Split the remaining event wiring.** Sliders are now table-driven (the `SLIDERS` table → `setupSliders()`), but `setupEventListeners` still inlines the panel-drag, keyboard, and camera wiring; extract those into focused methods too.
 - **Consider TypeScript + prettier** for `web/js/app.js` (bundle via a build-step migration, not standalone).
 
 ## P3 — Testing & CI
 
-- **Convert the diagnostic drift/bias tests to assertions.** Several "tests" (`test_simulation_clustering`, `test_drift_direction_analysis`, the interaction/movement drift + bias harnesses) compute drift/centroid numbers and only `println!`; now that runs are deterministic, assert "drift < ε over N ticks" (and delete the pure no-op `test_simulation_entity_processing`). Extract shared `centroid`/`quadrant_counts` test helpers, and replace `thread_rng()` in the deterministic analysis tests with a seeded RNG so the asserted statistics are reproducible.
+- **Convert the remaining drift/bias harnesses to assertions.** The simulation-level ones (`test_simulation_clustering`, `test_drift_direction_analysis`) now assert bounded drift via a shared `centroid` helper, and the no-op `test_simulation_entity_processing` is gone. The movement/interaction drift + bias harnesses still only `println!` — give them the same treatment (assert "drift < ε over N ticks"; seed any that use `thread_rng`).
 - **Property tests** (`proptest`) for gene mutation bounds, energy clamping, and HSV↔RGB round-trip.
 - **A single Playwright smoke test** in CI (page loads, canvas present, `#seed-display` set, no console errors).
-- **Cache cargo in the CI deploy job** (the `build-std` WASM build is uncached there today).
 
 ## Roadmap — simulation depth
 
