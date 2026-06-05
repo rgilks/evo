@@ -2,10 +2,18 @@
   Cross-Origin-Opener-Policy: same-origin
   Cross-Origin-Embedder-Policy: require-corp
 
-# Force revalidation for all assets to avoid stale cache issues
-/js/*
-  Cache-Control: public, max-age=0, must-revalidate
-/pkg/*
-  Cache-Control: public, max-age=0, must-revalidate
+# index.html is the unhashed entry point: always revalidate so a new deploy is
+# picked up immediately (it references the new ?v= asset URLs).
 /index.html
   Cache-Control: public, max-age=0, must-revalidate
+
+# Everything under /js and /pkg is requested with a ?v=<git-sha> query that
+# changes every build, so each build is a distinct URL — cache it immutably.
+# This keeps the JS glue and the wasm binary in lockstep: for a given ?v= the
+# bytes never change, so a cached glue can never be relinked against a newer
+# wasm (the wasm-bindgen LinkError failure mode). A new build changes
+# index.html's ?v= and pulls a fresh, consistent set.
+/js/*
+  Cache-Control: public, max-age=31536000, immutable
+/pkg/*
+  Cache-Control: public, max-age=31536000, immutable
