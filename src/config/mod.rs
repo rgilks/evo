@@ -17,7 +17,7 @@ pub struct PhysicsConfig {
     pub boundary_margin: f32,
     pub interaction_radius_offset: f32,
     pub velocity_bounce_factor: f32,
-    pub center_pressure_strength: f32,
+    pub edge_repulsion_strength: f32,
     pub particle_force_scale: f32,
     pub particle_friction: f32,
 }
@@ -70,7 +70,7 @@ impl Default for SimulationConfig {
                 boundary_margin: 5.0,
                 interaction_radius_offset: 6.0,
                 velocity_bounce_factor: 0.8,
-                center_pressure_strength: 0.3,
+                edge_repulsion_strength: 0.3,
                 particle_force_scale: 0.15,
                 particle_friction: 0.95,
             },

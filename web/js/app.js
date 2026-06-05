@@ -22,7 +22,7 @@ const DEFAULT_CONFIG = {
     boundary_margin: 5.0,
     interaction_radius_offset: 6.0,
     velocity_bounce_factor: 0.8,
-    center_pressure_strength: 0.3,
+    edge_repulsion_strength: 0.3,
     particle_force_scale: 0.15,
     particle_friction: 0.95,
   },
@@ -214,7 +214,7 @@ class EvolutionApp {
 
     // Parameter sliders
     const velocitySlider = document.getElementById("max-velocity");
-    const pressureSlider = document.getElementById("center-pressure");
+    const pressureSlider = document.getElementById("edge-repulsion");
     const deathSlider = document.getElementById("death-chance");
 
     velocitySlider.addEventListener("input", (e) => {
@@ -226,7 +226,7 @@ class EvolutionApp {
     pressureSlider.addEventListener("input", (e) => {
       const value = parseFloat(e.target.value);
       document.getElementById("pressure-value").textContent = value.toFixed(2);
-      this.simulation.update_param(SimParam.CenterPressure, value);
+      this.simulation.update_param(SimParam.EdgeRepulsion, value);
     });
 
     deathSlider.addEventListener("input", (e) => {

@@ -330,7 +330,7 @@ impl MovementSystem {
         // edges push them back in.
         let half_world = world_size / 2.0;
         let margin = (half_world * 0.4).max(1.0);
-        let strength = config.physics.center_pressure_strength * 12.0;
+        let strength = config.physics.edge_repulsion_strength * 12.0;
 
         // 0 at the margin, 1 at the edge, >1 past it.
         let dist_x = half_world - pos.x.abs();

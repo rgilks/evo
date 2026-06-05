@@ -101,7 +101,7 @@ impl WebSimulation {
         let config = self.simulation.config_mut();
         match param {
             SimParam::MaxVelocity => config.physics.max_velocity = value,
-            SimParam::CenterPressure => config.physics.center_pressure_strength = value,
+            SimParam::EdgeRepulsion => config.physics.edge_repulsion_strength = value,
             SimParam::DeathChance => config.reproduction.death_chance_factor = value,
             SimParam::ReproThreshold => config.reproduction.reproduction_energy_threshold = value,
             SimParam::EnergyCost => config.energy.size_energy_cost_factor = value,
@@ -155,7 +155,7 @@ pub fn init_panic_hook() {
 #[wasm_bindgen]
 pub enum SimParam {
     MaxVelocity,
-    CenterPressure,
+    EdgeRepulsion,
     DeathChance,
     ReproThreshold,
     EnergyCost,

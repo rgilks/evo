@@ -15,7 +15,7 @@ fn test_default_config() {
     assert_eq!(config.physics.boundary_margin, 5.0);
     assert_eq!(config.physics.interaction_radius_offset, 6.0);
     assert_eq!(config.physics.velocity_bounce_factor, 0.8);
-    assert_eq!(config.physics.center_pressure_strength, 0.3);
+    assert_eq!(config.physics.edge_repulsion_strength, 0.3);
     assert_eq!(config.physics.particle_force_scale, 0.15);
     assert_eq!(config.physics.particle_friction, 0.95);
     assert_eq!(config.energy.size_energy_cost_factor, 0.15);
@@ -60,7 +60,7 @@ fn test_custom_config_values() {
     config.physics.boundary_margin = 10.0;
     config.physics.interaction_radius_offset = 20.0;
     config.physics.velocity_bounce_factor = 0.9;
-    config.physics.center_pressure_strength = 1.0;
+    config.physics.edge_repulsion_strength = 1.0;
     config.physics.particle_force_scale = 0.5;
     config.physics.particle_friction = 0.9;
     config.energy.size_energy_cost_factor = 0.2;
@@ -85,7 +85,7 @@ fn test_custom_config_values() {
     assert_eq!(config.physics.boundary_margin, 10.0);
     assert_eq!(config.physics.interaction_radius_offset, 20.0);
     assert_eq!(config.physics.velocity_bounce_factor, 0.9);
-    assert_eq!(config.physics.center_pressure_strength, 1.0);
+    assert_eq!(config.physics.edge_repulsion_strength, 1.0);
     assert_eq!(config.physics.particle_force_scale, 0.5);
     assert_eq!(config.physics.particle_friction, 0.9);
     assert_eq!(config.energy.size_energy_cost_factor, 0.2);
