@@ -590,7 +590,7 @@ fn test_entity_position_distribution() {
     let mut total_y = 0.0;
     let mut count = 0;
 
-    for (_, (pos,)) in world.query::<(&Position,)>().iter() {
+    for pos in world.query::<&Position>().iter() {
         total_x += pos.x;
         total_y += pos.y;
         count += 1;

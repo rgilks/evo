@@ -397,7 +397,7 @@ fn test_in_place_update_persists_and_moves_entities() {
     // Snapshot starting positions keyed by stable entity id.
     let start: std::collections::HashMap<_, _> = sim
         .world
-        .query::<&Position>()
+        .query::<(Entity, &Position)>()
         .iter()
         .map(|(e, p)| (e, (p.x, p.y)))
         .collect();
@@ -410,7 +410,7 @@ fn test_in_place_update_persists_and_moves_entities() {
     // Survivors keep their ids (no respawn churn) and at least one moved in place.
     let mut survivors = 0;
     let mut moved = 0;
-    for (entity, pos) in sim.world.query::<&Position>().iter() {
+    for (entity, pos) in sim.world.query::<(Entity, &Position)>().iter() {
         if let Some(&(sx, sy)) = start.get(&entity) {
             survivors += 1;
             assert!(pos.x.is_finite() && pos.y.is_finite());
@@ -458,7 +458,7 @@ fn test_same_seed_produces_identical_runs() {
         }
         let mut state: Vec<(u64, u32, u32)> = sim
             .world()
-            .query::<&Position>()
+            .query::<(Entity, &Position)>()
             .iter()
             .map(|(e, p)| (e.to_bits().get(), p.x.to_bits(), p.y.to_bits()))
             .collect();

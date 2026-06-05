@@ -64,7 +64,7 @@ impl SimulationStats {
     fn classify_entities(world: &World) -> HashMap<EntityType, usize> {
         let mut counts = HashMap::new();
 
-        for (_, (genes,)) in world.query::<(&Genes,)>().iter() {
+        for genes in world.query::<&Genes>().iter() {
             let color = genes.get_color();
             let entity_type = Self::classify_by_color(&color);
             *counts.entry(entity_type).or_insert(0) += 1;
@@ -113,12 +113,12 @@ impl SimulationStats {
         }
 
         let gene_stats = world
-            .query::<(&Genes,)>()
+            .query::<&Genes>()
             .iter()
             .par_bridge()
             .fold(
                 || [0.0f32; 5], // [speed, sense, efficiency, repro, size]
-                |mut stats, (_, (genes,))| {
+                |mut stats, genes| {
                     stats[0] += genes.speed();
                     stats[1] += genes.sense_radius();
                     stats[2] += genes.energy_efficiency();
@@ -138,10 +138,10 @@ impl SimulationStats {
             );
 
         let avg_energy = world
-            .query::<(&Energy,)>()
+            .query::<&Energy>()
             .iter()
             .par_bridge()
-            .map(|(_, (energy,))| energy.current)
+            .map(|energy| energy.current)
             .sum::<f32>()
             / total_entities as f32;
 
@@ -161,12 +161,12 @@ impl SimulationStats {
         }
 
         let (sum_x, sum_y) = world
-            .query::<(&Position,)>()
+            .query::<&Position>()
             .iter()
             .par_bridge()
             .fold(
                 || (0.0f32, 0.0f32),
-                |(sum_x, sum_y), (_, (pos,))| (sum_x + pos.x, sum_y + pos.y),
+                |(sum_x, sum_y), pos| (sum_x + pos.x, sum_y + pos.y),
             )
             .reduce(
                 || (0.0f32, 0.0f32),
