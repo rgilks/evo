@@ -11,6 +11,7 @@ impl crate::systems::System for MovementSystem {
     fn run(&self, ctx: &mut crate::systems::EntityContext) {
         self.update_movement(MovementUpdateParams {
             genes: ctx.genes,
+            size: ctx.size,
             new_pos: &mut ctx.new_pos,
             new_velocity: &mut ctx.new_velocity,
             new_energy: &mut ctx.new_energy,
@@ -33,6 +34,7 @@ impl crate::systems::System for MovementSystem {
 
 pub struct MovementUpdateParams<'a> {
     pub genes: &'a Genes,
+    pub size: &'a Size,
     pub new_pos: &'a mut Position,
     pub new_velocity: &'a mut Velocity,
     pub new_energy: &'a mut f32,
@@ -49,6 +51,7 @@ impl MovementSystem {
     pub fn update_movement(&self, params: MovementUpdateParams) {
         let MovementUpdateParams {
             genes,
+            size,
             new_pos,
             new_velocity,
             new_energy,
@@ -106,10 +109,10 @@ impl MovementSystem {
                 particle_force_x += (dx / distance) * strength;
                 particle_force_y += (dy / distance) * strength;
 
-                // 2. Movement Targets (Predatory/Grazing logic)
-                if n.energy.current > 0.0 && genes.can_eat(&n.genes, &n.size, &Size { radius: 1.0 })
-                {
-                    // Simplified self size check for target finding
+                // 2. Movement Targets (Predatory/Grazing logic). Use this
+                // creature's real size so "what I chase" matches "what I can eat"
+                // in the interaction system.
+                if n.energy.current > 0.0 && genes.can_eat(&n.genes, &n.size, size) {
                     let preference = genes.get_predation_preference(&n.genes);
                     if preference > best_preference {
                         target_x = n.pos.x;

@@ -25,6 +25,7 @@ fn test_movement_system_update_movement() {
 
     system.update_movement(MovementUpdateParams {
         genes: &genes,
+        size: &Size { radius: 5.0 },
         new_pos: &mut new_pos,
         new_velocity: &mut new_velocity,
         new_energy: &mut new_energy,
@@ -128,6 +129,7 @@ fn test_movement_system_with_target() {
 
     system.update_movement(MovementUpdateParams {
         genes: &genes,
+        size: &Size { radius: 5.0 },
         new_pos: &mut new_pos,
         new_velocity: &mut new_velocity,
         new_energy: &mut new_energy,
@@ -175,6 +177,7 @@ fn test_movement_drift_analysis() {
     // Run movement update with no nearby entities
     movement_system.update_movement(MovementUpdateParams {
         genes: &Genes::new_random(&mut thread_rng()),
+        size: &Size { radius: 5.0 },
         new_pos: &mut pos,
         new_velocity: &mut velocity,
         new_energy: &mut energy,
@@ -281,6 +284,7 @@ fn test_velocity_distribution_analysis() {
 
         movement_system.update_movement(MovementUpdateParams {
             genes: &Genes::new_random(&mut thread_rng()),
+            size: &Size { radius: 5.0 },
             new_pos: &mut pos,
             new_velocity: &mut velocity,
             new_energy: &mut energy,
@@ -398,6 +402,7 @@ fn test_movement_target_bias() {
 
     movement_system.update_movement(MovementUpdateParams {
         genes: &Genes::new_random(&mut thread_rng()),
+        size: &Size { radius: 5.0 },
         new_pos: &mut pos,
         new_velocity: &mut velocity,
         new_energy: &mut energy,
@@ -470,6 +475,7 @@ fn test_long_term_drift_simulation() {
 
         movement_system.update_movement(MovementUpdateParams {
             genes: &Genes::new_random(&mut thread_rng()),
+            size: &Size { radius: 5.0 },
             new_pos: &mut pos,
             new_velocity: &mut velocity,
             new_energy: &mut energy,
