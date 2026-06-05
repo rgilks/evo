@@ -42,6 +42,10 @@ const DEFAULT_CONFIG = {
   },
 };
 
+// Serialized once at module load — the config is constant, so init() and reset()
+// reuse it instead of re-stringifying on every (re)construction.
+const CONFIG_JSON = JSON.stringify(DEFAULT_CONFIG);
+
 class EvolutionApp {
   constructor() {
     this.simulation = null;
@@ -85,22 +89,9 @@ class EvolutionApp {
       // Initialize thread pool
       await initThreadPool(navigator.hardwareConcurrency);
 
-      // Get canvas and make it full-screen
+      // Get the canvas and build the simulation (sizing + seed in one place).
       this.canvas = document.getElementById("simulation-canvas");
-      this.canvas.width = window.innerWidth;
-      this.canvas.height = window.innerHeight;
-
-      const configJson = JSON.stringify(DEFAULT_CONFIG);
-      console.log("Config being passed to WebSimulation:", configJson);
-      // Honour the seed box, which is prefilled with a curated seed that reliably
-      // produces bold, roaming clusters. Clear it (or change it) for a different run.
-      const worldSize = Math.max(this.canvas.width, this.canvas.height);
-      const seedText = document.getElementById("seed-input")?.value.trim();
-      const seed = seedText ? Number(seedText) : NaN;
-      this.simulation = Number.isFinite(seed)
-        ? WebSimulation.with_seed(worldSize, configJson, seed)
-        : new WebSimulation(worldSize, configJson);
-      this.updateSeedDisplay();
+      this.createSimulation();
 
       // Initialize WebGPU renderer (required - no fallback)
       if (!navigator.gpu) {
@@ -341,20 +332,23 @@ class EvolutionApp {
     });
   }
 
-  reset() {
-    // Get canvas and make it full-screen
-    const canvas = document.getElementById("simulation-canvas");
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-
-    const worldSize = Math.max(canvas.width, canvas.height);
-    const configJson = JSON.stringify(DEFAULT_CONFIG);
+  // Size the canvas to the window and build a fresh simulation. The seed box, if
+  // set, reproduces a specific run; empty means a wall-clock seed. Shared by
+  // init() and reset() so construction lives in one place.
+  createSimulation() {
+    this.canvas.width = window.innerWidth;
+    this.canvas.height = window.innerHeight;
+    const worldSize = Math.max(this.canvas.width, this.canvas.height);
     const seedText = document.getElementById("seed-input")?.value.trim();
     const seed = seedText ? Number(seedText) : NaN;
     this.simulation = Number.isFinite(seed)
-      ? WebSimulation.with_seed(worldSize, configJson, seed)
-      : new WebSimulation(worldSize, configJson);
+      ? WebSimulation.with_seed(worldSize, CONFIG_JSON, seed)
+      : new WebSimulation(worldSize, CONFIG_JSON);
     this.updateSeedDisplay();
+  }
+
+  reset() {
+    this.createSimulation();
     this.updateStats();
   }
 
