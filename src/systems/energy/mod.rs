@@ -45,16 +45,14 @@ impl EnergySystem {
         config: &SimulationConfig,
     ) {
         let size_energy_cost = size.radius * config.energy.size_energy_cost_factor;
-        let predator_tax = if matches!(
-            genes.behavior.movement_style.style,
-            MovementType::Predatory
-        ) {
+        let predator_tax = if matches!(genes.behavior.movement_style.style, MovementType::Predatory)
+        {
             config.energy.predator_upkeep
         } else {
             0.0
         };
-        *new_energy -=
-            (genes.energy_loss_rate() + size_energy_cost + predator_tax) / genes.energy_efficiency();
+        *new_energy -= (genes.energy_loss_rate() + size_energy_cost + predator_tax)
+            / genes.energy_efficiency();
     }
 
     /// Direct primary-production + metabolism step, used by tests that exercise

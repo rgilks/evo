@@ -64,10 +64,6 @@ pub struct Simulation {
     interaction_system: InteractionSystem,
     energy_system: EnergySystem,
     reproduction_system: ReproductionSystem,
-
-    /// THROWAWAY instrumentation (tests only): predation events in the last tick.
-    #[cfg(test)]
-    pub(crate) last_eaten: usize,
 }
 
 struct ProcessEntityParams<'a> {
@@ -123,8 +119,6 @@ impl Simulation {
             interaction_system: InteractionSystem,
             energy_system: EnergySystem,
             reproduction_system: ReproductionSystem,
-            #[cfg(test)]
-            last_eaten: 0,
         }
     }
 
@@ -293,8 +287,7 @@ impl Simulation {
 
     /// The initial population density (used to seed the crowding pressure).
     fn initial_density(config: &SimulationConfig) -> f32 {
-        let initial =
-            config.population.initial_entities as f32 * config.population.entity_scale;
+        let initial = config.population.initial_entities as f32 * config.population.entity_scale;
         let cap = config.population.max_population as f32 * config.population.entity_scale;
         if cap > 0.0 {
             initial / cap
@@ -477,10 +470,6 @@ impl Simulation {
         // Entities eaten by a predator this tick are removed. Collect them first
         // so they are neither updated in place nor allowed to reproduce.
         let eaten: HashSet<Entity> = updates.iter().filter_map(|u| u.eaten_entity).collect();
-        #[cfg(test)]
-        {
-            self.last_eaten = eaten.len();
-        }
 
         // Collect deaths and queue offspring (read-only over self and the world).
         let mut dead: Vec<Entity> = Vec::new();
@@ -626,6 +615,3 @@ impl Simulation {
 
 #[cfg(test)]
 mod tests;
-
-#[cfg(test)]
-mod dynamics_probe;

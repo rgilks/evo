@@ -150,7 +150,7 @@ impl ReproductionSystem {
         rng: &mut impl Rng,
     ) -> bool {
         let floor = config.reproduction.death_floor_density;
-        let band = (floor).max(0.001); // ramp over one floor-width above the floor
+        let band = floor.max(0.001); // ramp over one floor-width above the floor
         let gate = ((live_density - floor) / band).clamp(0.0, 1.0);
         let gate = gate * gate * (3.0 - 2.0 * gate); // smoothstep
         let death_chance = pressure * config.reproduction.death_chance_factor * gate;

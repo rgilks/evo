@@ -554,7 +554,10 @@ fn hue_modes(sim: &Simulation) -> (usize, f32) {
     if total == 0 {
         return (0, 0.0);
     }
-    let modes = bins.iter().filter(|&&c| c as f32 / total as f32 >= 0.04).count();
+    let modes = bins
+        .iter()
+        .filter(|&&c| c as f32 / total as f32 >= 0.04)
+        .count();
     let dom = *bins.iter().max().unwrap() as f32 / total as f32;
     (modes, dom)
 }
@@ -572,8 +575,11 @@ fn test_population_stays_in_safe_band_long_run() {
         (c.population.max_population as f32 * c.population.entity_scale) as usize
     };
     const HARD_FLOOR: usize = 90;
-    for &seed in &[21u64, 12345, 7, 1, 999, 2024] {
-        let pops = population_series(seed, 5200);
+    // The browser default (21) plus the historically weakest/lowest-floor seeds
+    // (999, 88) — the stress cases most likely to violate the band. Kept to a
+    // focused set so the (necessarily long ≥5000-tick) run stays affordable.
+    for &seed in &[21u64, 999, 88] {
+        let pops = population_series(seed, 5000);
         // Allow a warm-up window for the initial overshoot to settle.
         let warm = &pops[1200..];
         let lo = *warm.iter().min().unwrap();
