@@ -105,15 +105,17 @@ digraph SystemOverview {
       label=<
         <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
           <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="17" COLOR="#5f3b8a"><B>GPU RENDERING (WEBGPU)</B></FONT></TD></TR>
-          <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="12" COLOR="#6d4d8d">Instanced draw; interpolation and camera run on the GPU.</FONT></TD></TR>
+          <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="12" COLOR="#6d4d8d">Instanced draw into an HDR target, then a bloom post-process composites to the canvas.</FONT></TD></TR>
         </TABLE>
       >,
       labelloc=t, labeljust=l,
       color="#d6c6ee", fillcolor="#fbf8ff", style="rounded,filled", penwidth=1.8, margin=22
     ];
-    G1 [label=<<B>WebGpuRenderer</B><BR/><FONT POINT-SIZE="15">one instanced draw of a unit quad</FONT>>, fillcolor="#f5f3ff:#ffffff", color="#7c3aed"];
-    G2 [label=<<B>shader.wgsl</B><BR/><FONT POINT-SIZE="15">interpolate prev→cur · camera · glow</FONT>>, fillcolor="#f5f3ff:#ffffff", color="#7c3aed"];
+    G1 [label=<<B>WebGpuRenderer</B><BR/><FONT POINT-SIZE="15">instanced draw → HDR scene target (additive)</FONT>>, fillcolor="#f5f3ff:#ffffff", color="#7c3aed"];
+    G2 [label=<<B>shader.wgsl</B><BR/><FONT POINT-SIZE="15">interpolate prev→cur · camera · additive core+halo</FONT>>, fillcolor="#f5f3ff:#ffffff", color="#7c3aed"];
+    G3 [label=<<B>postprocess.rs · post.wgsl</B><BR/><FONT POINT-SIZE="15">bright-pass → Gaussian blur → tonemap composite</FONT>>, fillcolor="#f5f3ff:#ffffff", color="#7c3aed"];
     G1 -> G2 [label="pipeline"];
+    G2 -> G3 [label="HDR scene"];
   }
 
   // ---- Output ----
@@ -133,5 +135,5 @@ digraph SystemOverview {
 
   B1 -> G1 [lhead=cluster_gpu, label="render(ptr, count, camera)"];
   C1 -> G1 [label="update_entity_buffer() → *const f32", color="#6b7280", fontcolor="#6b7280", style=dashed];
-  G2 -> CANVAS [ltail=cluster_gpu, label="draw"];
+  G3 -> CANVAS [ltail=cluster_gpu, label="composite"];
 }

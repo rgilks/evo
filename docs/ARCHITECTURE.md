@@ -11,7 +11,7 @@
 | Language | Rust (edition 2021) | ~5,400 lines across `src/` (about 3,150 excluding tests) |
 | ECS | `hecs` 0.9 | Lightweight archetypal ECS; systems are hand-orchestrated (no scheduler) |
 | Parallelism | `rayon` | Parallel per-entity processing over ECS queries |
-| Rendering | `wgpu` 24 (WebGPU) | Instanced quads with a glow shader |
+| Rendering | `wgpu` 24 (WebGPU) | Instanced quads → HDR scene target → bloom post-process |
 | In-browser threads | `wasm-bindgen-rayon` + `SharedArrayBuffer` | Requires cross-origin-isolation headers |
 | Toolchain | nightly-2024-08-02 | Needed for `-Z build-std` (atomics-enabled `std` for WASM threads) |
 | Host | Cloudflare Pages | Static `web/` directory served with `_headers` |
@@ -30,8 +30,9 @@ src/
 ├── spatial_grid.rs     # Spatial hash (cells → entities) for neighbour queries
 ├── systems/            # movement/, interaction/ (predation), energy, reproduction
 ├── stats/              # Population statistics, serialized to JS
-├── web/                # WebGPU renderer (wasm32-only)
-└── shader.wgsl         # Vertex (interpolation + camera) + fragment (glow) shaders
+├── web/                # WebGPU renderer + bloom post-process (wasm32-only)
+├── shader.wgsl         # Particle shader: vertex (interpolation + camera) + fragment (additive glow)
+└── post.wgsl           # Bloom: bright-pass → Gaussian blur → tonemapped composite
 web/                    # Static frontend (index.html, js/app.js, _headers) — the deploy root
 scripts/                # build-web.sh (wasm-pack + cache-busting), setup.sh
 ```
@@ -90,8 +91,9 @@ The CPU never builds vertex geometry per entity. Instead:
 
 1. `WebSimulation::update_entity_buffer()` ([src/lib.rs](../src/lib.rs)) flattens every entity into a packed `f32` buffer — **8 floats each**: `prev_x, prev_y, x, y, radius, r, g, b` — and returns a raw pointer into WASM linear memory (zero-copy).
 2. `entity_count()` returns `buffer.len() / 8`.
-3. The renderer ([src/web/webgpu.rs](../src/web/webgpu.rs)) reinterprets that slice directly as `&[Instance]` (`bytemuck::cast_slice` — the layouts are identical, so there's no per-frame copy), uploads it to a growable instance buffer, and issues a single instanced draw of a unit quad.
-4. `shader.wgsl` does the heavy lifting on the GPU: it interpolates between `prev` and current position for smooth motion between sim steps, applies the world→screen + camera (zoom/pan) transform, and draws a multi-layer glow in the fragment stage.
+3. The renderer ([src/web/webgpu.rs](../src/web/webgpu.rs)) reinterprets that slice directly as `&[Instance]` (`bytemuck::cast_slice` — the layouts are identical, so there's no per-frame copy), uploads it to a growable instance buffer, and issues a single instanced draw of a unit quad into an **HDR (`rgba16float`) scene target with additive blending**, so overlapping creatures accumulate brightness past 1.0.
+4. `shader.wgsl` does the heavy lifting on the GPU: it interpolates between `prev` and current position for smooth motion between sim steps, applies the world→screen + camera (zoom/pan) transform, and emits an additive bright core + soft halo in the fragment stage.
+5. A bloom post-process ([src/web/postprocess.rs](../src/web/postprocess.rs), `post.wgsl`) turns the HDR scene into the final frame: a **bright-pass** isolates the glowing regions, a **separable Gaussian blur** at quarter resolution widens them, and a **tonemapped composite** adds the bloom back over the scene and maps it into the swapchain. Each pass draws one fullscreen triangle.
 
 ## Threading & WASM
 
