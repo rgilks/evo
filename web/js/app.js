@@ -69,6 +69,11 @@ class EvolutionApp {
     this.lastTime = 0;
     this.frameCount = 0;
     this.fps = 0;
+    // Render-upload gating: the instance buffer is repacked only when the sim
+    // step advances (see render()); other frames re-use the cached pointer.
+    this.lastRenderedStep = -1;
+    this.entityPtr = 0;
+    this.entityCount = 0;
     // Simulation ticks per second. The renderer runs at full refresh rate and
     // interpolates between ticks, so a low sim rate gives smooth, fluid, slow
     // motion (and far less birth/death flicker) rather than 60 jumps a second.
@@ -210,10 +215,12 @@ class EvolutionApp {
     // touching the (deliberately gradual) ecosystem balance.
     document.getElementById("cull").addEventListener("click", () => {
       this.simulation.cull(0.5);
+      this.lastRenderedStep = -1; // force a repack so the change shows at once
       this.updateStats();
     });
     document.getElementById("bloom").addEventListener("click", () => {
       this.simulation.bloom(500);
+      this.lastRenderedStep = -1;
       this.updateStats();
     });
 
@@ -307,6 +314,7 @@ class EvolutionApp {
       ? WebSimulation.with_seed(worldSize, CONFIG_JSON, seed)
       : new WebSimulation(worldSize, CONFIG_JSON);
     this.updateSeedDisplay();
+    this.lastRenderedStep = -1; // fresh sim — force a repack on the next frame
   }
 
   reset() {
@@ -350,26 +358,33 @@ class EvolutionApp {
   }
 
   render() {
-    if (this.simulation && this.renderer) {
-      const entityPtr = this.simulation.update_entity_buffer();
-      const entityCount = this.simulation.entity_count();
-      const worldSize = this.simulation.get_world_size();
+    if (!this.simulation || !this.renderer) return;
 
-      // Calculate interpolation factor
-      const targetInterval = 1000 / this.targetFPS;
-      const currentTime = performance.now();
-      const interpolationFactor = Math.min(1.0, (currentTime - this.lastUpdateTime) / targetInterval);
-
-      this.renderer.render(
-        entityPtr,
-        entityCount,
-        worldSize,
-        interpolationFactor,
-        this.camera.zoom,
-        this.camera.x,
-        this.camera.y
-      );
+    // Repack/upload the instance buffer only when the sim actually ticked. On
+    // in-between frames the positions are unchanged — only the interpolation
+    // factor moves — so the cached buffer is re-rendered. cull/bloom/reset set
+    // lastRenderedStep to -1 to force a repack on the next frame.
+    const step = this.simulation.get_step();
+    if (step !== this.lastRenderedStep) {
+      this.entityPtr = this.simulation.update_entity_buffer();
+      this.entityCount = this.simulation.entity_count();
+      this.lastRenderedStep = step;
     }
+
+    const worldSize = this.simulation.get_world_size();
+    const targetInterval = 1000 / this.targetFPS;
+    const currentTime = performance.now();
+    const interpolationFactor = Math.min(1.0, (currentTime - this.lastUpdateTime) / targetInterval);
+
+    this.renderer.render(
+      this.entityPtr,
+      this.entityCount,
+      worldSize,
+      interpolationFactor,
+      this.camera.zoom,
+      this.camera.x,
+      this.camera.y
+    );
   }
 
   updateStats() {
