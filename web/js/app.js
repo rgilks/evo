@@ -46,6 +46,20 @@ const DEFAULT_CONFIG = {
 // reuse it instead of re-stringifying on every (re)construction.
 const CONFIG_JSON = JSON.stringify(DEFAULT_CONFIG);
 
+// Ecosystem + motion sliders, each mapping one DOM slider to one SimParam.
+// Adding a slider is a one-line entry here plus the markup in index.html.
+const SLIDERS = [
+  { id: "max-velocity", valueId: "velocity-value", param: SimParam.MaxVelocity, decimals: 1 },
+  { id: "edge-repulsion", valueId: "pressure-value", param: SimParam.EdgeRepulsion, decimals: 2 },
+  { id: "death-chance", valueId: "death-value", param: SimParam.DeathChance, decimals: 2 },
+  { id: "repro-threshold", valueId: "repro-value", param: SimParam.ReproThreshold, decimals: 2 },
+  { id: "energy-cost", valueId: "energy-value", param: SimParam.EnergyCost, decimals: 2 },
+  { id: "particle-force", valueId: "pforce-value", param: SimParam.ParticleForce, decimals: 1 },
+  { id: "particle-friction", valueId: "pfriction-value", param: SimParam.ParticleFriction, decimals: 2 },
+  { id: "ambient-energy", valueId: "food-value", param: SimParam.Food, decimals: 2 },
+  { id: "predation-reach", valueId: "predation-value", param: SimParam.Predation, decimals: 0 },
+];
+
 class EvolutionApp {
   constructor() {
     this.simulation = null;
@@ -203,83 +217,8 @@ class EvolutionApp {
       this.updateStats();
     });
 
-    // Parameter sliders
-    const velocitySlider = document.getElementById("max-velocity");
-    const pressureSlider = document.getElementById("edge-repulsion");
-    const deathSlider = document.getElementById("death-chance");
-
-    velocitySlider.addEventListener("input", (e) => {
-      const value = parseFloat(e.target.value);
-      document.getElementById("velocity-value").textContent = value.toFixed(1);
-      this.simulation.update_param(SimParam.MaxVelocity, value);
-    });
-
-    pressureSlider.addEventListener("input", (e) => {
-      const value = parseFloat(e.target.value);
-      document.getElementById("pressure-value").textContent = value.toFixed(2);
-      this.simulation.update_param(SimParam.EdgeRepulsion, value);
-    });
-
-    deathSlider.addEventListener("input", (e) => {
-      const value = parseFloat(e.target.value);
-      document.getElementById("death-value").textContent = value.toFixed(2);
-      this.simulation.update_param(SimParam.DeathChance, value);
-    });
-
-    // New sliders
-    const reproSlider = document.getElementById("repro-threshold");
-    const energySlider = document.getElementById("energy-cost");
-
-    reproSlider.addEventListener("input", (e) => {
-      const value = parseFloat(e.target.value);
-      document.getElementById("repro-value").textContent = value.toFixed(2);
-      this.simulation.update_param(SimParam.ReproThreshold, value);
-    });
-
-    energySlider.addEventListener("input", (e) => {
-      const value = parseFloat(e.target.value);
-      document.getElementById("energy-value").textContent = value.toFixed(2);
-      this.simulation.update_param(SimParam.EnergyCost, value);
-    });
-
-    const particleForceSlider = document.getElementById("particle-force");
-    const particleFrictionSlider = document.getElementById("particle-friction");
-
-    particleForceSlider.addEventListener("input", (e) => {
-      const value = parseFloat(e.target.value);
-      document.getElementById("pforce-value").textContent = value.toFixed(1);
-      this.simulation.update_param(SimParam.ParticleForce, value);
-    });
-
-    particleFrictionSlider.addEventListener("input", (e) => {
-      const value = parseFloat(e.target.value);
-      document.getElementById("pfriction-value").textContent = value.toFixed(2);
-      this.simulation.update_param(SimParam.ParticleFriction, value);
-    });
-
-    const foodSlider = document.getElementById("ambient-energy");
-    const predationSlider = document.getElementById("predation-reach");
-
-    foodSlider.addEventListener("input", (e) => {
-      const value = parseFloat(e.target.value);
-      document.getElementById("food-value").textContent = value.toFixed(2);
-      this.simulation.update_param(SimParam.Food, value);
-    });
-
-    predationSlider.addEventListener("input", (e) => {
-      const value = parseFloat(e.target.value);
-      document.getElementById("predation-value").textContent = value.toFixed(0);
-      this.simulation.update_param(SimParam.Predation, value);
-    });
-
-    // Sim Speed sets the simulation tick rate (ticks/sec); the renderer keeps
-    // interpolating at full refresh rate, so lower = slower, smoother motion.
-    const simSpeedSlider = document.getElementById("sim-speed");
-    simSpeedSlider.addEventListener("input", (e) => {
-      const value = parseFloat(e.target.value);
-      document.getElementById("sim-speed-value").textContent = value.toFixed(0);
-      this.targetFPS = value;
-    });
+    // Parameter sliders (table-driven — see SLIDERS) plus the sim-speed control.
+    this.setupSliders();
 
     // Keyboard shortcuts (ignored while typing in the seed box)
     document.addEventListener("keydown", (e) => {
@@ -329,6 +268,29 @@ class EvolutionApp {
       if (e.button === 0) {
         this.camera.isPanning = false;
       }
+    });
+  }
+
+  // Wire every parameter slider from the SLIDERS table; the sim-speed slider is
+  // special — it sets the tick rate, not a SimParam.
+  setupSliders() {
+    for (const s of SLIDERS) {
+      const el = document.getElementById(s.id);
+      if (!el) continue;
+      el.addEventListener("input", (e) => {
+        const value = parseFloat(e.target.value);
+        document.getElementById(s.valueId).textContent = value.toFixed(s.decimals);
+        this.simulation.update_param(s.param, value);
+      });
+    }
+
+    // Sim Speed sets the simulation tick rate (ticks/sec); the renderer keeps
+    // interpolating at full refresh rate, so lower = slower, smoother motion.
+    const simSpeedSlider = document.getElementById("sim-speed");
+    simSpeedSlider.addEventListener("input", (e) => {
+      const value = parseFloat(e.target.value);
+      document.getElementById("sim-speed-value").textContent = value.toFixed(0);
+      this.targetFPS = value;
     });
   }
 
