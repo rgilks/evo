@@ -4,7 +4,7 @@ import init, {
   WebGpuRenderer,
   init_panic_hook,
   SimParam,
-} from "../pkg/evo.js?v=9b218cf";
+} from "../pkg/evo.js?v=bab2bc7";
 
 // Shared configuration object - matches the new Rust SimulationConfig structure
 const DEFAULT_CONFIG = {
@@ -212,10 +212,14 @@ class EvolutionApp {
       this.targetFPS = value;
     });
 
-    // Keyboard shortcuts
+    // Keyboard shortcuts (ignored while typing in the seed box)
     document.addEventListener("keydown", (e) => {
+      if (e.target.tagName === "INPUT") return;
       if (e.key === "h" || e.key === "H") {
         this.toggleUI();
+      } else if (e.key === "Escape") {
+        const c = document.querySelector(".container");
+        if (!c.classList.contains("ui-hidden")) this.toggleUI();
       } else if (e.key === "r" || e.key === "R") {
         this.reset();
       }
@@ -260,16 +264,8 @@ class EvolutionApp {
   }
 
   toggleUI() {
-    const container = document.querySelector(".container");
-    const toggleBtn = document.getElementById("toggle-ui");
-
-    if (container.classList.contains("ui-hidden")) {
-      container.classList.remove("ui-hidden");
-      toggleBtn.textContent = "Hide UI";
-    } else {
-      container.classList.add("ui-hidden");
-      toggleBtn.textContent = "Show UI";
-    }
+    // The close (×) and reopen (⋮) buttons are icons, so just flip the class.
+    document.querySelector(".container").classList.toggle("ui-hidden");
   }
 
   reset() {
