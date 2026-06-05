@@ -18,10 +18,11 @@ else
     echo "✅ Rust is already installed"
 fi
 
-# Check if we have the correct toolchain
-if ! rustup show | grep -q "nightly-2024-08-02"; then
-    echo "📦 Installing Rust nightly toolchain..."
-    rustup toolchain install nightly-2024-08-02
+# Check if we have the correct toolchain (single source: rust-toolchain.toml)
+TOOLCHAIN=$(grep '^channel' rust-toolchain.toml | sed -E 's/.*"(.*)".*/\1/')
+if ! rustup show | grep -q "$TOOLCHAIN"; then
+    echo "📦 Installing Rust $TOOLCHAIN toolchain..."
+    rustup toolchain install "$TOOLCHAIN"
 fi
 
 # Check if wasm-pack is installed

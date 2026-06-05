@@ -20,6 +20,7 @@ jobs:
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@master
         with:
+          # Keep in sync with rust-toolchain.toml — build-std needs this exact nightly.
           toolchain: nightly-2024-08-02
           targets: wasm32-unknown-unknown
           components: rustfmt, clippy
@@ -60,6 +61,7 @@ jobs:
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@master
         with:
+          # Keep in sync with rust-toolchain.toml — build-std needs this exact nightly.
           toolchain: nightly-2024-08-02
           targets: wasm32-unknown-unknown
 
