@@ -236,8 +236,8 @@ impl MovementSystem {
         let grazing_speed = genes.speed() * 0.6;
 
         // Add some gentle random movement
-        let angle = rng.gen_range(0.0..std::f32::consts::TAU);
-        let speed_variation = rng.gen_range(0.8..1.2);
+        let angle = rng.random_range(0.0..std::f32::consts::TAU);
+        let speed_variation = rng.random_range(0.8..1.2);
 
         new_velocity.x = angle.cos() * grazing_speed * speed_variation;
         new_velocity.y = angle.sin() * grazing_speed * speed_variation;
@@ -269,7 +269,7 @@ impl MovementSystem {
         config: &SimulationConfig,
         rng: &mut FastRng,
     ) {
-        let speed_variation = rng.gen_range(0.8..1.2);
+        let speed_variation = rng.random_range(0.8..1.2);
         let speed = genes.speed() * speed_variation;
 
         // Generate random direction using uniform distribution in a circle
@@ -282,8 +282,8 @@ impl MovementSystem {
 
     fn generate_random_direction(&self, rng: &mut FastRng) -> (f32, f32) {
         loop {
-            let dx = rng.gen_range(-1.0f32..1.0);
-            let dy = rng.gen_range(-1.0f32..1.0);
+            let dx = rng.random_range(-1.0f32..1.0);
+            let dy = rng.random_range(-1.0f32..1.0);
             let length_sq = dx * dx + dy * dy;
             if length_sq <= 1.0 && length_sq > 0.0 {
                 // Normalize to unit vector

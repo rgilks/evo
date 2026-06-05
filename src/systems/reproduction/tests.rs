@@ -2,14 +2,14 @@ use super::*;
 use crate::components::Position;
 use crate::config::SimulationConfig;
 use crate::genes::Genes;
-use rand::thread_rng;
+use rand::rng;
 
 #[test]
 fn test_reproduction_system_check_reproduction() {
     let system = ReproductionSystem;
     let energy = 90.0;
     let max_energy = 100.0;
-    let mut rng = thread_rng();
+    let mut rng = rng();
     let genes = Genes::new_random(&mut rng);
     let population_density = 0.1; // Low density for higher reproduction chance
     let config = SimulationConfig::default();
@@ -27,7 +27,7 @@ fn test_reproduction_system_check_reproduction() {
 #[test]
 fn test_reproduction_system_create_offspring() {
     let system = ReproductionSystem;
-    let mut rng = thread_rng();
+    let mut rng = rng();
     let parent_genes = Genes::new_random(&mut rng);
     let parent_energy_max = 100.0;
     let parent_pos = Position { x: 0.0, y: 0.0 };
@@ -68,7 +68,7 @@ fn test_reproduction_system_check_death() {
     let system = ReproductionSystem;
     let population_density = 0.9; // High density
     let config = SimulationConfig::default();
-    let mut rng = thread_rng();
+    let mut rng = rng();
 
     let _should_die = system.check_death(population_density, &config, &mut rng);
 }
@@ -78,7 +78,7 @@ fn test_reproduction_system_low_energy() {
     let system = ReproductionSystem;
     let energy = 10.0;
     let max_energy = 100.0;
-    let mut rng = thread_rng();
+    let mut rng = rng();
     let genes = Genes::new_random(&mut rng);
     let population_density = 0.1; // Low density
     let config = SimulationConfig::default();

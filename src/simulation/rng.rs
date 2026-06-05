@@ -4,7 +4,7 @@
 //! (see ARCHITECTURE). `mix_seed` derives a well-distributed per-entity/per-tick
 //! stream seed; `generate_particle_matrix` builds the per-seed interaction matrix.
 
-use rand::{Error, Rng, RngCore, SeedableRng};
+use rand::{Rng, RngCore, SeedableRng};
 
 /// Default seed used by the native/test path so runs are reproducible. The
 /// browser seeds from the wall clock for per-load variety (see lib.rs).
@@ -16,7 +16,7 @@ const SPLITMIX_GAMMA: u64 = 0x9E37_79B9_7F4A_7C15;
 /// A tiny, fast, seedable PRNG (SplitMix64) used for all of the simulation's
 /// hot-loop randomness. State is a single `u64`: each draw advances by the
 /// golden-ratio gamma and runs a splitmix64 finaliser, which is well enough
-/// distributed for `gen_range` / `gen::<f32>()` while being far cheaper than
+/// distributed for `random_range` / `random::<f32>()` while being far cheaper than
 /// `StdRng`. Seeding is deterministic, so a run reproduces exactly from its seed.
 #[derive(Clone)]
 pub(crate) struct FastRng {
@@ -74,11 +74,6 @@ impl RngCore for FastRng {
             rem.copy_from_slice(&bytes[..rem.len()]);
         }
     }
-
-    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), Error> {
-        self.fill_bytes(dest);
-        Ok(())
-    }
 }
 
 /// Salt mixed into offspring RNG so a parent's reproduction stream is distinct
@@ -114,7 +109,7 @@ pub fn generate_particle_matrix(seed: u64) -> [[f32; 6]; 6] {
     let mut matrix = [[0.0f32; 6]; 6];
     for row in matrix.iter_mut() {
         for weight in row.iter_mut() {
-            *weight = rng.gen_range(-1.0..1.0);
+            *weight = rng.random_range(-1.0..1.0);
         }
     }
     matrix

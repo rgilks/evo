@@ -5,6 +5,9 @@
 # This flag set mirrors wasm-bindgen's own threading reference build. `-Z build-std`
 # (atomics-enabled std) is supplied via CARGO_UNSTABLE_BUILD_STD in the build script/CI.
 rustflags = [
+    # getrandom 0.3 needs an explicit backend selected for wasm32-unknown-unknown
+    # (rand 0.9 pulls it in); `wasm_js` routes entropy through the JS crypto API.
+    "--cfg", "getrandom_backend=\"wasm_js\"",
     "-C", "target-feature=+atomics,+bulk-memory",
     "-C", "link-arg=--shared-memory",
     "-C", "link-arg=--max-memory=1073741824",

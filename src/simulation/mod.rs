@@ -109,13 +109,13 @@ impl Simulation {
             let mut rng = FastRng::seed_from_u64(mix_seed(seed, i as u64, 0));
 
             // Use perfectly uniform distribution in a circle
-            let angle = rng.gen_range(0.0..std::f32::consts::TAU);
-            let distance = spawn_radius * rng.gen::<f32>().sqrt(); // Square root for uniform distribution
+            let angle = rng.random_range(0.0..std::f32::consts::TAU);
+            let distance = spawn_radius * rng.random::<f32>().sqrt(); // Square root for uniform distribution
             let x = distance * angle.cos();
             let y = distance * angle.sin();
 
             let genes = Genes::new_random(&mut rng);
-            let energy = rng.gen_range(15.0..75.0);
+            let energy = rng.random_range(15.0..75.0);
 
             world.spawn(creature_bundle(
                 Position { x, y },
@@ -142,7 +142,7 @@ impl Simulation {
             .query::<&Position>()
             .iter()
             .map(|(entity, _)| entity)
-            .filter(|_| rng.gen::<f32>() < frac)
+            .filter(|_| rng.random::<f32>() < frac)
             .collect();
         for entity in doomed {
             let _ = self.world.despawn(entity);
@@ -163,10 +163,10 @@ impl Simulation {
                 BLOOM_SALT ^ i as u64,
                 self.step as u64,
             ));
-            let angle = rng.gen_range(0.0..std::f32::consts::TAU);
-            let distance = spawn_radius * rng.gen::<f32>().sqrt();
+            let angle = rng.random_range(0.0..std::f32::consts::TAU);
+            let distance = spawn_radius * rng.random::<f32>().sqrt();
             let genes = Genes::new_random(&mut rng);
-            let energy = rng.gen_range(15.0..75.0);
+            let energy = rng.random_range(15.0..75.0);
             self.world.spawn(creature_bundle(
                 Position {
                     x: distance * angle.cos(),

@@ -16,8 +16,8 @@ crate-type = ["cdylib"]
 # Core simulation
 hecs = "0.9"
 rayon = "1.8"
-rand = { version = "0.8", features = ["getrandom"] }
-getrandom = { version = "0.2", features = ["js"] }
+rand = "0.9"
+getrandom = { version = "0.3", features = ["wasm_js"] }
 
 # Graphics — WebGPU only (renderer targets BROWSER_WEBGPU; no WebGL fallback)
 wgpu = "24.0"

@@ -48,7 +48,7 @@ pub struct Genes {
 
 impl Genes {
     pub fn new_random(rng: &mut impl Rng) -> Self {
-        let movement_type = match rng.gen_range(0..5) {
+        let movement_type = match rng.random_range(0..5) {
             0 => MovementType::Random,
             1 => MovementType::Flocking,
             2 => MovementType::Solitary,
@@ -58,33 +58,33 @@ impl Genes {
 
         Self {
             movement: MovementGenes {
-                speed: rng.gen_range(0.1..2.5),
-                sense_radius: rng.gen_range(5.0..150.0),
+                speed: rng.random_range(0.1..2.5),
+                sense_radius: rng.random_range(5.0..150.0),
             },
             energy: EnergyGenes {
-                efficiency: rng.gen_range(0.3..3.0),
-                loss_rate: rng.gen_range(0.05..2.0),
-                gain_rate: rng.gen_range(0.2..4.5),
-                size_factor: rng.gen_range(0.3..2.5),
+                efficiency: rng.random_range(0.3..3.0),
+                loss_rate: rng.random_range(0.05..2.0),
+                gain_rate: rng.random_range(0.2..4.5),
+                size_factor: rng.random_range(0.3..2.5),
             },
             reproduction: ReproductionGenes {
-                rate: rng.gen_range(0.0005..0.15),
-                mutation_rate: rng.gen_range(0.005..0.15),
+                rate: rng.random_range(0.0005..0.15),
+                mutation_rate: rng.random_range(0.005..0.15),
             },
             appearance: AppearanceGenes {
-                hue: rng.gen_range(0.0..1.0),
-                saturation: rng.gen_range(0.2..1.0),
+                hue: rng.random_range(0.0..1.0),
+                saturation: rng.random_range(0.2..1.0),
             },
             behavior: BehaviorGenes {
                 movement_style: MovementStyle {
                     style: movement_type,
-                    flocking_strength: rng.gen_range(0.0..1.0),
-                    separation_distance: rng.gen_range(5.0..25.0),
-                    alignment_strength: rng.gen_range(0.0..1.0),
-                    cohesion_strength: rng.gen_range(0.0..1.0),
+                    flocking_strength: rng.random_range(0.0..1.0),
+                    separation_distance: rng.random_range(5.0..25.0),
+                    alignment_strength: rng.random_range(0.0..1.0),
+                    cohesion_strength: rng.random_range(0.0..1.0),
                 },
-                gene_preference_strength: rng.gen_range(0.0..1.0),
-                social_tendency: rng.gen_range(0.0..1.0),
+                gene_preference_strength: rng.random_range(0.0..1.0),
+                social_tendency: rng.random_range(0.0..1.0),
             },
         }
     }
@@ -93,88 +93,90 @@ impl Genes {
         let mut new_genes = self.clone();
 
         // Movement mutations
-        if rng.gen::<f32>() < self.reproduction.mutation_rate {
+        if rng.random::<f32>() < self.reproduction.mutation_rate {
             new_genes.movement.speed =
-                (new_genes.movement.speed + rng.gen_range(-0.15..0.15)).clamp(0.05, 3.0);
+                (new_genes.movement.speed + rng.random_range(-0.15..0.15)).clamp(0.05, 3.0);
         }
-        if rng.gen::<f32>() < self.reproduction.mutation_rate {
+        if rng.random::<f32>() < self.reproduction.mutation_rate {
             new_genes.movement.sense_radius =
-                (new_genes.movement.sense_radius + rng.gen_range(-8.0..8.0)).clamp(2.0, 180.0);
+                (new_genes.movement.sense_radius + rng.random_range(-8.0..8.0)).clamp(2.0, 180.0);
         }
 
         // Energy mutations
-        if rng.gen::<f32>() < self.reproduction.mutation_rate {
+        if rng.random::<f32>() < self.reproduction.mutation_rate {
             new_genes.energy.efficiency =
-                (new_genes.energy.efficiency + rng.gen_range(-0.15..0.15)).clamp(0.2, 4.0);
+                (new_genes.energy.efficiency + rng.random_range(-0.15..0.15)).clamp(0.2, 4.0);
         }
-        if rng.gen::<f32>() < self.reproduction.mutation_rate {
+        if rng.random::<f32>() < self.reproduction.mutation_rate {
             new_genes.energy.loss_rate =
-                (new_genes.energy.loss_rate + rng.gen_range(-0.15..0.15)).clamp(0.02, 3.0);
+                (new_genes.energy.loss_rate + rng.random_range(-0.15..0.15)).clamp(0.02, 3.0);
         }
-        if rng.gen::<f32>() < self.reproduction.mutation_rate {
+        if rng.random::<f32>() < self.reproduction.mutation_rate {
             new_genes.energy.gain_rate =
-                (new_genes.energy.gain_rate + rng.gen_range(-0.25..0.25)).clamp(0.1, 5.0);
+                (new_genes.energy.gain_rate + rng.random_range(-0.25..0.25)).clamp(0.1, 5.0);
         }
-        if rng.gen::<f32>() < self.reproduction.mutation_rate {
+        if rng.random::<f32>() < self.reproduction.mutation_rate {
             new_genes.energy.size_factor =
-                (new_genes.energy.size_factor + rng.gen_range(-0.15..0.15)).clamp(0.1, 3.5);
+                (new_genes.energy.size_factor + rng.random_range(-0.15..0.15)).clamp(0.1, 3.5);
         }
 
         // Reproduction mutations
-        if rng.gen::<f32>() < self.reproduction.mutation_rate {
+        if rng.random::<f32>() < self.reproduction.mutation_rate {
             new_genes.reproduction.rate =
-                (new_genes.reproduction.rate + rng.gen_range(-0.025..0.025)).clamp(0.0001, 0.25);
+                (new_genes.reproduction.rate + rng.random_range(-0.025..0.025)).clamp(0.0001, 0.25);
         }
-        if rng.gen::<f32>() < self.reproduction.mutation_rate {
+        if rng.random::<f32>() < self.reproduction.mutation_rate {
             new_genes.reproduction.mutation_rate = (new_genes.reproduction.mutation_rate
-                + rng.gen_range(-0.025..0.025))
+                + rng.random_range(-0.025..0.025))
             .clamp(0.001, 0.25);
         }
 
         // Appearance mutations
-        if rng.gen::<f32>() < self.reproduction.mutation_rate {
+        if rng.random::<f32>() < self.reproduction.mutation_rate {
             new_genes.appearance.hue =
-                (new_genes.appearance.hue + rng.gen_range(-0.1..0.1)).clamp(0.0, 1.0);
+                (new_genes.appearance.hue + rng.random_range(-0.1..0.1)).clamp(0.0, 1.0);
         }
-        if rng.gen::<f32>() < self.reproduction.mutation_rate {
+        if rng.random::<f32>() < self.reproduction.mutation_rate {
             new_genes.appearance.saturation =
-                (new_genes.appearance.saturation + rng.gen_range(-0.1..0.1)).clamp(0.1, 1.0);
+                (new_genes.appearance.saturation + rng.random_range(-0.1..0.1)).clamp(0.1, 1.0);
         }
 
         // Behavior mutations
-        if rng.gen::<f32>() < self.reproduction.mutation_rate {
+        if rng.random::<f32>() < self.reproduction.mutation_rate {
             new_genes.behavior.movement_style.flocking_strength =
-                (new_genes.behavior.movement_style.flocking_strength + rng.gen_range(-0.1..0.1))
+                (new_genes.behavior.movement_style.flocking_strength + rng.random_range(-0.1..0.1))
                     .clamp(0.0, 1.0);
         }
-        if rng.gen::<f32>() < self.reproduction.mutation_rate {
+        if rng.random::<f32>() < self.reproduction.mutation_rate {
             new_genes.behavior.movement_style.separation_distance =
-                (new_genes.behavior.movement_style.separation_distance + rng.gen_range(-2.0..2.0))
-                    .clamp(2.0, 30.0);
+                (new_genes.behavior.movement_style.separation_distance
+                    + rng.random_range(-2.0..2.0))
+                .clamp(2.0, 30.0);
         }
-        if rng.gen::<f32>() < self.reproduction.mutation_rate {
+        if rng.random::<f32>() < self.reproduction.mutation_rate {
             new_genes.behavior.movement_style.alignment_strength =
-                (new_genes.behavior.movement_style.alignment_strength + rng.gen_range(-0.1..0.1))
-                    .clamp(0.0, 1.0);
+                (new_genes.behavior.movement_style.alignment_strength
+                    + rng.random_range(-0.1..0.1))
+                .clamp(0.0, 1.0);
         }
-        if rng.gen::<f32>() < self.reproduction.mutation_rate {
+        if rng.random::<f32>() < self.reproduction.mutation_rate {
             new_genes.behavior.movement_style.cohesion_strength =
-                (new_genes.behavior.movement_style.cohesion_strength + rng.gen_range(-0.1..0.1))
+                (new_genes.behavior.movement_style.cohesion_strength + rng.random_range(-0.1..0.1))
                     .clamp(0.0, 1.0);
         }
-        if rng.gen::<f32>() < self.reproduction.mutation_rate {
+        if rng.random::<f32>() < self.reproduction.mutation_rate {
             new_genes.behavior.gene_preference_strength =
-                (new_genes.behavior.gene_preference_strength + rng.gen_range(-0.1..0.1))
+                (new_genes.behavior.gene_preference_strength + rng.random_range(-0.1..0.1))
                     .clamp(0.0, 1.0);
         }
-        if rng.gen::<f32>() < self.reproduction.mutation_rate {
+        if rng.random::<f32>() < self.reproduction.mutation_rate {
             new_genes.behavior.social_tendency =
-                (new_genes.behavior.social_tendency + rng.gen_range(-0.1..0.1)).clamp(0.0, 1.0);
+                (new_genes.behavior.social_tendency + rng.random_range(-0.1..0.1)).clamp(0.0, 1.0);
         }
 
         // Occasionally change movement type
-        if rng.gen::<f32>() < self.reproduction.mutation_rate * 0.1 {
-            new_genes.behavior.movement_style.style = match rng.gen_range(0..5) {
+        if rng.random::<f32>() < self.reproduction.mutation_rate * 0.1 {
+            new_genes.behavior.movement_style.style = match rng.random_range(0..5) {
                 0 => MovementType::Random,
                 1 => MovementType::Flocking,
                 2 => MovementType::Solitary,

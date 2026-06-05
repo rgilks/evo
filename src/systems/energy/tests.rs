@@ -2,14 +2,14 @@ use super::*;
 use crate::components::Size;
 use crate::config::SimulationConfig;
 use crate::genes::Genes;
-use rand::thread_rng;
+use rand::rng;
 
 #[test]
 fn test_energy_system_update_energy() {
     let system = EnergySystem;
     let mut new_energy = 50.0;
     let size = Size { radius: 10.0 };
-    let mut rng = thread_rng();
+    let mut rng = rng();
     let genes = Genes::new_random(&mut rng);
     let config = SimulationConfig::default();
 
@@ -23,7 +23,7 @@ fn test_energy_system_update_energy() {
 fn test_energy_system_calculate_new_size() {
     let system = EnergySystem;
     let energy = 80.0;
-    let mut rng = thread_rng();
+    let mut rng = rng();
     let genes = Genes::new_random(&mut rng);
     let config = SimulationConfig::default();
 
@@ -39,7 +39,7 @@ fn test_energy_system_energy_bounds() {
     let system = EnergySystem;
     let mut new_energy = 0.0; // Start with no energy
     let size = Size { radius: 10.0 };
-    let mut rng = thread_rng();
+    let mut rng = rng();
     let genes = Genes::new_random(&mut rng);
     let config = SimulationConfig::default();
 

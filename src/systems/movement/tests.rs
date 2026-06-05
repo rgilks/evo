@@ -4,7 +4,7 @@ use crate::genes::Genes;
 use crate::simulation::FastRng;
 use crate::systems::{NeighborCache, NeighborSnapshot};
 use hecs::World;
-use rand::thread_rng;
+use rand::rng;
 use rand::SeedableRng;
 
 /// Zero matrix = no particle-life force; the movement tests exercise other behaviour.
@@ -13,7 +13,7 @@ const TEST_MATRIX: [[f32; 6]; 6] = [[0.0; 6]; 6];
 #[test]
 fn test_movement_system_update_movement() {
     let system = MovementSystem;
-    let mut rng = thread_rng();
+    let mut rng = rng();
     let genes = Genes::new_random(&mut rng);
     let mut new_pos = Position { x: 0.0, y: 0.0 };
     let mut new_velocity = Velocity { x: 0.0, y: 0.0 };
@@ -90,7 +90,7 @@ fn test_movement_system_boundary_center() {
 #[test]
 fn test_movement_system_with_target() {
     let system = MovementSystem;
-    let mut rng = thread_rng();
+    let mut rng = rng();
     let genes = Genes::new_random(&mut rng);
     let mut new_pos = Position { x: 0.0, y: 0.0 };
     let mut new_velocity = Velocity { x: 0.0, y: 0.0 };
@@ -162,7 +162,7 @@ fn test_movement_drift_analysis() {
             max: 100.0,
         },
         Size { radius: 5.0 },
-        Genes::new_random(&mut thread_rng()),
+        Genes::new_random(&mut rng()),
         Color {
             r: 1.0,
             g: 0.0,
@@ -176,7 +176,7 @@ fn test_movement_drift_analysis() {
 
     // Run movement update with no nearby entities
     movement_system.update_movement(MovementUpdateParams {
-        genes: &Genes::new_random(&mut thread_rng()),
+        genes: &Genes::new_random(&mut rng()),
         size: &Size { radius: 5.0 },
         new_pos: &mut pos,
         new_velocity: &mut velocity,
@@ -270,7 +270,7 @@ fn test_velocity_distribution_analysis() {
                 max: 100.0,
             },
             Size { radius: 5.0 },
-            Genes::new_random(&mut thread_rng()),
+            Genes::new_random(&mut rng()),
             Color {
                 r: 1.0,
                 g: 0.0,
@@ -283,7 +283,7 @@ fn test_velocity_distribution_analysis() {
         let mut energy = 100.0;
 
         movement_system.update_movement(MovementUpdateParams {
-            genes: &Genes::new_random(&mut thread_rng()),
+            genes: &Genes::new_random(&mut rng()),
             size: &Size { radius: 5.0 },
             new_pos: &mut pos,
             new_velocity: &mut velocity,
@@ -346,22 +346,22 @@ fn test_movement_target_bias() {
         (
             Position { x: 20.0, y: 20.0 },
             Size { radius: 5.0 },
-            Genes::new_random(&mut thread_rng()),
+            Genes::new_random(&mut rng()),
         ),
         (
             Position { x: -20.0, y: 20.0 },
             Size { radius: 5.0 },
-            Genes::new_random(&mut thread_rng()),
+            Genes::new_random(&mut rng()),
         ),
         (
             Position { x: 20.0, y: -20.0 },
             Size { radius: 5.0 },
-            Genes::new_random(&mut thread_rng()),
+            Genes::new_random(&mut rng()),
         ),
         (
             Position { x: -20.0, y: -20.0 },
             Size { radius: 5.0 },
-            Genes::new_random(&mut thread_rng()),
+            Genes::new_random(&mut rng()),
         ),
     ];
 
@@ -401,7 +401,7 @@ fn test_movement_target_bias() {
     let mut energy = 100.0;
 
     movement_system.update_movement(MovementUpdateParams {
-        genes: &Genes::new_random(&mut thread_rng()),
+        genes: &Genes::new_random(&mut rng()),
         size: &Size { radius: 5.0 },
         new_pos: &mut pos,
         new_velocity: &mut velocity,
@@ -452,7 +452,7 @@ fn test_long_term_drift_simulation() {
             max: 100.0,
         },
         Size { radius: 5.0 },
-        Genes::new_random(&mut thread_rng()),
+        Genes::new_random(&mut rng()),
         Color {
             r: 1.0,
             g: 0.0,
@@ -474,7 +474,7 @@ fn test_long_term_drift_simulation() {
         let old_pos = pos.clone();
 
         movement_system.update_movement(MovementUpdateParams {
-            genes: &Genes::new_random(&mut thread_rng()),
+            genes: &Genes::new_random(&mut rng()),
             size: &Size { radius: 5.0 },
             new_pos: &mut pos,
             new_velocity: &mut velocity,
@@ -575,7 +575,7 @@ fn test_entity_position_distribution() {
                     max: 100.0,
                 },
                 Size { radius: 5.0 },
-                Genes::new_random(&mut thread_rng()),
+                Genes::new_random(&mut rng()),
                 Color {
                     r: 1.0,
                     g: 0.0,
@@ -620,18 +620,18 @@ fn test_entity_position_distribution() {
 
 #[test]
 fn test_random_number_bias() {
-    use rand::thread_rng;
+    use rand::rng;
     use rand::Rng;
 
-    let mut rng = thread_rng();
+    let mut rng = rng();
     let mut x_values = Vec::new();
     let mut y_values = Vec::new();
 
     // Generate many random values to check for bias
     for _ in 0..10000 {
         // Test the same random generation used in movement
-        let dx = rng.gen_range(-1.0f32..1.0);
-        let dy = rng.gen_range(-1.0f32..1.0);
+        let dx = rng.random_range(-1.0f32..1.0);
+        let dy = rng.random_range(-1.0f32..1.0);
         let length_sq = dx * dx + dy * dy;
 
         if length_sq <= 1.0 && length_sq > 0.0 {

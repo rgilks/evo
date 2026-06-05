@@ -1,10 +1,10 @@
 use super::*;
 use crate::components::Size;
-use rand::thread_rng;
+use rand::rng;
 
 #[test]
 fn test_genes_new_random() {
-    let mut rng = thread_rng();
+    let mut rng = rng();
     let genes = Genes::new_random(&mut rng);
 
     // Test movement genes
@@ -28,7 +28,7 @@ fn test_genes_new_random() {
 
 #[test]
 fn test_genes_mutation() {
-    let mut rng = thread_rng();
+    let mut rng = rng();
     let original_genes = Genes::new_random(&mut rng);
     let mutated_genes = original_genes.mutate(&mut rng);
 
@@ -54,7 +54,7 @@ fn test_genes_mutation() {
 
 #[test]
 fn test_genes_get_color() {
-    let mut rng = thread_rng();
+    let mut rng = rng();
     let genes = Genes::new_random(&mut rng);
     let color = genes.get_color();
 
@@ -66,7 +66,7 @@ fn test_genes_get_color() {
 
 #[test]
 fn test_genes_can_eat() {
-    let mut rng = thread_rng();
+    let mut rng = rng();
     let predator_genes = Genes::new_random(&mut rng);
     let prey_genes = Genes::new_random(&mut rng);
 
@@ -88,7 +88,7 @@ fn test_genes_can_eat() {
 
 #[test]
 fn test_genes_get_energy_gain() {
-    let mut rng = thread_rng();
+    let mut rng = rng();
     let genes = Genes::new_random(&mut rng);
     let other_size = Size { radius: 10.0 };
     let self_size = Size { radius: 8.0 };
@@ -106,7 +106,7 @@ fn test_genes_get_energy_gain() {
 
 #[test]
 fn test_genes_getter_methods() {
-    let mut rng = thread_rng();
+    let mut rng = rng();
     let genes = Genes::new_random(&mut rng);
 
     // Test all getter methods
@@ -120,7 +120,7 @@ fn test_genes_getter_methods() {
 
 #[test]
 fn test_gene_similarity_calculation() {
-    let mut rng = thread_rng();
+    let mut rng = rng();
     let genes1 = Genes::new_random(&mut rng);
     let genes2 = Genes::new_random(&mut rng);
     let genes3 = genes1.clone();
@@ -149,7 +149,7 @@ fn test_gene_similarity_calculation() {
 
 #[test]
 fn test_predation_preference() {
-    let mut rng = thread_rng();
+    let mut rng = rng();
     let genes1 = Genes::new_random(&mut rng);
     let genes2 = Genes::new_random(&mut rng);
     let genes3 = genes1.clone();
@@ -200,7 +200,7 @@ fn test_predation_preference() {
 
 #[test]
 fn test_energy_gain_with_gene_preference() {
-    let mut rng = thread_rng();
+    let mut rng = rng();
     let genes = Genes::new_random(&mut rng);
     let other_size = Size { radius: 10.0 };
     let self_size = Size { radius: 8.0 };
@@ -227,7 +227,7 @@ fn test_energy_gain_with_gene_preference() {
 
 #[test]
 fn test_movement_style_inheritance() {
-    let mut rng = thread_rng();
+    let mut rng = rng();
     let parent_genes = Genes::new_random(&mut rng);
     let child_genes = parent_genes.mutate(&mut rng);
 
@@ -257,7 +257,7 @@ fn test_movement_style_inheritance() {
 
 #[test]
 fn test_genes_serialization() {
-    let mut rng = thread_rng();
+    let mut rng = rng();
     let genes = Genes::new_random(&mut rng);
 
     // Test serialization and deserialization
@@ -276,7 +276,7 @@ fn test_genes_serialization() {
 
 #[test]
 fn test_genes_clone() {
-    let mut rng = thread_rng();
+    let mut rng = rng();
     let original = Genes::new_random(&mut rng);
     let cloned = original.clone();
 

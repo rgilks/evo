@@ -56,7 +56,7 @@ impl ReproductionSystem {
         let reproduction_chance = genes.reproduction_rate() * crowding_factor;
 
         energy > max_energy * config.reproduction.reproduction_energy_threshold
-            && rng.gen::<f32>() < reproduction_chance
+            && rng.random::<f32>() < reproduction_chance
     }
 
     pub fn create_offspring(
@@ -72,10 +72,10 @@ impl ReproductionSystem {
 
         // Use uniform distribution in a circle for child positioning
         let (dx, dy) = loop {
-            let dx = rng.gen_range(
+            let dx = rng.random_range(
                 -config.reproduction.child_spawn_radius..config.reproduction.child_spawn_radius,
             );
-            let dy = rng.gen_range(
+            let dy = rng.random_range(
                 -config.reproduction.child_spawn_radius..config.reproduction.child_spawn_radius,
             );
             let distance_sq = dx * dx + dy * dy;
@@ -106,7 +106,7 @@ impl ReproductionSystem {
         rng: &mut impl Rng,
     ) -> bool {
         let death_chance = population_density * config.reproduction.death_chance_factor;
-        rng.gen::<f32>() < death_chance
+        rng.random::<f32>() < death_chance
     }
 }
 

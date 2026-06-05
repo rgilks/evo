@@ -2,7 +2,7 @@ use super::*;
 use crate::components::{Color, Energy, Position, Size, Velocity};
 use crate::config::SimulationConfig;
 use crate::genes::Genes;
-use rand::thread_rng;
+use rand::rng;
 
 #[test]
 fn test_simulation_creation() {
@@ -204,7 +204,7 @@ fn test_simulation_apply_updates() {
             max: 100.0,
         },
         Size { radius: 5.0 },
-        Genes::new_random(&mut thread_rng()),
+        Genes::new_random(&mut rng()),
         Color {
             r: 1.0,
             g: 0.0,

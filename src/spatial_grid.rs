@@ -68,7 +68,7 @@ mod tests {
     use crate::components::{Color, Energy, Position, Size, Velocity};
     use crate::genes::Genes;
     use hecs::World;
-    use rand::thread_rng;
+    use rand::rng;
 
     #[test]
     fn test_spatial_grid_creation() {
@@ -95,7 +95,7 @@ mod tests {
                 max: 100.0,
             },
             Size { radius: 5.0 },
-            Genes::new_random(&mut thread_rng()),
+            Genes::new_random(&mut rng()),
             Color {
                 r: 1.0,
                 g: 0.0,
@@ -121,7 +121,7 @@ mod tests {
                 max: 100.0,
             },
             Size { radius: 5.0 },
-            Genes::new_random(&mut thread_rng()),
+            Genes::new_random(&mut rng()),
             Color {
                 r: 1.0,
                 g: 0.0,
@@ -136,7 +136,7 @@ mod tests {
                 max: 100.0,
             },
             Size { radius: 5.0 },
-            Genes::new_random(&mut thread_rng()),
+            Genes::new_random(&mut rng()),
             Color {
                 r: 0.0,
                 g: 1.0,
@@ -164,7 +164,7 @@ mod tests {
                 max: 100.0,
             },
             Size { radius: 5.0 },
-            Genes::new_random(&mut thread_rng()),
+            Genes::new_random(&mut rng()),
             Color {
                 r: 1.0,
                 g: 0.0,
@@ -191,7 +191,7 @@ mod tests {
                 max: 100.0,
             },
             Size { radius: 5.0 },
-            Genes::new_random(&mut thread_rng()),
+            Genes::new_random(&mut rng()),
             Color {
                 r: 1.0,
                 g: 0.0,
@@ -206,7 +206,7 @@ mod tests {
                 max: 100.0,
             },
             Size { radius: 5.0 },
-            Genes::new_random(&mut thread_rng()),
+            Genes::new_random(&mut rng()),
             Color {
                 r: 0.0,
                 g: 1.0,
@@ -256,7 +256,7 @@ mod tests {
                 max: 100.0,
             },
             Size { radius: 5.0 },
-            Genes::new_random(&mut thread_rng()),
+            Genes::new_random(&mut rng()),
             Color {
                 r: 1.0,
                 g: 0.0,
@@ -290,7 +290,7 @@ mod tests {
                     max: 100.0,
                 },
                 Size { radius: 5.0 },
-                Genes::new_random(&mut thread_rng()),
+                Genes::new_random(&mut rng()),
                 Color {
                     r: 1.0,
                     g: 0.0,
@@ -327,7 +327,7 @@ mod tests {
                 max: 100.0,
             },
             Size { radius: 5.0 },
-            Genes::new_random(&mut thread_rng()),
+            Genes::new_random(&mut rng()),
             Color {
                 r: 1.0,
                 g: 0.0,
@@ -342,7 +342,7 @@ mod tests {
                 max: 100.0,
             },
             Size { radius: 5.0 },
-            Genes::new_random(&mut thread_rng()),
+            Genes::new_random(&mut rng()),
             Color {
                 r: 0.0,
                 g: 1.0,

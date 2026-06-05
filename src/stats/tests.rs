@@ -2,11 +2,11 @@ use super::*;
 use crate::components::{Color, Energy, Position, Size};
 use crate::genes::Genes;
 use hecs::World;
-use rand::thread_rng;
+use rand::rng;
 
 fn create_test_world() -> World {
     let mut world = World::new();
-    let mut rng = thread_rng();
+    let mut rng = rng();
 
     // Create some test entities with different colors
     for i in 0..10 {

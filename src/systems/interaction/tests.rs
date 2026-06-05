@@ -2,7 +2,7 @@ use super::*;
 use crate::components::{Position, Size};
 use crate::genes::Genes;
 use crate::systems::NeighborCache;
-use rand::prelude::*;
+use rand::rng;
 
 #[test]
 fn test_interaction_system_handle_interactions() {
@@ -10,7 +10,7 @@ fn test_interaction_system_handle_interactions() {
     let mut new_energy = 50.0;
     let new_pos = Position { x: 0.0, y: 0.0 };
     let size = Size { radius: 10.0 };
-    let mut rng = thread_rng();
+    let mut rng = rng();
     let genes = Genes::new_random(&mut rng);
     let nearby_entities = vec![];
     let cache = NeighborCache::new();
