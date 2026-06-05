@@ -89,8 +89,10 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let soft = falloff * falloff;
     let core = smoothstep(0.5, 0.0, dist); // brighter centre
 
-    let alpha = soft * 0.9;
-    let final_color = in.color * (0.55 + core * 0.6) + vec3<f32>(core * 0.25);
+    let alpha = soft * 0.95;
+    // Keep the colour vivid across the whole disc (only mild dimming toward the
+    // rim) with a small bright core highlight, rather than washing the centre to white.
+    let final_color = in.color * (0.85 + core * 0.5) + vec3<f32>(core * core * 0.15);
 
     return vec4<f32>(final_color, alpha);
 }

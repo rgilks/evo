@@ -213,7 +213,10 @@ impl Genes {
     }
 
     pub fn get_color(&self) -> Color {
-        Color::from_hsv(self.appearance.hue, self.appearance.saturation, 0.8)
+        // Remap saturation into a vivid range and use full value, so every creature
+        // reads as a saturated, bright colour instead of a washed-out pastel.
+        let saturation = (0.55 + self.appearance.saturation * 0.45).min(1.0);
+        Color::from_hsv(self.appearance.hue, saturation, 1.0)
     }
 
     // Predation logic based on genes

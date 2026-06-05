@@ -8,16 +8,22 @@ pub struct ReproductionSystem;
 
 impl super::System for ReproductionSystem {
     fn run(&self, ctx: &mut super::EntityContext) {
-        let density = ctx.population_density;
+        let global_density = ctx.population_density;
+        // Reproduction is throttled by LOCAL crowding (neighbours within sense range),
+        // not the global population. A lineage that reaches an open patch reproduces
+        // freely and blooms into it; a crowded one stalls. This is what makes new
+        // populations visibly bloom and spread rather than the whole field sitting
+        // at a uniform global equilibrium.
+        let local_crowding = (ctx.nearby_entities.len() as f32 / 20.0).min(1.0);
         ctx.should_reproduce = self.check_reproduction(
             ctx.new_energy,
             ctx.energy_max,
             ctx.genes,
-            density,
+            local_crowding,
             ctx.config,
             &mut ctx.rng,
         );
-        if self.check_death(density, ctx.config, &mut ctx.rng) {
+        if self.check_death(global_density, ctx.config, &mut ctx.rng) {
             ctx.new_energy = 0.0; // Kill the entity
         }
         if ctx.should_reproduce {
@@ -33,12 +39,12 @@ impl ReproductionSystem {
         energy: f32,
         max_energy: f32,
         genes: &Genes,
-        population_density: f32,
+        crowding: f32,
         config: &SimulationConfig,
         rng: &mut impl Rng,
     ) -> bool {
         let reproduction_chance = genes.reproduction_rate()
-            * (1.0 - population_density * config.reproduction.population_density_factor)
+            * (1.0 - crowding * config.reproduction.population_density_factor)
                 .max(config.reproduction.min_reproduction_chance);
 
         energy > max_energy * config.reproduction.reproduction_energy_threshold
