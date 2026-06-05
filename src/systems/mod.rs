@@ -11,8 +11,8 @@ pub use reproduction::*;
 use crate::components::{Color, Energy, MovementStyle, Position, Size, Velocity};
 use crate::config::SimulationConfig;
 use crate::genes::Genes;
+use crate::simulation::FastRng;
 use hecs::Entity;
-use rand::rngs::StdRng;
 use std::collections::HashMap;
 
 /// A read-only snapshot of a neighbour's hot fields, captured once per tick so
@@ -52,7 +52,7 @@ pub struct EntityContext<'a> {
     pub eaten_entity: Option<Entity>,
     /// Per-entity, per-tick RNG (seeded from the world seed + entity id + tick),
     /// so randomness is reproducible and independent of thread scheduling.
-    pub rng: StdRng,
+    pub rng: FastRng,
 }
 
 /// Uniform interface for the per-entity systems. Each system reads from and

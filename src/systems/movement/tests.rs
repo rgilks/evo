@@ -1,9 +1,9 @@
 use super::*;
 use crate::components::{Color, Energy, Position, Size, Velocity};
 use crate::genes::Genes;
+use crate::simulation::FastRng;
 use crate::systems::{NeighborCache, NeighborSnapshot};
 use hecs::World;
-use rand::rngs::StdRng;
 use rand::thread_rng;
 use rand::SeedableRng;
 
@@ -35,7 +35,7 @@ fn test_movement_system_update_movement() {
         particle_matrix: &TEST_MATRIX,
         config: &config,
         world_size: 100.0,
-        rng: &mut StdRng::seed_from_u64(0),
+        rng: &mut FastRng::seed_from_u64(0),
     });
 
     // Position should have changed
@@ -139,7 +139,7 @@ fn test_movement_system_with_target() {
         particle_matrix: &TEST_MATRIX,
         config: &config,
         world_size: 100.0,
-        rng: &mut StdRng::seed_from_u64(0),
+        rng: &mut FastRng::seed_from_u64(0),
     });
 
     // Should have moved (position changed) and used energy
@@ -187,7 +187,7 @@ fn test_movement_drift_analysis() {
         particle_matrix: &TEST_MATRIX,
         config: &config,
         world_size: 100.0,
-        rng: &mut StdRng::seed_from_u64(0),
+        rng: &mut FastRng::seed_from_u64(0),
     });
 
     // Check if there's any systematic bias in velocity generation
@@ -259,7 +259,7 @@ fn test_velocity_distribution_analysis() {
     // Create multiple entities and track their velocity distributions
     let mut x_velocities = Vec::new();
     let mut y_velocities = Vec::new();
-    let mut det_rng = StdRng::seed_from_u64(7);
+    let mut det_rng = FastRng::seed_from_u64(7);
 
     for _ in 0..100 {
         let _entity = world.spawn((
@@ -412,7 +412,7 @@ fn test_movement_target_bias() {
         particle_matrix: &TEST_MATRIX,
         config: &config,
         world_size: 100.0,
-        rng: &mut StdRng::seed_from_u64(0),
+        rng: &mut FastRng::seed_from_u64(0),
     });
 
     println!(
@@ -467,7 +467,7 @@ fn test_long_term_drift_simulation() {
     let mut total_x_movement = 0.0;
     let mut total_y_movement = 0.0;
 
-    let mut det_rng = StdRng::seed_from_u64(8);
+    let mut det_rng = FastRng::seed_from_u64(8);
 
     // Simulate many movement steps
     for step in 0..100 {

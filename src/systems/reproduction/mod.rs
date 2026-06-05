@@ -1,7 +1,7 @@
 use crate::components::Position;
 use crate::config::SimulationConfig;
 use crate::genes::Genes;
-use rand::prelude::*;
+use rand::Rng;
 
 /// Reproduction system - handles entity reproduction and population control
 pub struct ReproductionSystem;

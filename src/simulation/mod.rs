@@ -10,12 +10,13 @@ use crate::systems::{
     NeighborSnapshot, ReproductionSystem, System,
 };
 use hecs::*;
-use rand::prelude::*;
+use rand::{Rng, SeedableRng};
 use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};
 
-mod rng;
+pub(crate) mod rng;
 
+pub(crate) use rng::FastRng;
 use rng::{
     generate_particle_matrix, mix_seed, BLOOM_SALT, CULL_SALT, DEFAULT_SEED, OFFSPRING_SALT,
 };
@@ -105,7 +106,7 @@ impl Simulation {
 
         for i in 0..total_entities {
             // Each initial entity gets its own deterministic RNG stream.
-            let mut rng = StdRng::seed_from_u64(mix_seed(seed, i as u64, 0));
+            let mut rng = FastRng::seed_from_u64(mix_seed(seed, i as u64, 0));
 
             // Use perfectly uniform distribution in a circle
             let angle = rng.gen_range(0.0..std::f32::consts::TAU);
@@ -135,7 +136,7 @@ impl Simulation {
         if frac <= 0.0 {
             return;
         }
-        let mut rng = StdRng::seed_from_u64(mix_seed(self.seed, CULL_SALT, self.step as u64));
+        let mut rng = FastRng::seed_from_u64(mix_seed(self.seed, CULL_SALT, self.step as u64));
         let doomed: Vec<Entity> = self
             .world
             .query::<&Position>()
@@ -157,8 +158,11 @@ impl Simulation {
         let n = (count as usize).min(room);
         let spawn_radius = self.world_size * self.config.population.spawn_radius_factor;
         for i in 0..n {
-            let mut rng =
-                StdRng::seed_from_u64(mix_seed(self.seed, BLOOM_SALT ^ i as u64, self.step as u64));
+            let mut rng = FastRng::seed_from_u64(mix_seed(
+                self.seed,
+                BLOOM_SALT ^ i as u64,
+                self.step as u64,
+            ));
             let angle = rng.gen_range(0.0..std::f32::consts::TAU);
             let distance = spawn_radius * rng.gen::<f32>().sqrt();
             let genes = Genes::new_random(&mut rng);
@@ -291,7 +295,7 @@ impl Simulation {
             new_energy: energy.current,
             should_reproduce: false,
             eaten_entity: None,
-            rng: StdRng::seed_from_u64(mix_seed(
+            rng: FastRng::seed_from_u64(mix_seed(
                 self.seed,
                 entity.to_bits().get(),
                 self.step as u64,
@@ -385,7 +389,7 @@ impl Simulation {
                 // them here rather than cloning genes into every EntityUpdate —
                 // only the <1% that reproduce each tick ever need them.
                 if let Ok(parent_genes) = self.world.get::<&Genes>(update.entity) {
-                    let mut rng = StdRng::seed_from_u64(mix_seed(
+                    let mut rng = FastRng::seed_from_u64(mix_seed(
                         self.seed ^ OFFSPRING_SALT,
                         update.entity.to_bits().get(),
                         self.step as u64,
