@@ -2,7 +2,7 @@
 
 A beautiful and performant evolution simulation written in Rust with WebGPU-accelerated graphics and WebAssembly, running entirely in the browser.
 
-**Live:** [evo-dgc.pages.dev](https://evo-dgc.pages.dev) — needs a WebGPU-capable browser (Chrome / Edge / Brave 113+). Each load picks a random seed (logged to the console); enter a seed in the UI to reproduce or share a run.
+**Live:** [evo.tre.systems](https://evo.tre.systems) — needs a WebGPU-capable browser (Chrome / Edge / Brave 113+). It starts from a curated default seed; clear the seed box for a random run, or enter a seed to reproduce or share one (the seed is shown in the UI and logged to the console).
 
 ![Evolution Simulation Screenshot](screenshot.png)
 
@@ -13,7 +13,7 @@ A beautiful and performant evolution simulation written in Rust with WebGPU-acce
 1. **Rust Nightly**: `rustup toolchain install nightly-2024-08-02`
 2. **WASM Target**: `rustup target add wasm32-unknown-unknown`
 3. **Node.js & npm**: [Install Node.js](https://nodejs.org/)
-4. **WebGPU-capable browser**: Chrome 113+, Firefox 121+, or Safari 17.4+
+4. **WebGPU-capable browser**: Chromium-based (Chrome / Edge / Brave) 113+
 
 ### Installation
 
@@ -42,17 +42,8 @@ For detailed instructions, see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 ## Development
 
 ### Project Structure
-```
-evo/
-├── src/
-│   ├── components.rs     # ECS components
-│   ├── genes/            # Genetic algorithms
-│   ├── systems/          # Movement, Interaction, Reproduction
-│   ├── simulation/       # Main simulation logic
-│   └── web/              # WebGPU renderer
-├── web/                  # Frontend assets (HTML, CSS, JS)
-└── scripts/              # Build scripts
-```
+
+See the [repo layout](docs/ARCHITECTURE.md#repo-layout) and [code map](AGENTS.md#code-map) — kept in one place so they can't drift.
 
 ### Key Commands
 

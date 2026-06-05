@@ -45,12 +45,12 @@ CARGO_UNSTABLE_BUILD_STD=std,panic_abort cargo check --target wasm32-unknown-unk
 
 ## Code Map
 
-- WASM entry + JS bindings: `src/lib.rs` (`WebSimulation`: `update`, `update_entity_buffer`, `entity_count`, `get_stats`, `update_param`).
+- WASM entry + JS bindings: `src/lib.rs` (`WebSimulation`: `new` / `with_seed`, `get_seed`, `update`, `update_entity_buffer`, `entity_count`, `get_stats`, `update_param`).
 - Tick orchestrator: `src/simulation/mod.rs`.
 - Components: `src/components.rs`.
-- Genes (generation, mutation, similarity, predation preference, particle-life weights): `src/genes/mod.rs`.
+- Genes (generation, mutation, similarity, predation preference): `src/genes/mod.rs`.
 - Systems: `src/systems/movement/`, `src/systems/interaction/` (predation), `src/systems/energy.rs`, `src/systems/reproduction.rs`.
-- Neighbour lookups: `src/spatial_grid.rs` (DashMap spatial hash).
+- Neighbour lookups: `src/spatial_grid.rs` (HashMap spatial hash), with a per-tick `NeighborCache` snapshot in `src/systems/mod.rs`.
 - Config / tunable parameters: `src/config/mod.rs`.
 - Stats serialized to JS: `src/stats/mod.rs`.
 - Renderer + shaders: `src/web/webgpu.rs`, `src/shader.wgsl`.

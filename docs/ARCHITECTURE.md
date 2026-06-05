@@ -8,7 +8,7 @@
 
 | Layer | Choice | Notes |
 |-------|--------|-------|
-| Language | Rust (edition 2021) | ~5,500 lines across `src/` |
+| Language | Rust (edition 2021) | ~5,400 lines across `src/` (about 3,150 excluding tests) |
 | ECS | `hecs` 0.9 | Lightweight archetypal ECS; systems are hand-orchestrated (no scheduler) |
 | Parallelism | `rayon` | Parallel per-entity processing over ECS queries |
 | Rendering | `wgpu` 24 (WebGPU) | Instanced quads with a glow shader |
@@ -52,7 +52,7 @@ The simulation is built from a small set of recurring patterns. Naming them once
 
 **Per-tick neighbour cache.** The grid stores only entity handles, so reading a neighbour's data could mean a scatter of `world.get::<&T>()` calls per neighbour. Instead, the same pass that rebuilds the grid also captures each entity's hot fields — position, genes, energy, size, velocity — into a `NeighborCache` (`HashMap<Entity, NeighborSnapshot>`, `systems/mod.rs`), built once and then read immutably by every system. A neighbour read in the hot loop becomes one cache lookup rather than several component fetches, and because the cache is a fixed snapshot of the start-of-tick world it is safe to share across the parallel compute. Determinism is unaffected — the cached values are exactly what the world holds at rebuild.
 
-**System pipeline over a shared context.** All four systems implement one trait — `System::run(&mut EntityContext)` (`systems/`) — and the orchestrator runs them in a fixed order (movement → interaction → energy → reproduction) over a single `EntityContext` carrying the read-only inputs and the mutable `new_*` working state. The per-system `*Params` structs (`MovementUpdateParams`, `InteractionParams`) and the orchestrator's `ProcessEntityParams` are the parameter-object form used to pass many borrows without long argument lists.
+**System pipeline over a shared context.** All four systems implement one trait — `System::run(&self, ctx: &mut EntityContext)` (`systems/`) — and the orchestrator runs them in a fixed order (movement → interaction → energy → reproduction) over a single `EntityContext` carrying the read-only inputs and the mutable `new_*` working state. The per-system `*Params` structs (`MovementUpdateParams`, `InteractionParams`) and the orchestrator's `ProcessEntityParams` are the parameter-object form used to pass many borrows without long argument lists.
 
 **Centralized archetype.** The creature component bundle is built in one place, `systems::creature_bundle`, used by both the initial spawn and reproduction so the archetype cannot drift between the two.
 
@@ -82,15 +82,7 @@ Known consistency gaps and patterns under consideration are tracked in [BACKLOG.
 2. **Build spatial grid + neighbour cache** — one serial pass over the world rebuilds the `SpatialGrid` (cell → entities) and the `NeighborCache` (each entity's hot fields), so the compute phase reads contiguous cached data instead of scattered `world.get`s.
 3. **Compute then apply** — process every entity *in parallel* into a list of `EntityUpdate`s, then apply that list *serially*: write each survivor's `Position`/`Velocity`/`Energy`/`Size` in place (via `query_mut`), despawn the starved/dead and any eaten prey, and spawn offspring.
 
-This split exists because hecs mutation (in-place writes and spawn/despawn) is single-threaded. Reads and per-entity math fan out across cores; only the apply step mutates the world.
-
-## Parallelism Model
-
-Per-entity work (movement forces, predation targets, metabolism) is read-only against the world and runs under `rayon`. Each worker produces an `EntityUpdate` rather than mutating shared state; the serial apply step is the only writer. The cardinal rule: **never spawn/despawn or mutate the world from inside a parallel query.**
-
-## Spatial Grid
-
-`src/spatial_grid.rs` partitions the world into a grid of cells and stores entity handles per cell in a `HashMap`. A neighbour query returns candidates from the cell containing an entity plus its surrounding cells, turning the O(N²) all-pairs scan into a near-O(N) local scan; the caller then keeps the nearest 20 (by distance, ties broken by id) — a deterministic, bias-free selection. The grid is cleared and rebuilt every tick in a single serial pass — together with the per-tick neighbour cache (see Patterns) — so a plain `HashMap` suffices; no concurrent map is needed.
+This split exists because hecs mutation (in-place writes and spawn/despawn) is single-threaded. The compute phase is read-only against the world and fans out across cores under `rayon` (movement forces, predation targets, metabolism); each worker produces an `EntityUpdate` rather than touching shared state, and the serial apply step is the only writer. The cardinal rule: **never spawn/despawn or mutate the world from inside a parallel query.** (Neighbour queries and the spatial grid are covered under Patterns above.)
 
 ## Rendering Pipeline
 
@@ -125,5 +117,5 @@ The thread pool is initialised from JS via `wasm-bindgen-rayon`. The atomics-ena
 
 - **No server or persistence.** Everything runs client-side; there is no backend, database, or save/load.
 - **No GPU compute for the simulation.** Neighbour search and physics are CPU + rayon; only rendering uses the GPU. (GPU-side spatial processing is a backlog idea, not current behaviour.)
-- **No practical WebGL fallback.** The `wgpu` `webgl` feature is enabled, but the renderer targets WebGPU; non-WebGPU browsers are unsupported.
+- **No WebGL fallback.** The renderer targets WebGPU only (the `wgpu` `webgl` feature is not enabled); non-WebGPU browsers are unsupported.
 - **A practical scaling ceiling.** The renderer's instance buffer starts at ~20,000 and grows on demand, but the CPU + rayon *simulation* tops out well below 100K–1M; that scale is exploratory and would need GPU compute (see BACKLOG).
