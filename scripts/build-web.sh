@@ -40,8 +40,13 @@ if [ -n "$WORKER_FILE" ]; then
     
     # Fix the import path and add cache busting
     sed -i.bak "s|await import('\.\./\.\./\.\.');|await import('../../../evo.js?v=$CACHE_VERSION');|g" "$WORKER_FILE"
+    # Version the worker-spawn URL too: `new URL('./workerHelpers.js', import.meta.url)`
+    # drops the query, so the rayon worker is otherwise fetched UNVERSIONED. A stale
+    # cached copy then imports an old evo.js and the wasm fails to link after a deploy
+    # (LinkError: __wbindgen_closure_wrapper… requires a callable).
+    sed -i.bak "s|new URL('\./workerHelpers\.js', import\.meta\.url)|new URL('./workerHelpers.js?v=$CACHE_VERSION', import.meta.url)|g" "$WORKER_FILE"
     rm "${WORKER_FILE}.bak"
-    
+
     if [ $? -eq 0 ]; then
         echo "✅ Worker import path fixed successfully"
     else
@@ -64,8 +69,10 @@ if [ -n "$WEB_WORKER_FILE" ]; then
     
     # Fix the import path and add cache busting
     sed -i.bak "s|await import('\.\./\.\./\.\.');|await import('../../../evo.js?v=$CACHE_VERSION');|g" "$WEB_WORKER_FILE"
+    # Version the worker-spawn URL too (see the pkg/ block above for why).
+    sed -i.bak "s|new URL('\./workerHelpers\.js', import\.meta\.url)|new URL('./workerHelpers.js?v=$CACHE_VERSION', import.meta.url)|g" "$WEB_WORKER_FILE"
     rm "${WEB_WORKER_FILE}.bak"
-    
+
     if [ $? -eq 0 ]; then
         echo "✅ Web worker import path fixed successfully"
     else
