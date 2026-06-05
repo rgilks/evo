@@ -9,9 +9,9 @@
 | Layer | Choice | Notes |
 |-------|--------|-------|
 | Language | Rust (edition 2021) | ~5,400 lines across `src/` (about 3,150 excluding tests) |
-| ECS | `hecs` 0.9 | Lightweight archetypal ECS; systems are hand-orchestrated (no scheduler) |
+| ECS | `hecs` 0.11 | Lightweight archetypal ECS; systems are hand-orchestrated (no scheduler) |
 | Parallelism | `rayon` | Parallel per-entity processing over ECS queries |
-| Rendering | `wgpu` 24 (WebGPU) | Instanced quads → HDR scene target → bloom post-process |
+| Rendering | `wgpu` 29 (WebGPU) | Instanced quads → HDR scene + motion trails → bloom + ambient composite |
 | In-browser threads | `wasm-bindgen-rayon` + `SharedArrayBuffer` | Requires cross-origin-isolation headers |
 | Toolchain | nightly-2026-05-01 | Needed for `-Z build-std` (atomics-enabled `std` for WASM threads) |
 | Host | Cloudflare Pages | Static `web/` directory served with `_headers` |
