@@ -93,7 +93,7 @@ digraph SystemOverview {
     C2 [label=<<B>Simulation</B><BR/><FONT POINT-SIZE="15">per-tick orchestrator</FONT>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
     C3 [label=<<B>hecs World</B><BR/><FONT POINT-SIZE="15">entities + plain-data components</FONT>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
     C4 [label=<<B>Systems</B><BR/><FONT POINT-SIZE="15">movement · interaction · energy · reproduction</FONT>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
-    C5 [label=<<B>SpatialGrid</B><BR/><FONT POINT-SIZE="15">DashMap neighbour buckets</FONT>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
+    C5 [label=<<B>SpatialGrid + cache</B><BR/><FONT POINT-SIZE="15">HashMap cells · per-tick neighbour snapshot</FONT>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
   }
 
   // ---- Threads ----

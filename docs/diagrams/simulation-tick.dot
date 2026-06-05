@@ -54,14 +54,14 @@ digraph SimulationTick {
       label=<
         <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="2">
           <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="17" COLOR="#8a5f00"><B>READ / PREPARE</B></FONT></TD></TR>
-          <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="12" COLOR="#836b27">Snapshot, then rebuild the neighbour index.</FONT></TD></TR>
+          <TR><TD ALIGN="LEFT"><FONT POINT-SIZE="12" COLOR="#836b27">Snapshot positions, then rebuild the spatial grid + neighbour cache.</FONT></TD></TR>
         </TABLE>
       >,
       labelloc=t, labeljust=l,
       color="#f2cf78", fillcolor="#fffaf0", style="rounded,filled", penwidth=1.8, margin=22
     ];
     R1 [label=<<B>store_previous_positions</B><BR/><FONT POINT-SIZE="15">snapshot for interpolation</FONT>>, fillcolor="#fff4d1:#fffaf0", color="#d39a00"];
-    R2 [label=<<B>rebuild_spatial_grid</B><BR/><FONT POINT-SIZE="15">parallel DashMap inserts</FONT>>, fillcolor="#fff4d1:#fffaf0", color="#d39a00"];
+    R2 [label=<<B>rebuild grid + neighbour cache</B><BR/><FONT POINT-SIZE="15">one serial pass: cell&#8594;entities + hot-field snapshot</FONT>>, fillcolor="#fff4d1:#fffaf0", color="#d39a00"];
     R1 -> R2;
   }
 
