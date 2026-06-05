@@ -42,8 +42,6 @@ The public URL is the custom domain `https://evo.tre.systems` (in the README). T
 ## P3 — Rendering polish
 
 - **Skip redundant re-uploads.** The render loop repacks/re-uploads the instance buffer every `requestAnimationFrame`, even on frames where the sim didn't tick (only the interpolation uniform changed). Track the last rendered step (`get_step` exists) and gate the repack+upload on a sim tick — free FPS on high-refresh displays.
-- **Additive blending for the glow.** Switch from alpha to additive blending so overlapping glows accumulate (order-independent, correct for particles on black) instead of draw-order-dependent occlusion.
-- **Simplify the fragment glow** (the `smoothstep` falloff → a 2-term or gaussian) once counts rise — overdraw dominates glow-heavy rendering.
 - **WebGPU-unavailable UX.** Replace the 5-second error toast with a persistent "WebGPU required" message, and request `downlevel` device limits so low-end adapters degrade rather than fail. (The renderer is WebGPU-only — the `wgpu` `webgl` feature has been dropped — so a real WebGL2 fallback would be a deliberate re-addition, only worth it for broad reach.)
 
 ## P3 — Code cleanups (from the architecture review)
