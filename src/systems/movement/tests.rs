@@ -1,6 +1,7 @@
 use super::*;
 use crate::components::{Color, Energy, Position, Size, Velocity};
 use crate::genes::Genes;
+use crate::simulation::food::{FoodField, FoodFieldConfig};
 use crate::simulation::FastRng;
 use crate::systems::{NeighborCache, NeighborSnapshot};
 use hecs::World;
@@ -9,6 +10,25 @@ use rand::SeedableRng;
 
 /// Zero matrix = no particle-life force; the movement tests exercise other behaviour.
 const TEST_MATRIX: [[f32; 6]; 6] = [[0.0; 6]; 6];
+
+/// An empty food field (no patches): `gain_at` is 0 everywhere, so the
+/// food-seeking force is inert and these tests isolate the other movement
+/// behaviour exactly as before the food field existed.
+fn empty_food() -> FoodField {
+    FoodField::new(
+        0,
+        100.0,
+        FoodFieldConfig {
+            patch_count: 0,
+            patch_radius: 100.0,
+            drift_speed: 0.0,
+            regen_rate: 0.0,
+            graze_rate: 0.0,
+            base: 0.0,
+            patch_peak: 0.0,
+        },
+    )
+}
 
 #[test]
 fn test_movement_system_update_movement() {
@@ -33,6 +53,7 @@ fn test_movement_system_update_movement() {
         nearby_entities: &nearby_entities,
         cache: &cache,
         particle_matrix: &TEST_MATRIX,
+        food_field: &empty_food(),
         config: &config,
         world_size: 100.0,
         rng: &mut FastRng::seed_from_u64(0),
@@ -137,6 +158,7 @@ fn test_movement_system_with_target() {
         nearby_entities: &nearby_entities,
         cache: &cache,
         particle_matrix: &TEST_MATRIX,
+        food_field: &empty_food(),
         config: &config,
         world_size: 100.0,
         rng: &mut FastRng::seed_from_u64(0),
@@ -185,6 +207,7 @@ fn test_movement_drift_analysis() {
         nearby_entities: &[],
         cache: &NeighborCache::new(),
         particle_matrix: &TEST_MATRIX,
+        food_field: &empty_food(),
         config: &config,
         world_size: 100.0,
         rng: &mut FastRng::seed_from_u64(0),
@@ -292,6 +315,7 @@ fn test_velocity_distribution_analysis() {
             nearby_entities: &[],
             cache: &NeighborCache::new(),
             particle_matrix: &TEST_MATRIX,
+            food_field: &empty_food(),
             config: &config,
             world_size: 100.0,
             rng: &mut det_rng,
@@ -410,6 +434,7 @@ fn test_movement_target_bias() {
         nearby_entities: &target_entities,
         cache: &cache,
         particle_matrix: &TEST_MATRIX,
+        food_field: &empty_food(),
         config: &config,
         world_size: 100.0,
         rng: &mut FastRng::seed_from_u64(0),
@@ -483,6 +508,7 @@ fn test_long_term_drift_simulation() {
             nearby_entities: &[],
             cache: &NeighborCache::new(),
             particle_matrix: &TEST_MATRIX,
+            food_field: &empty_food(),
             config: &config,
             world_size: 100.0,
             rng: &mut det_rng,

@@ -11,6 +11,7 @@ pub use reproduction::*;
 use crate::components::{Color, Energy, MovementStyle, Position, Size, Velocity};
 use crate::config::SimulationConfig;
 use crate::genes::Genes;
+use crate::simulation::food::FoodField;
 use crate::simulation::FastRng;
 use hecs::Entity;
 use std::collections::HashMap;
@@ -40,6 +41,9 @@ pub struct EntityContext<'a> {
     pub cache: &'a NeighborCache,
     /// Global particle-life interaction matrix, indexed `[self_sector][other_sector]`.
     pub particle_matrix: &'a [[f32; 6]; 6],
+    /// Read-only snapshot of the food field for this tick — drives both the
+    /// primary-production gain (energy) and the food-seeking force (movement).
+    pub food_field: &'a FoodField,
     pub config: &'a SimulationConfig,
     pub world_size: f32,
     pub population_density: f32,
@@ -48,6 +52,9 @@ pub struct EntityContext<'a> {
     pub new_pos: Position,
     pub new_velocity: Velocity,
     pub new_energy: f32,
+    /// Energy grazed from the food field this tick; the serial apply phase uses
+    /// it to deplete the patches the creature fed on.
+    pub grazed: f32,
     pub should_reproduce: bool,
     pub eaten_entity: Option<Entity>,
     /// Per-entity, per-tick RNG (seeded from the world seed + entity id + tick),

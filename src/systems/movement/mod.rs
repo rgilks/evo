@@ -20,6 +20,7 @@ impl crate::systems::System for MovementSystem {
             nearby_entities: ctx.nearby_entities,
             cache: ctx.cache,
             particle_matrix: ctx.particle_matrix,
+            food_field: ctx.food_field,
             config: ctx.config,
             world_size: ctx.world_size,
             rng: &mut ctx.rng,
@@ -43,6 +44,7 @@ pub struct MovementUpdateParams<'a> {
     pub nearby_entities: &'a [Entity],
     pub cache: &'a crate::systems::NeighborCache,
     pub particle_matrix: &'a [[f32; 6]; 6],
+    pub food_field: &'a crate::simulation::food::FoodField,
     pub config: &'a SimulationConfig,
     pub world_size: f32,
     pub rng: &'a mut FastRng,
@@ -60,6 +62,7 @@ impl MovementSystem {
             nearby_entities,
             cache,
             particle_matrix,
+            food_field,
             config,
             world_size,
             rng,
@@ -211,6 +214,12 @@ impl MovementSystem {
         new_velocity.x += particle_force_x * config.physics.particle_force_scale;
         new_velocity.y += particle_force_y * config.physics.particle_force_scale;
 
+        // Gentle food-seeking: drift up the local food gradient so creatures
+        // migrate to and gather at patches. Kept soft (and zeroed for predators)
+        // so it structures the motion without overpowering the particle-life and
+        // flocking emergence.
+        self.apply_food_seeking(pos, new_velocity, genes, food_field, config);
+
         // Friction damps both axes equally.
         new_velocity.x *= config.physics.particle_friction;
         new_velocity.y *= config.physics.particle_friction;
@@ -243,6 +252,56 @@ impl MovementSystem {
         new_velocity.y = angle.sin() * grazing_speed * speed_variation;
 
         self.cap_velocity(new_velocity, config);
+    }
+
+    /// Nudge velocity up the local food gradient so creatures flow toward and
+    /// gather at the drifting patches. The gradient is estimated by sampling the
+    /// food field at four points a sense-scaled step away (finite differences) —
+    /// cheap, and it reaches beyond the patch rim so distant creatures still feel
+    /// the pull. Genes modulate the strength: grazers chase food hardest,
+    /// predators barely (they hunt prey, not patches), and a higher `gain_rate`
+    /// gene — a creature that lives off grazing — wants food more.
+    fn apply_food_seeking(
+        &self,
+        pos: &Position,
+        new_velocity: &mut Velocity,
+        genes: &Genes,
+        food_field: &crate::simulation::food::FoodField,
+        config: &SimulationConfig,
+    ) {
+        let style_factor = match genes.behavior.movement_style.style {
+            MovementType::Grazing => 1.0,
+            MovementType::Flocking => 0.7,
+            MovementType::Random => 0.7,
+            MovementType::Solitary => 0.6,
+            // Predators live off prey, so the patch pull is faint — they still
+            // drift toward the herds that gather on food, but indirectly.
+            MovementType::Predatory => 0.15,
+        };
+        // gain_rate spans ~0.1..5 (genes); map to a ~0.4..1.0 appetite multiplier
+        // so grazing-adapted lineages seek food more keenly.
+        let appetite = (0.4 + genes.energy.gain_rate * 0.12).min(1.0);
+        let strength = config.food.seek_strength * style_factor * appetite;
+        if strength <= 0.0 {
+            return;
+        }
+
+        // Sample step: scaled by sense radius (clamped) so far-sighted creatures
+        // read the gradient over a wider span. Follow the *patch* gradient only —
+        // the flat base is everywhere and has no gradient to climb.
+        let h = genes.sense_radius().clamp(20.0, 120.0);
+        let gx =
+            food_field.patch_gain_at(pos.x + h, pos.y) - food_field.patch_gain_at(pos.x - h, pos.y);
+        let gy =
+            food_field.patch_gain_at(pos.x, pos.y + h) - food_field.patch_gain_at(pos.x, pos.y - h);
+        let mag = (gx * gx + gy * gy).sqrt();
+        if mag > 1e-6 {
+            // Normalize the gradient direction and scale by the seek strength, so
+            // the pull magnitude is steady regardless of how steep the field is
+            // (it won't spike to huge values near a patch core).
+            new_velocity.x += (gx / mag) * strength;
+            new_velocity.y += (gy / mag) * strength;
+        }
     }
 
     fn move_towards_target(

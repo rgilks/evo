@@ -17,11 +17,15 @@ pub use wasm_bindgen_rayon::init_thread_pool;
 /// Floats packed per entity in the render buffer: prev_x, prev_y, x, y, radius, r, g, b.
 const FLOATS_PER_ENTITY: usize = 8;
 
+/// Floats packed per food patch in the render buffer: x, y, radius, intensity_fraction.
+const FLOATS_PER_PATCH: usize = 4;
+
 #[wasm_bindgen]
 pub struct WebSimulation {
     simulation: simulation::Simulation,
     seed: u64,
     entity_buffer: Vec<f32>, // Reusable buffer for entity data
+    food_buffer: Vec<f32>,   // Reusable buffer for food-patch render data
 }
 
 #[wasm_bindgen]
@@ -75,6 +79,25 @@ impl WebSimulation {
     /// Number of entities in the last buffered frame (from `update_entity_buffer`).
     pub fn entity_count(&self) -> u32 {
         (self.entity_buffer.len() / FLOATS_PER_ENTITY) as u32
+    }
+
+    /// Update the food-patch buffer and return a pointer for the WebGPU renderer.
+    /// Layout per patch: x, y, radius, intensity_fraction (4 floats).
+    pub fn update_food_buffer(&mut self) -> *const f32 {
+        let patches = self.simulation.get_food_patches();
+        self.food_buffer.clear();
+        for (x, y, radius, intensity) in patches {
+            self.food_buffer.push(x);
+            self.food_buffer.push(y);
+            self.food_buffer.push(radius);
+            self.food_buffer.push(intensity);
+        }
+        self.food_buffer.as_ptr()
+    }
+
+    /// Number of food patches in the last buffered frame (from `update_food_buffer`).
+    pub fn food_count(&self) -> u32 {
+        (self.food_buffer.len() / FLOATS_PER_PATCH) as u32
     }
 
     pub fn get_stats(&self) -> JsValue {
@@ -140,6 +163,7 @@ impl WebSimulation {
             simulation,
             seed,
             entity_buffer: Vec::with_capacity(80000), // 10000 entities * 8 floats
+            food_buffer: Vec::with_capacity(64),      // a handful of patches * 4 floats
         })
     }
 }

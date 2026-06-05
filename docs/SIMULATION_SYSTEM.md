@@ -43,15 +43,23 @@ Entities exhibit one of five genetically determined movement styles:
 
 On top of the chosen style, a **global particle-life interaction matrix** — generated from the seed and indexed by *both* creatures' hue sectors — applies an attraction/repulsion force during the same neighbour pass. Because every creature of a given hue reacts to each other hue the *same* way, colour groups attract and repel coherently: clusters form, move as units, and collide instead of dissolving into a uniform haze. Each seed yields a different matrix — a different "physics" — tunable live via `particle_force_scale` (with `particle_friction`).
 
-All these forces — style, flocking, particle-life, and edge repulsion — accumulate into one velocity that is then **capped at `max_velocity`** (by magnitude) each tick, so no combination can exceed the speed limit.
+Creatures also feel a gentle **food-seeking** force, drifting up the local food gradient toward the drifting food patches (see *Food field* below) so they migrate to and gather at nourishment. Genes modulate it: grazers seek hardest, predators barely (they hunt prey, not patches), and a higher food-`gain_rate` gene sharpens the appetite. It is kept soft so it *structures* the motion — lovely flowing aggregations at food — without overpowering the particle-life and flocking emergence.
+
+All these forces — style, flocking, particle-life, food-seeking, and edge repulsion — accumulate into one velocity that is then **capped at `max_velocity`** (by magnitude) each tick, so no combination can exceed the speed limit.
 
 **Edge repulsion.** Each window edge pushes creatures back perpendicular to itself, ramping up quadratically as they approach, so the interior is free to roam and the population stays off the edges (rather than a constant centre-pull that would collapse everything into one blob). Strength is tunable via `center_pressure_strength`.
 
 ## Interaction & Energy
 
 - **Predation** — larger, faster creatures eat smaller specific prey, and predators prefer genetically *distinct* prey (`gene_preference_strength`), which promotes diversity. Eating transfers the prey's energy and despawns it.
-- **Energy economy** — movement and existence cost energy; predation transfers it between creatures. The only *input* is **primary production**: every creature grazes a little energy from an ambient food field each tick (`ambient_energy_gain`), scaled by `(1 − population_density)` so the field is finite. That finite input gives the ecosystem a **carrying capacity** — the population settles where production balances metabolism instead of decaying to a few survivors.
+- **Energy economy** — movement and existence cost energy; predation transfers it between creatures. The only *input* is **primary production**: each creature grazes energy from the food field at its position each tick, scaled by `(1 − population_density)` so the field is finite. That finite input gives the ecosystem a **carrying capacity** — the population settles where production balances metabolism instead of decaying to a few survivors.
 - **Local-crowding reproduction** — a creature with enough energy reproduces, but the chance is throttled by *local* crowding (neighbours within sense range), not the global count. A lineage that reaches an open patch reproduces freely and blooms into it as a spreading patch of its inherited colour, while crowded areas stall. Death, by contrast, scales with *global* density — a system-wide culling pressure.
+
+## Food Field
+
+Primary production is **not uniform**. It is split into a thin uniform **base** everywhere plus a handful of drifting **food patches** (`src/simulation/food.rs`), so the world grows *places worth moving to* rather than a flat glow. Each patch has a position, falloff radius, and intensity; patches wander slowly, regrow toward their capacity in place, and **deplete** as creatures graze them (bounded by a floor so a crowded patch dips but never fully vanishes, keeping a gradient to gather on). A creature's grazing gain is the base plus each nearby patch's contribution, falling off smoothly to zero at its radius.
+
+The split is balanced so the *world-average* production matches the old uniform field — the carrying capacity is preserved, the food is merely **concentrated in space**. The base keeps between-patch creatures alive (so the population is stable across seeds), while the patches plus the food-seeking force make creatures visibly migrate to and aggregate at the brighter cores. The whole field is deterministic in `(seed, step)` — updated once per tick in the serial phase, then read immutably by the parallel per-entity compute — so a run still reproduces bit-for-bit. The live "Food" slider (`ambient_energy_gain`) scales the whole field; patch count, radius, drift, regrowth, and the seek strength live under the `food` config group. The renderer draws the patches as dim, soft teal blobs into the HDR scene *before* the creatures, so the viewer reads the food structure as ambient nourishment without it competing with the bloom.
 
 ## Neighbour Queries
 

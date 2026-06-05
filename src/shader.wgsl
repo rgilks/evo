@@ -97,3 +97,65 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
     return vec4<f32>(rgb, halo);
 }
+
+// ---------------------------------------------------------------------------
+// Food patches: a separate instanced draw of large, soft, dim teal blobs into
+// the HDR scene BEFORE the creatures, so the viewer reads the food structure as
+// ambient nourishment. Low brightness keeps it from competing with the bloom,
+// and it shares the same world→screen + camera transform as the creatures.
+// ---------------------------------------------------------------------------
+
+struct FoodInstance {
+    // x = world x, y = world y, z = radius (world units), w = intensity fraction (0..1)
+    @location(0) data: vec4<f32>,
+}
+
+struct FoodVertexOutput {
+    @builtin(position) position: vec4<f32>,
+    @location(0) uv: vec2<f32>,
+    @location(1) intensity: f32,
+}
+
+@vertex
+fn food_vs(
+    instance: FoodInstance,
+    @builtin(vertex_index) vertex_index: u32,
+) -> FoodVertexOutput {
+    var out: FoodVertexOutput;
+
+    let quad_pos = QUAD_VERTICES[vertex_index];
+    let world_pos = instance.data.xy;
+    let radius = instance.data.z;
+    let world_size = uniforms.world_size;
+
+    let world_to_screen_x = (world_pos.x + world_size / 2.0) / world_size * 2.0 - 1.0;
+    let world_to_screen_y = -((world_pos.y + world_size / 2.0) / world_size * 2.0 - 1.0);
+    let screen_x = (world_to_screen_x + uniforms.camera_x) * uniforms.camera_zoom;
+    let screen_y = (world_to_screen_y + uniforms.camera_y) * uniforms.camera_zoom;
+    let screen_pos = vec2<f32>(screen_x, screen_y);
+
+    // Patches are large soft fields; map the world radius straight to screen.
+    let screen_radius = radius / world_size * 2.0 * uniforms.camera_zoom;
+
+    out.position = vec4<f32>(screen_pos + quad_pos * screen_radius, 0.0, 1.0);
+    out.uv = quad_pos;
+    out.intensity = instance.data.w;
+    return out;
+}
+
+@fragment
+fn food_fs(in: FoodVertexOutput) -> @location(0) vec4<f32> {
+    let dist = length(in.uv);
+    // Smooth radial falloff (squared) so the patch is a soft blob with no hard rim.
+    let glow = max(0.0, 1.0 - dist);
+    let soft = glow * glow;
+
+    // Calm teal/green nourishment colour, kept dim so it reads as ambient food
+    // and never competes with the creatures or the bloom. Scaled by the patch's
+    // current intensity so a depleted patch visibly fades.
+    let teal = vec3<f32>(0.06, 0.32, 0.26);
+    let brightness = 0.5;
+    let rgb = teal * soft * brightness * in.intensity;
+
+    return vec4<f32>(rgb, soft);
+}

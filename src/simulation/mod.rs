@@ -14,8 +14,10 @@ use rand::{Rng, SeedableRng};
 use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};
 
+pub(crate) mod food;
 pub(crate) mod rng;
 
+use food::{FoodField, FoodFieldConfig};
 pub(crate) use rng::FastRng;
 use rng::{
     generate_particle_matrix, mix_seed, BLOOM_SALT, CULL_SALT, DEFAULT_SEED, OFFSPRING_SALT,
@@ -28,6 +30,9 @@ pub struct EntityUpdate {
     pub energy: Energy,
     pub size: Size,
     pub velocity: Velocity,
+    /// Energy this creature grazed from the food field this tick (used by the
+    /// serial apply phase to deplete the patches it fed on).
+    pub grazed: f32,
     pub should_reproduce: bool,
     pub eaten_entity: Option<Entity>,
 }
@@ -43,6 +48,8 @@ pub struct Simulation {
     seed: u64,
     /// Global particle-life interaction matrix (see `generate_particle_matrix`).
     particle_matrix: [[f32; 6]; 6],
+    /// Drifting, regenerating food patches — the spatial primary-production field.
+    food_field: FoodField,
 
     // System instances
     movement_system: MovementSystem,
@@ -77,6 +84,12 @@ impl Simulation {
 
         Self::spawn_initial_entities(&mut world, seed, world_size, &config);
 
+        let food_field = FoodField::new(
+            seed,
+            world_size,
+            Self::food_field_config(&config, world_size),
+        );
+
         Self {
             world,
             world_size,
@@ -87,10 +100,42 @@ impl Simulation {
             config,
             seed,
             particle_matrix: generate_particle_matrix(seed),
+            food_field,
             movement_system: MovementSystem,
             interaction_system: InteractionSystem,
             energy_system: EnergySystem,
             reproduction_system: ReproductionSystem,
+        }
+    }
+
+    /// Derive the food field's tuning from the live config so the world-average
+    /// production matches the old uniform `ambient_energy_gain` — the carrying
+    /// capacity is preserved, the food is merely concentrated in space. The
+    /// `patch_fraction` of production goes into the patches and the rest into a
+    /// uniform `base`. A quadratic-falloff disc integrates to `π r² / 3`, so the
+    /// per-patch peak that makes the patches' spatial average equal
+    /// `ambient · patch_fraction` is `ambient · patch_fraction · world_area /
+    /// (patch_count · π r² / 3)`. The live "Food" slider scales `ambient`, hence
+    /// the whole field.
+    fn food_field_config(config: &SimulationConfig, world_size: f32) -> FoodFieldConfig {
+        let f = &config.food;
+        let ambient = config.energy.ambient_energy_gain;
+        let frac = f.patch_fraction.clamp(0.0, 1.0);
+        let world_area = world_size * world_size;
+        // Patch radius and drift are world-relative so the food structure looks the
+        // same at any window resolution.
+        let r = f.patch_radius_frac * world_size;
+        let per_patch_integral = std::f32::consts::PI * r * r / 3.0;
+        let denom = (f.patch_count.max(1) as f32) * per_patch_integral;
+        let patch_peak = ambient * frac * world_area / denom;
+        FoodFieldConfig {
+            patch_count: f.patch_count,
+            patch_radius: r,
+            drift_speed: f.drift_speed * world_size,
+            regen_rate: f.regen_rate,
+            graze_rate: f.graze_rate,
+            base: ambient * (1.0 - frac),
+            patch_peak,
         }
     }
 
@@ -200,6 +245,10 @@ impl Simulation {
 
     fn update_simulation(&mut self) {
         self.store_previous_positions();
+        // Advance the food field serially before the compute, so the patches are
+        // fixed for the whole tick and the parallel per-entity reads see a stable
+        // snapshot (determinism + the read→compute→apply invariant).
+        self.food_field.update(self.seed, self.step);
         self.rebuild_spatial_grid();
         let updates = self.process_entities_parallel();
         self.apply_entity_updates(updates);
@@ -285,6 +334,7 @@ impl Simulation {
             nearby_entities: &nearby_entities,
             cache: &self.neighbor_cache,
             particle_matrix: &self.particle_matrix,
+            food_field: &self.food_field,
             config: &self.config,
             world_size: self.world_size,
             population_density,
@@ -292,6 +342,7 @@ impl Simulation {
             new_pos: pos.clone(),
             new_velocity: velocity.clone(),
             new_energy: energy.current,
+            grazed: 0.0,
             should_reproduce: false,
             eaten_entity: None,
             rng: FastRng::seed_from_u64(mix_seed(
@@ -323,6 +374,7 @@ impl Simulation {
                 radius: new_size_radius,
             },
             velocity: ctx.new_velocity,
+            grazed: ctx.grazed,
             should_reproduce: ctx.should_reproduce,
             eaten_entity: ctx.eaten_entity,
         })
@@ -425,6 +477,18 @@ impl Simulation {
             }
         }
 
+        // Deplete the food patches each surviving creature grazed this tick.
+        // `updates` is sorted by entity id, so this runs in a canonical order and
+        // stays deterministic. Grazing here (after the compute) keeps the field
+        // fixed for the parallel read and only mutates it in this serial phase.
+        for update in &updates {
+            if update.grazed > 0.0 && update.energy.current > 0.0 && !eaten.contains(&update.entity)
+            {
+                self.food_field
+                    .graze(update.pos.x, update.pos.y, update.grazed);
+            }
+        }
+
         // Births, deaths, and predation removals are the only structural
         // mutations (serial — hecs). Removal order is canonical so id recycling
         // stays deterministic.
@@ -458,6 +522,24 @@ impl Simulation {
                     color.g,
                     color.b,
                 )
+            })
+            .collect()
+    }
+
+    /// Render data for the food patches: `(x, y, radius, intensity_fraction)`
+    /// per patch, where the fraction is the patch's current intensity over its
+    /// capacity (0..1) so the renderer can dim a depleted patch.
+    pub fn get_food_patches(&self) -> Vec<(f32, f32, f32, f32)> {
+        self.food_field
+            .patches()
+            .iter()
+            .map(|p| {
+                let frac = if p.capacity > 0.0 {
+                    (p.intensity / p.capacity).clamp(0.0, 1.0)
+                } else {
+                    0.0
+                };
+                (p.x, p.y, p.radius, frac)
             })
             .collect()
     }

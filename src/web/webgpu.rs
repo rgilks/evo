@@ -12,6 +12,14 @@ struct Instance {
     radius_color: [f32; 4],  // x = radius, yzw = color (rgb)
 }
 
+/// Instance data for each food patch (16 bytes each): x, y, radius, intensity.
+/// Layout matches the packed `[f32; 4]` buffer from `update_food_buffer`.
+#[repr(C)]
+#[derive(Copy, Clone, Debug, Pod, Zeroable)]
+struct FoodInstance {
+    data: [f32; 4],
+}
+
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable)]
 struct SimulationUniforms {
@@ -32,11 +40,15 @@ pub struct WebGpuRenderer {
     surface: wgpu::Surface<'static>,
     config: wgpu::SurfaceConfiguration,
     render_pipeline: wgpu::RenderPipeline,
+    food_pipeline: wgpu::RenderPipeline,
     instance_buffer: wgpu::Buffer,
+    food_buffer: wgpu::Buffer,
     uniform_buffer: wgpu::Buffer,
     bind_group: wgpu::BindGroup,
     num_instances: u32,
     instance_capacity: u32,
+    num_food: u32,
+    food_capacity: u32,
     postprocess: PostProcess,
 }
 
@@ -231,6 +243,66 @@ impl WebGpuRenderer {
             cache: None,
         });
 
+        // Food-patch pipeline: same uniforms (world/camera) and additive HDR blend
+        // as the creatures, but its own instance layout (one vec4 per patch) and
+        // its own dim-teal shader. Drawn into the scene before the particles.
+        let food_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Food Pipeline"),
+            layout: Some(&render_pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: Some("food_vs"),
+                buffers: &[wgpu::VertexBufferLayout {
+                    array_stride: std::mem::size_of::<FoodInstance>() as wgpu::BufferAddress,
+                    step_mode: wgpu::VertexStepMode::Instance,
+                    attributes: &[wgpu::VertexAttribute {
+                        offset: 0,
+                        shader_location: 0,
+                        format: wgpu::VertexFormat::Float32x4,
+                    }],
+                }],
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: Some("food_fs"),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: HDR_FORMAT,
+                    blend: Some(wgpu::BlendState {
+                        color: wgpu::BlendComponent {
+                            src_factor: wgpu::BlendFactor::One,
+                            dst_factor: wgpu::BlendFactor::One,
+                            operation: wgpu::BlendOperation::Add,
+                        },
+                        alpha: wgpu::BlendComponent {
+                            src_factor: wgpu::BlendFactor::One,
+                            dst_factor: wgpu::BlendFactor::One,
+                            operation: wgpu::BlendOperation::Add,
+                        },
+                    }),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: None,
+                polygon_mode: wgpu::PolygonMode::Fill,
+                unclipped_depth: false,
+                conservative: false,
+            },
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState {
+                count: 1,
+                mask: !0,
+                alpha_to_coverage_enabled: false,
+            },
+            multiview_mask: None,
+            cache: None,
+        });
+
         // Create instance buffer, pre-allocated for an initial capacity (grown on demand).
         const INITIAL_INSTANCE_CAPACITY: usize = 20000;
         let initial_instances = vec![
@@ -247,6 +319,17 @@ impl WebGpuRenderer {
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
         });
 
+        // Food patches are few (single digits), so a small fixed capacity is plenty.
+        const INITIAL_FOOD_CAPACITY: usize = 64;
+        let food_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Food Buffer"),
+            contents: bytemuck::cast_slice(&vec![
+                FoodInstance { data: [0.0; 4] };
+                INITIAL_FOOD_CAPACITY
+            ]),
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+        });
+
         let postprocess = PostProcess::new(&device, surface_format, (width, height));
 
         Ok(WebGpuRenderer {
@@ -255,11 +338,15 @@ impl WebGpuRenderer {
             surface,
             config,
             render_pipeline,
+            food_pipeline,
             instance_buffer,
+            food_buffer,
             uniform_buffer,
             bind_group,
             num_instances: 0,
             instance_capacity: INITIAL_INSTANCE_CAPACITY as u32,
+            num_food: 0,
+            food_capacity: INITIAL_FOOD_CAPACITY as u32,
             postprocess,
         })
     }
@@ -273,10 +360,13 @@ impl WebGpuRenderer {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn render(
         &mut self,
         entities_ptr: *const f32,
         entity_count: u32,
+        food_ptr: *const f32,
+        food_count: u32,
         world_size: f32,
         interpolation_factor: f32,
         camera_zoom: f32,
@@ -324,6 +414,26 @@ impl WebGpuRenderer {
         self.queue
             .write_buffer(&self.instance_buffer, 0, bytemuck::cast_slice(instances));
 
+        // Upload food-patch instances (few, fixed layout). Grow if ever needed.
+        self.num_food = food_count;
+        if food_count > 0 {
+            if food_count > self.food_capacity {
+                let new_capacity = food_count.next_power_of_two();
+                self.food_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+                    label: Some("Food Buffer"),
+                    size: new_capacity as u64 * std::mem::size_of::<FoodInstance>() as u64,
+                    usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                    mapped_at_creation: false,
+                });
+                self.food_capacity = new_capacity;
+            }
+            let food_data =
+                unsafe { std::slice::from_raw_parts(food_ptr, (food_count * 4) as usize) };
+            let food_instances: &[FoodInstance] = bytemuck::cast_slice(food_data);
+            self.queue
+                .write_buffer(&self.food_buffer, 0, bytemuck::cast_slice(food_instances));
+        }
+
         // Render
         let output = match self.surface.get_current_texture() {
             wgpu::CurrentSurfaceTexture::Success(t)
@@ -366,6 +476,14 @@ impl WebGpuRenderer {
                 timestamp_writes: None,
                 multiview_mask: None,
             });
+
+            // Food patches first, so creatures glow on top of the ambient food.
+            if self.num_food > 0 {
+                render_pass.set_pipeline(&self.food_pipeline);
+                render_pass.set_bind_group(0, &self.bind_group, &[]);
+                render_pass.set_vertex_buffer(0, self.food_buffer.slice(..));
+                render_pass.draw(0..6, 0..self.num_food);
+            }
 
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.bind_group, &[]);

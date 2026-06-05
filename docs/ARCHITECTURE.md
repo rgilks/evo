@@ -26,7 +26,7 @@ src/
 ├── config/             # SimulationConfig — all tunable parameters (serde, hot-swappable)
 ├── components.rs       # ECS components: Position, Velocity, Energy, Size, Color, MovementStyle
 ├── genes/              # Genetic model: generation, mutation, similarity, particle-life weights
-├── simulation/         # Per-tick orchestrator (the read → compute → apply loop)
+├── simulation/         # Per-tick orchestrator (the read → compute → apply loop) + the drifting food field (food.rs)
 ├── spatial_grid.rs     # Spatial hash (cells → entities) for neighbour queries
 ├── systems/            # movement/, interaction/ (predation), energy, reproduction
 ├── stats/              # Population statistics, serialized to JS
@@ -80,8 +80,9 @@ Known consistency gaps and patterns under consideration are tracked in [BACKLOG.
 `Simulation::update()` ([src/simulation/mod.rs](../src/simulation/mod.rs)) runs each step in three phases:
 
 1. **Snapshot** — store previous positions (used for GPU-side interpolation between sim steps).
-2. **Build spatial grid + neighbour cache** — one serial pass over the world rebuilds the `SpatialGrid` (cell → entities) and the `NeighborCache` (each entity's hot fields), so the compute phase reads contiguous cached data instead of scattered `world.get`s.
-3. **Compute then apply** — process every entity *in parallel* into a list of `EntityUpdate`s, then apply that list *serially*: write each survivor's `Position`/`Velocity`/`Energy`/`Size` in place (via `query_mut`), despawn the starved/dead and any eaten prey, and spawn offspring.
+2. **Advance the food field** — drift and regrow the deterministic [food patches](SIMULATION_SYSTEM.md#food-field) (`src/simulation/food.rs`) serially, so the field is fixed for the whole tick and the parallel reads see a stable snapshot.
+3. **Build spatial grid + neighbour cache** — one serial pass over the world rebuilds the `SpatialGrid` (cell → entities) and the `NeighborCache` (each entity's hot fields), so the compute phase reads contiguous cached data instead of scattered `world.get`s.
+4. **Compute then apply** — process every entity *in parallel* into a list of `EntityUpdate`s, then apply that list *serially*: write each survivor's `Position`/`Velocity`/`Energy`/`Size` in place (via `query_mut`), deplete the food patches each fed creature grazed, despawn the starved/dead and any eaten prey, and spawn offspring.
 
 This split exists because hecs mutation (in-place writes and spawn/despawn) is single-threaded. The compute phase is read-only against the world and fans out across cores under `rayon` (movement forces, predation targets, metabolism); each worker produces an `EntityUpdate` rather than touching shared state, and the serial apply step is the only writer. The cardinal rule: **never spawn/despawn or mutate the world from inside a parallel query.** (Neighbour queries and the spatial grid are covered under Patterns above.)
 
@@ -92,8 +93,9 @@ The CPU never builds vertex geometry per entity. Instead:
 1. `WebSimulation::update_entity_buffer()` ([src/lib.rs](../src/lib.rs)) flattens every entity into a packed `f32` buffer — **8 floats each**: `prev_x, prev_y, x, y, radius, r, g, b` — and returns a raw pointer into WASM linear memory (zero-copy).
 2. `entity_count()` returns `buffer.len() / 8`.
 3. The renderer ([src/web/webgpu.rs](../src/web/webgpu.rs)) reinterprets that slice directly as `&[Instance]` (`bytemuck::cast_slice` — the layouts are identical, so there's no per-frame copy), uploads it to a growable instance buffer, and issues a single instanced draw of a unit quad into an **HDR (`rgba16float`) scene target with additive blending**, so overlapping creatures accumulate brightness past 1.0.
-4. `shader.wgsl` does the heavy lifting on the GPU: it interpolates between `prev` and current position for smooth motion between sim steps, applies the world→screen + camera (zoom/pan) transform, and emits an additive bright core + soft halo in the fragment stage.
-5. A bloom post-process ([src/web/postprocess.rs](../src/web/postprocess.rs), `post.wgsl`) turns the HDR scene into the final frame: a **bright-pass** isolates the glowing regions, a **separable Gaussian blur** at quarter resolution widens them, and a **tonemapped composite** adds the bloom back over the scene and maps it into the swapchain. Each pass draws one fullscreen triangle.
+4. Before the creatures, a second instanced draw renders the **food patches** (`update_food_buffer()` → 4 floats each: `x, y, radius, intensity`) into the same HDR scene as dim, soft teal blobs (`food_vs`/`food_fs` in `shader.wgsl`), so the viewer reads the food structure as ambient nourishment beneath the creatures.
+5. `shader.wgsl` does the heavy lifting on the GPU: it interpolates between `prev` and current position for smooth motion between sim steps, applies the world→screen + camera (zoom/pan) transform, and emits an additive bright core + soft halo in the fragment stage.
+6. A bloom post-process ([src/web/postprocess.rs](../src/web/postprocess.rs), `post.wgsl`) turns the HDR scene into the final frame: a **bright-pass** isolates the glowing regions, a **separable Gaussian blur** at quarter resolution widens them, and a **tonemapped composite** adds the bloom back over the scene and maps it into the swapchain. Each pass draws one fullscreen triangle.
 
 ## Threading & WASM
 

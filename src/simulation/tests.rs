@@ -83,6 +83,87 @@ fn test_browser_like_long_run_no_panic() {
     }
 }
 
+/// Density contrast at the current instant: (share of creatures inside patch
+/// cores) / (share of the roamed area those cores cover). A value > 1 means
+/// creatures are over-represented at the patches — i.e. they are gathering there.
+fn patch_density_contrast(sim: &Simulation) -> f32 {
+    let patches = sim.get_food_patches(); // (x, y, radius, intensity)
+    let in_core = |x: f32, y: f32| {
+        patches
+            .iter()
+            .any(|&(px, py, r, _)| (x - px).powi(2) + (y - py).powi(2) < (r * 0.5).powi(2))
+    };
+    let ents = sim.get_entities();
+    if ents.is_empty() {
+        return 0.0;
+    }
+    let frac_in = ents.iter().filter(|e| in_core(e.2, e.3)).count() as f32 / ents.len() as f32;
+    let span = sim.world_size() / 2.0 * 0.85;
+    let g = 50;
+    let mut area_in = 0;
+    for i in 0..g {
+        for j in 0..g {
+            let x = -span + (i as f32 + 0.5) / g as f32 * 2.0 * span;
+            let y = -span + (j as f32 + 0.5) / g as f32 * 2.0 * span;
+            if in_core(x, y) {
+                area_in += 1;
+            }
+        }
+    }
+    let area_frac = (area_in as f32 / (g * g) as f32).max(1e-3);
+    frac_in / area_frac
+}
+
+#[test]
+fn test_food_field_keeps_population_stable_across_seeds() {
+    // The spatial food field must not collapse the ecosystem. The base + patch
+    // split is balanced (see `food_field_config`) so the population recovers from
+    // the initial overshoot rather than starving out. The browser/gate seeds stay
+    // lively; the inherently fragile seeds settle lower but never to a handful.
+    // Guards against the food concentration silently killing the population.
+    for &(seed, floor) in &[
+        (21u64, 120),
+        (12345, 250),
+        (7, 250),
+        (999, 20),
+        (1, 20),
+        (2024, 120),
+    ] {
+        let mut sim = Simulation::new_with_config_seeded(846.0, SimulationConfig::default(), seed);
+        for _ in 0..1000 {
+            sim.update();
+        }
+        let pop = sim.world().len();
+        assert!(
+            pop as i32 > floor,
+            "seed {seed} collapsed to {pop} (floor {floor}); the food field should sustain it"
+        );
+    }
+}
+
+#[test]
+fn test_creatures_gather_at_food_patches() {
+    // The behavioural payoff: creatures migrate toward and aggregate at the food
+    // patches, so they are over-represented at the patch cores relative to the
+    // area those cores cover. Averaged over a window of ticks (the patches drift,
+    // so any single frame is noisy) the contrast stays clearly above 1.
+    let mut sim = Simulation::new_with_config_seeded(846.0, SimulationConfig::default(), 21);
+    for _ in 0..300 {
+        sim.update();
+    }
+    let mut total = 0.0;
+    let samples = 40;
+    for _ in 0..samples {
+        sim.update();
+        total += patch_density_contrast(&sim);
+    }
+    let avg = total / samples as f32;
+    assert!(
+        avg > 1.25,
+        "creatures are not gathering at food: mean patch-core density contrast {avg:.2} (want > 1.25)"
+    );
+}
+
 #[test]
 fn test_population_sustains_via_primary_production() {
     // The ambient energy field (primary production) gives the ecosystem a carrying
@@ -229,6 +310,7 @@ fn test_simulation_apply_updates() {
         },
         size: Size { radius: 6.0 },
         velocity: Velocity { x: 1.0, y: 1.0 },
+        grazed: 0.0,
         should_reproduce: false,
         eaten_entity: None,
     }];

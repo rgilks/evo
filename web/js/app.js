@@ -74,6 +74,8 @@ class EvolutionApp {
     this.lastRenderedStep = -1;
     this.entityPtr = 0;
     this.entityCount = 0;
+    this.foodPtr = 0;
+    this.foodCount = 0;
     // Simulation ticks per second. The renderer runs at full refresh rate and
     // interpolates between ticks, so a low sim rate gives smooth, fluid, slow
     // motion (and far less birth/death flicker) rather than 60 jumps a second.
@@ -368,6 +370,9 @@ class EvolutionApp {
     if (step !== this.lastRenderedStep) {
       this.entityPtr = this.simulation.update_entity_buffer();
       this.entityCount = this.simulation.entity_count();
+      // Food patches drift slowly; repack them on the same cadence as entities.
+      this.foodPtr = this.simulation.update_food_buffer();
+      this.foodCount = this.simulation.food_count();
       this.lastRenderedStep = step;
     }
 
@@ -379,6 +384,8 @@ class EvolutionApp {
     this.renderer.render(
       this.entityPtr,
       this.entityCount,
+      this.foodPtr,
+      this.foodCount,
       worldSize,
       interpolationFactor,
       this.camera.zoom,
