@@ -1,13 +1,16 @@
-/* Total Reality Engineering house style — terminal/CRT on black, neon-green
-   accent (#39FF14), Inter + JetBrains Mono. The control panel is a transparent
-   glass overlay that collapses to a discreet, draggable ⚙ cog over the art. */
+/* Control panel styled to match the galacto sandbox: dark-navy glass, subtle
+   white borders, blue (#7aa2f7) accents, light-indigo text. A transparent glass
+   panel that collapses to a discreet, draggable ⚙ cog over the art. */
 
 :root {
-  --tre-green: #39ff14;
-  --tre-green-rgb: 57, 255, 20;
-  --tre-green-dim: #2ecc71;
-  --text: #f5f5f5;
-  --muted: rgba(245, 245, 245, 0.55);
+  --accent: #7aa2f7; /* galacto blue — sliders, links, active state */
+  --accent-rgb: 122, 162, 247;
+  --text: #c7d2fe; /* panel text (light indigo) */
+  --text-strong: #ffffff; /* readouts / values */
+  --muted: rgba(199, 210, 254, 0.55);
+  --glass: rgba(10, 14, 28, 0.55);
+  --border: rgba(255, 255, 255, 0.14);
+  --border-strong: rgba(255, 255, 255, 0.22);
   --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
 }
@@ -46,7 +49,7 @@ main {
   background: #000;
 }
 
-/* ===== Glass control panel (galacto pattern) ===== */
+/* ===== Glass control panel ===== */
 #controls {
   position: fixed;
   top: 16px;
@@ -57,12 +60,12 @@ main {
   max-height: calc(100vh - 32px);
   display: flex;
   flex-direction: column;
-  background: rgba(8, 12, 8, 0.5);
-  border: 1px solid rgba(var(--tre-green-rgb), 0.22);
+  background: var(--glass);
+  border: 1px solid var(--border);
   border-radius: 16px;
-  -webkit-backdrop-filter: blur(10px) saturate(1.1);
-  backdrop-filter: blur(10px) saturate(1.1);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
   color: var(--text);
   user-select: none;
   overflow: hidden;
@@ -79,15 +82,19 @@ main {
   display: flex;
   align-items: center;
   gap: 10px;
-  color: var(--tre-green);
+  color: var(--text);
   font-family: var(--font-mono);
   font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.16em;
+  opacity: 0.85;
   cursor: grab;
   touch-action: none;
   user-select: none;
+}
+#controls-toggle:hover {
+  opacity: 1;
 }
 #controls-toggle:active {
   cursor: grabbing;
@@ -95,7 +102,6 @@ main {
 #controls-icon {
   font-size: 18px;
   line-height: 1;
-  filter: drop-shadow(0 0 5px rgba(var(--tre-green-rgb), 0.5));
 }
 
 #controls-body {
@@ -109,7 +115,7 @@ main {
   width: 8px;
 }
 #controls-body::-webkit-scrollbar-thumb {
-  background: rgba(var(--tre-green-rgb), 0.25);
+  background: rgba(255, 255, 255, 0.18);
   border-radius: 4px;
 }
 
@@ -131,16 +137,14 @@ main {
 #controls.collapsed #controls-toggle {
   padding: 9px;
   border-radius: 999px;
-  background: rgba(8, 12, 8, 0.55);
-  border: 1px solid rgba(var(--tre-green-rgb), 0.4);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 0 12px rgba(var(--tre-green-rgb), 0.25);
-  opacity: 0.9;
+  background: var(--glass);
+  border: 1px solid var(--border);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
 }
 #controls.collapsed #controls-toggle:hover {
-  opacity: 1;
-  box-shadow: 0 0 18px rgba(var(--tre-green-rgb), 0.5);
+  border-color: var(--border-strong);
 }
 
 /* ===== Seed + actions ===== */
@@ -151,40 +155,40 @@ main {
 #seed-input {
   flex: 1;
   min-width: 0;
-  background: rgba(0, 0, 0, 0.45);
-  border: 1px solid rgba(var(--tre-green-rgb), 0.25);
-  color: var(--tre-green);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
+  color: var(--text-strong);
   font-family: var(--font-mono);
   font-size: 13px;
   padding: 8px 10px;
-  border-radius: 7px;
+  border-radius: 8px;
   outline: none;
 }
 #seed-input:focus {
-  border-color: rgba(var(--tre-green-rgb), 0.7);
-  box-shadow: 0 0 0 3px rgba(var(--tre-green-rgb), 0.12);
+  border-color: rgba(var(--accent-rgb), 0.7);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.18);
 }
 .btn {
   font-family: var(--font-mono);
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--tre-green);
-  background: rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba(var(--tre-green-rgb), 0.45);
-  border-radius: 7px;
+  color: var(--text);
+  background: rgba(var(--accent-rgb), 0.18);
+  border: 1px solid rgba(var(--accent-rgb), 0.5);
+  border-radius: 8px;
   padding: 8px 12px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background 0.15s ease, transform 0.15s ease, color 0.15s ease;
   white-space: nowrap;
 }
 .btn:hover {
-  background: var(--tre-green);
-  color: #000;
-  box-shadow: 0 0 14px rgba(var(--tre-green-rgb), 0.5);
+  background: rgba(var(--accent-rgb), 0.32);
+  color: var(--text-strong);
+  transform: translateY(-1px);
 }
 .btn:active {
-  transform: translateY(1px);
+  transform: translateY(0);
 }
 .actions {
   display: flex;
@@ -202,8 +206,8 @@ main {
   gap: 9px;
 }
 .stat {
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(var(--tre-green-rgb), 0.16);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
   border-radius: 10px;
   padding: 9px 11px;
   display: flex;
@@ -221,8 +225,7 @@ main {
   font-family: var(--font-mono);
   font-size: 19px;
   font-weight: 700;
-  color: var(--tre-green);
-  text-shadow: 0 0 10px rgba(var(--tre-green-rgb), 0.45);
+  color: var(--accent);
   line-height: 1;
 }
 
@@ -239,9 +242,9 @@ main {
   letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--text);
-  opacity: 0.75;
+  opacity: 0.7;
   padding-bottom: 8px;
-  border-bottom: 1px solid rgba(var(--tre-green-rgb), 0.12);
+  border-bottom: 1px solid var(--border);
 }
 .group > summary {
   cursor: pointer;
@@ -255,7 +258,7 @@ main {
 }
 .group > summary::before {
   content: '▸';
-  color: var(--tre-green);
+  color: var(--accent);
   font-size: 9px;
   transition: transform 0.2s ease;
 }
@@ -283,37 +286,12 @@ details[open].group > summary::before {
   font-family: var(--font-mono);
   font-size: 12px;
   font-weight: 600;
-  color: var(--tre-green);
+  color: var(--text-strong);
 }
+/* Native sliders tinted blue — galacto's approach (accent-color, no custom thumb). */
 input[type='range'] {
-  -webkit-appearance: none;
-  appearance: none;
   width: 100%;
-  height: 5px;
-  border-radius: 3px;
-  background: rgba(255, 255, 255, 0.12);
-  outline: none;
-  accent-color: var(--tre-green);
-  cursor: pointer;
-}
-input[type='range']::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 15px;
-  height: 15px;
-  border-radius: 50%;
-  background: var(--tre-green);
-  border: 2px solid #000;
-  box-shadow: 0 0 8px rgba(var(--tre-green-rgb), 0.7);
-  cursor: pointer;
-}
-input[type='range']::-moz-range-thumb {
-  width: 13px;
-  height: 13px;
-  border-radius: 50%;
-  background: var(--tre-green);
-  border: 2px solid #000;
-  box-shadow: 0 0 8px rgba(var(--tre-green-rgb), 0.7);
+  accent-color: var(--accent);
   cursor: pointer;
 }
 
@@ -323,7 +301,7 @@ input[type='range']::-moz-range-thumb {
   flex-direction: column;
   gap: 12px;
   padding-top: 14px;
-  border-top: 1px solid rgba(var(--tre-green-rgb), 0.12);
+  border-top: 1px solid var(--border);
 }
 .coffee {
   display: flex;
@@ -335,17 +313,18 @@ input[type='range']::-moz-range-thumb {
   font-size: 12px;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: var(--tre-green);
-  background: rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba(var(--tre-green-rgb), 0.4);
+  color: var(--text);
+  background: rgba(var(--accent-rgb), 0.08);
+  border: 1px solid rgba(var(--accent-rgb), 0.3);
   border-radius: 9px;
   padding: 11px;
-  transition: all 0.2s ease;
+  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease, transform 0.16s ease;
 }
 .coffee:hover {
-  background: var(--tre-green);
-  color: #000;
-  box-shadow: 0 0 18px rgba(var(--tre-green-rgb), 0.55);
+  color: var(--text-strong);
+  background: rgba(var(--accent-rgb), 0.16);
+  border-color: rgba(var(--accent-rgb), 0.55);
+  transform: translateY(-1px);
 }
 .coffee svg {
   width: 17px;
@@ -369,7 +348,7 @@ input[type='range']::-moz-range-thumb {
   height: 13px;
 }
 .credit:hover {
-  color: var(--tre-green);
+  color: var(--accent);
 }
 
 @media (prefers-reduced-motion: reduce) {
