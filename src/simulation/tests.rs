@@ -195,37 +195,6 @@ fn test_simulation_large_world() {
 }
 
 #[test]
-fn test_simulation_entity_processing() {
-    let mut sim = Simulation::new(100.0);
-    let _entity = sim.world.spawn((
-        Position { x: 0.0, y: 0.0 },
-        Energy {
-            current: 50.0,
-            max: 100.0,
-        },
-        Size { radius: 5.0 },
-        Genes::new_random(&mut thread_rng()),
-        Color {
-            r: 1.0,
-            g: 0.0,
-            b: 0.0,
-        },
-        Velocity { x: 0.0, y: 0.0 },
-        crate::components::MovementStyle {
-            style: crate::components::MovementType::Random,
-            flocking_strength: 0.5,
-            separation_distance: 10.0,
-            alignment_strength: 0.5,
-            cohesion_strength: 0.5,
-        },
-    ));
-
-    // Test processing a single entity
-    // Note: This test is complex due to borrowing rules, so we'll just ensure it doesn't panic
-    // In a real scenario, you'd need to restructure the code to avoid borrowing conflicts
-}
-
-#[test]
 fn test_simulation_apply_updates() {
     let mut sim = Simulation::new(100.0);
     let _entity = sim.world.spawn((
@@ -271,129 +240,75 @@ fn test_simulation_apply_updates() {
     // In a real scenario, you'd need to restructure the code
 }
 
+/// Mean (cur_x, cur_y) over the entity render tuples — shared by the drift and
+/// clustering assertions below.
+fn centroid(entities: &[(f32, f32, f32, f32, f32, f32, f32, f32)]) -> (f32, f32) {
+    let n = entities.len().max(1) as f32;
+    let (sx, sy) = entities
+        .iter()
+        .fold((0.0f32, 0.0f32), |(ax, ay), e| (ax + e.2, ay + e.3));
+    (sx / n, sy / n)
+}
+
 #[test]
 fn test_simulation_clustering() {
-    let config = SimulationConfig::default();
-    let world_size = 100.0;
-    let mut simulation = Simulation::new_with_config(world_size, config);
-
-    println!("Initial entity count: {}", simulation.world().len());
-
-    // Run simulation for 100 steps
-    for step in 0..100 {
+    // Deterministic DEFAULT_SEED run: the population should stay alive, remain
+    // centred (no runaway drift to a corner), and stay spread across the world
+    // rather than collapsing to a point.
+    let mut simulation = Simulation::new_with_config(100.0, SimulationConfig::default());
+    for _ in 0..100 {
         simulation.update();
-
-        if step % 20 == 0 {
-            let entities = simulation.get_entities();
-            let mut total_x = 0.0;
-            let mut total_y = 0.0;
-            let mut min_x = f32::INFINITY;
-            let mut min_y = f32::INFINITY;
-            let mut max_x = f32::NEG_INFINITY;
-            let mut max_y = f32::NEG_INFINITY;
-
-            for (_px, _py, cx, cy, _, _, _, _) in &entities {
-                total_x += cx;
-                total_y += cy;
-                min_x = min_x.min(*cx);
-                min_y = min_y.min(*cy);
-                max_x = max_x.max(*cx);
-                max_y = max_y.max(*cy);
-            }
-
-            let center_x = total_x / entities.len() as f32;
-            let center_y = total_y / entities.len() as f32;
-            let spread_x = max_x - min_x;
-            let spread_y = max_y - min_y;
-
-            println!(
-                "Step {}: {} entities, Center: ({:.1}, {:.1}), Spread: ({:.1}, {:.1})",
-                step,
-                entities.len(),
-                center_x,
-                center_y,
-                spread_x,
-                spread_y
-            );
-
-            // Check for clustering in top-left
-            if center_x < -20.0 && center_y > 20.0 {
-                println!(
-                    "WARNING: Entities clustering in top-left! Center: ({:.1}, {:.1})",
-                    center_x, center_y
-                );
-            }
-        }
     }
+
+    let entities = simulation.get_entities();
+    assert!(!entities.is_empty(), "population died out");
+
+    let (center_x, center_y) = centroid(&entities);
+    assert!(
+        center_x.abs() < 20.0 && center_y.abs() < 20.0,
+        "centroid drifted off-centre: ({center_x:.1}, {center_y:.1})"
+    );
+
+    let min_x = entities.iter().map(|e| e.2).fold(f32::INFINITY, f32::min);
+    let max_x = entities
+        .iter()
+        .map(|e| e.2)
+        .fold(f32::NEG_INFINITY, f32::max);
+    let min_y = entities.iter().map(|e| e.3).fold(f32::INFINITY, f32::min);
+    let max_y = entities
+        .iter()
+        .map(|e| e.3)
+        .fold(f32::NEG_INFINITY, f32::max);
+    assert!(
+        max_x - min_x > 20.0 && max_y - min_y > 20.0,
+        "population collapsed: spread ({:.1}, {:.1})",
+        max_x - min_x,
+        max_y - min_y
+    );
 }
 
 #[test]
 fn test_drift_direction_analysis() {
-    let config = SimulationConfig::default();
-    let world_size = 100.0;
-    let mut simulation = Simulation::new_with_config(world_size, config);
+    // Over 200 ticks the population centroid must not drift systematically toward
+    // any edge — the simulation is centred and unbiased. The deterministic
+    // DEFAULT_SEED run drifts ~(5, 1); 15 leaves margin while still catching a
+    // real directional bias.
+    let mut simulation = Simulation::new_with_config(100.0, SimulationConfig::default());
 
-    println!("Testing drift direction over 200 steps...");
-
-    let mut positions = Vec::new();
-
-    // Run simulation for 200 steps, recording positions every 20 steps
-    for step in 0..200 {
+    let start = centroid(&simulation.get_entities());
+    for _ in 0..200 {
         simulation.update();
-
-        if step % 20 == 0 {
-            let entities = simulation.get_entities();
-            let mut total_x = 0.0;
-            let mut total_y = 0.0;
-
-            for (_px, _py, cx, cy, _, _, _, _) in &entities {
-                total_x += cx;
-                total_y += cy;
-            }
-
-            let center_x = total_x / entities.len() as f32;
-            let center_y = total_y / entities.len() as f32;
-            positions.push((step, center_x, center_y));
-
-            println!("Step {}: Center ({:.1}, {:.1})", step, center_x, center_y);
-        }
     }
+    let end_entities = simulation.get_entities();
+    assert!(!end_entities.is_empty(), "population died out");
+    let end = centroid(&end_entities);
 
-    // Analyze drift direction
-    if positions.len() >= 2 {
-        let first = positions[0];
-        let last = positions[positions.len() - 1];
-        let drift_x = last.1 - first.1;
-        let drift_y = last.2 - first.2;
-
-        println!("\nDrift Analysis:");
-        println!("Start position: ({:.1}, {:.1})", first.1, first.2);
-        println!("End position: ({:.1}, {:.1})", last.1, last.2);
-        println!("Total drift: ({:.1}, {:.1})", drift_x, drift_y);
-
-        // Determine drift direction
-        let direction = if drift_x < -5.0 && drift_y < -5.0 {
-            "Bottom-Left (appears as Top-Left on screen)"
-        } else if drift_x > 5.0 && drift_y < -5.0 {
-            "Bottom-Right (appears as Top-Right on screen)"
-        } else if drift_x < -5.0 && drift_y > 5.0 {
-            "Top-Left"
-        } else if drift_x > 5.0 && drift_y > 5.0 {
-            "Top-Right"
-        } else {
-            "Minimal or no significant drift"
-        };
-
-        println!("Drift direction: {}", direction);
-
-        // Check if this matches the observed visual clustering
-        if drift_x < -5.0 && drift_y < -5.0 {
-            println!("CONFIRMED: Entities are drifting to bottom-left in world coordinates!");
-            println!(
-                "This appears as top-left clustering on screen due to Y-axis flip in rendering."
-            );
-        }
-    }
+    let drift_x = (end.0 - start.0).abs();
+    let drift_y = (end.1 - start.1).abs();
+    assert!(
+        drift_x < 15.0 && drift_y < 15.0,
+        "centroid drifted too far over 200 ticks: ({drift_x:.1}, {drift_y:.1})"
+    );
 }
 
 #[test]
