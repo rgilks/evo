@@ -107,20 +107,24 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         sin(angle * 5.0 - seed * 9.1) * 0.045;
     let dist = length(shaped_uv) / max(0.76, 1.0 + wobble);
 
-    let body = smoothstep(1.02, 0.62, dist);
+    let body = smoothstep(1.04, 0.62, dist);
     let soft_edge = smoothstep(1.08, 0.86, dist);
     let inner = smoothstep(0.76, 0.16, dist);
-    let halo = pow(max(0.0, 1.0 - dist), 2.4);
+    let halo = pow(max(0.0, 1.0 - dist), 2.0);
 
     let nucleus_offset = vec2<f32>(cos(seed * 6.28318), sin(seed * 6.28318)) * 0.18;
     let nucleus = smoothstep(0.26, 0.0, length(shaped_uv - nucleus_offset));
+    let highlight_offset = vec2<f32>(-0.22, -0.28) + nucleus_offset * 0.28;
+    let highlight = smoothstep(0.32, 0.0, length(shaped_uv - highlight_offset));
 
-    let cytoplasm = in.color * (body * 0.34 + inner * 0.18 + halo * 0.14);
-    let membrane = mix(in.color, vec3<f32>(0.82, 0.92, 1.0), 0.32) * soft_edge * 0.12;
-    let nucleus_rgb = mix(in.color, vec3<f32>(0.18, 0.22, 0.28), 0.45) * nucleus * 0.16;
-    let rgb = cytoplasm + membrane + nucleus_rgb;
+    let vivid = pow(max(in.color, vec3<f32>(0.001)), vec3<f32>(0.82));
+    let cytoplasm = vivid * (body * 0.62 + inner * 0.32 + halo * 0.24);
+    let membrane = mix(vivid, vec3<f32>(0.88, 0.96, 1.0), 0.38) * soft_edge * 0.28;
+    let nucleus_rgb = mix(vivid, vec3<f32>(0.12, 0.16, 0.22), 0.38) * nucleus * 0.24;
+    let highlight_rgb = vec3<f32>(1.0, 0.96, 0.84) * highlight * 0.18;
+    let rgb = cytoplasm + membrane + nucleus_rgb + highlight_rgb;
 
-    return vec4<f32>(rgb, body * 0.72);
+    return vec4<f32>(rgb, body * 0.82);
 }
 
 // ---------------------------------------------------------------------------
@@ -178,8 +182,8 @@ fn food_fs(in: FoodVertexOutput) -> @location(0) vec4<f32> {
     // Calm teal/green nourishment colour, kept dim so it reads as ambient food
     // and never competes with the creatures or the bloom. Scaled by the patch's
     // current intensity so a depleted patch visibly fades.
-    let teal = vec3<f32>(0.06, 0.32, 0.26);
-    let brightness = 0.5;
+    let teal = vec3<f32>(0.07, 0.38, 0.30);
+    let brightness = 0.58;
     let rgb = teal * soft * brightness * in.intensity;
 
     return vec4<f32>(rgb, soft);
