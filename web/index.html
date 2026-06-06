@@ -34,22 +34,11 @@
           </button>
 
           <div id="controls-body">
-            <!-- Seed + reset -->
-            <div class="toprow">
-              <input type="text" id="seed-input" value="12345" placeholder="seed (blank = random)" />
-              <button id="reset" class="btn">Reset</button>
-            </div>
-
             <!-- Instant actions -->
             <div class="actions">
+              <button id="reset" class="btn act" type="button">Reset</button>
               <button id="cull" class="btn act" type="button" title="Remove half the population">Cull</button>
               <button id="bloom" class="btn act" type="button" title="Spawn a burst of new life">Bloom</button>
-            </div>
-
-            <!-- Seed readout -->
-            <div class="seed-readout">
-              <span class="k">Seed</span>
-              <span class="v" id="seed-display">—</span>
             </div>
 
             <!-- Ecosystem controls -->

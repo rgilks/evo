@@ -118,13 +118,13 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let highlight = smoothstep(0.32, 0.0, length(shaped_uv - highlight_offset));
 
     let vivid = pow(max(in.color, vec3<f32>(0.001)), vec3<f32>(0.82));
-    let cytoplasm = vivid * (body * 0.62 + inner * 0.32 + halo * 0.24);
-    let membrane = mix(vivid, vec3<f32>(0.88, 0.96, 1.0), 0.38) * soft_edge * 0.28;
-    let nucleus_rgb = mix(vivid, vec3<f32>(0.12, 0.16, 0.22), 0.38) * nucleus * 0.24;
-    let highlight_rgb = vec3<f32>(1.0, 0.96, 0.84) * highlight * 0.18;
+    let cytoplasm = vivid * (body * 0.86 + inner * 0.46 + halo * 0.34);
+    let membrane = mix(vivid, vec3<f32>(0.9, 0.98, 1.0), 0.40) * soft_edge * 0.42;
+    let nucleus_rgb = mix(vivid, vec3<f32>(0.12, 0.16, 0.22), 0.34) * nucleus * 0.28;
+    let highlight_rgb = vec3<f32>(1.0, 0.96, 0.84) * highlight * 0.26;
     let rgb = cytoplasm + membrane + nucleus_rgb + highlight_rgb;
 
-    return vec4<f32>(rgb, body * 0.82);
+    return vec4<f32>(rgb, body * 0.9);
 }
 
 // ---------------------------------------------------------------------------
@@ -182,8 +182,8 @@ fn food_fs(in: FoodVertexOutput) -> @location(0) vec4<f32> {
     // Calm teal/green nourishment colour, kept dim so it reads as ambient food
     // and never competes with the creatures or the bloom. Scaled by the patch's
     // current intensity so a depleted patch visibly fades.
-    let teal = vec3<f32>(0.07, 0.38, 0.30);
-    let brightness = 0.58;
+    let teal = vec3<f32>(0.075, 0.42, 0.33);
+    let brightness = 0.68;
     let rgb = teal * soft * brightness * in.intensity;
 
     return vec4<f32>(rgb, soft);

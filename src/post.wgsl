@@ -2,15 +2,15 @@
 // All passes draw a single fullscreen triangle. The scene is rendered to an HDR
 // (rgba16float) target; bloom is computed at reduced resolution and added back.
 
-const THRESHOLD: f32 = 0.56;   // brightness above which a pixel blooms
-const BLOOM_STRENGTH: f32 = 0.48;
-const EXPOSURE: f32 = 1.08;
+const THRESHOLD: f32 = 0.42;   // brightness above which a pixel blooms
+const BLOOM_STRENGTH: f32 = 0.72;
+const EXPOSURE: f32 = 1.20;
 
 // Motion-trail feedback: each frame the HDR scene is multiplied by this factor
 // before new particles are drawn on top (see `fade` below + postprocess.rs).
 // Higher = longer-lived comet tails. Tuned against the particle/bloom gains so
 // overlapping trails glow without blowing out to solid white.
-const TRAIL_PERSISTENCE: f32 = 0.89;
+const TRAIL_PERSISTENCE: f32 = 0.91;
 
 // Ambient background depth. Instead of fading to flat #000, the composite adds a
 // faint deep-blue/violet radial glow so the void reads as atmospheric. Kept
@@ -18,8 +18,8 @@ const TRAIL_PERSISTENCE: f32 = 0.89;
 // glow is brightest at the centre and falls to a near-black vignette at the
 // corners. These are pre-tonemap HDR intensities.
 const AMBIENT_COLOR: vec3<f32> = vec3<f32>(0.20, 0.11, 0.45); // deep blue-violet
-const AMBIENT_CENTER: f32 = 0.12;   // glow intensity at screen centre
-const AMBIENT_EDGE: f32 = 0.018;    // residual glow at the corners (vignette floor)
+const AMBIENT_CENTER: f32 = 0.14;   // glow intensity at screen centre
+const AMBIENT_EDGE: f32 = 0.02;     // residual glow at the corners (vignette floor)
 
 struct VsOut {
     @builtin(position) pos: vec4<f32>,

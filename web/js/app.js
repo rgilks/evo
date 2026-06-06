@@ -53,6 +53,7 @@ const DEFAULT_CONFIG = {
 // Serialized once at module load — the config is constant, so init() and reset()
 // reuse it instead of re-stringifying on every (re)construction.
 const CONFIG_JSON = JSON.stringify(DEFAULT_CONFIG);
+const DEFAULT_SEED = 12345;
 
 // Ecosystem + motion sliders, each mapping one DOM slider to one SimParam.
 // Adding a slider is a one-line entry here plus the markup in index.html.
@@ -73,9 +74,6 @@ class EvolutionApp {
     this.renderer = null;
     this.canvas = null;
     this.animationId = null;
-    this.lastTime = 0;
-    this.frameCount = 0;
-    this.fps = 0;
     // Render-upload gating: the instance buffer is repacked only when the sim
     // step advances (see render()); other frames re-use the cached pointer.
     this.lastRenderedStep = -1;
@@ -225,18 +223,16 @@ class EvolutionApp {
     document.getElementById("cull").addEventListener("click", () => {
       this.simulation.cull(0.5);
       this.lastRenderedStep = -1; // force a repack so the change shows at once
-      this.updateStats();
     });
     document.getElementById("bloom").addEventListener("click", () => {
       this.simulation.bloom(500);
       this.lastRenderedStep = -1;
-      this.updateStats();
     });
 
     // Parameter sliders (table-driven — see SLIDERS) plus the sim-speed control.
     this.setupSliders();
 
-    // Keyboard shortcuts (ignored while typing in the seed box)
+    // Keyboard shortcuts (ignored while editing controls)
     document.addEventListener("keydown", (e) => {
       if (e.target.tagName === "INPUT") return;
       if (e.key === "h" || e.key === "H") {
@@ -310,45 +306,22 @@ class EvolutionApp {
     });
   }
 
-  // Size the canvas to the window and build a fresh simulation. The seed box, if
-  // set, reproduces a specific run; empty means a wall-clock seed. Shared by
-  // init() and reset() so construction lives in one place.
+  // Size the canvas to the window and build a fresh deterministic simulation.
+  // Shared by init() and reset() so construction lives in one place.
   createSimulation() {
     this.canvas.width = window.innerWidth;
     this.canvas.height = window.innerHeight;
     const worldSize = Math.max(this.canvas.width, this.canvas.height);
-    const seedText = document.getElementById("seed-input")?.value.trim();
-    const seed = seedText ? Number(seedText) : NaN;
-    this.simulation = Number.isFinite(seed)
-      ? WebSimulation.with_seed(worldSize, CONFIG_JSON, seed)
-      : new WebSimulation(worldSize, CONFIG_JSON);
-    this.updateSeedDisplay();
+    this.simulation = WebSimulation.with_seed(worldSize, CONFIG_JSON, DEFAULT_SEED);
     this.lastRenderedStep = -1; // fresh sim — force a repack on the next frame
   }
 
   reset() {
     this.createSimulation();
-    this.updateStats();
-  }
-
-  updateSeedDisplay() {
-    const el = document.getElementById("seed-display");
-    if (el && this.simulation) {
-      el.textContent = String(this.simulation.get_seed());
-    }
   }
 
   startRenderLoop() {
     const animate = (currentTime) => {
-      // Calculate FPS
-      this.frameCount++;
-      if (currentTime - this.lastTime >= 1000) {
-        this.fps = this.frameCount;
-        this.frameCount = 0;
-        this.lastTime = currentTime;
-        this.updateStats();
-      }
-
       // Update simulation at target FPS
       const targetInterval = 1000 / this.targetFPS;
       if (currentTime - this.lastUpdateTime >= targetInterval) {
@@ -400,11 +373,6 @@ class EvolutionApp {
       this.camera.y
     );
   }
-
-  updateStats() {
-    this.updateSeedDisplay();
-  }
-
   showError(message) {
     const errorDiv = document.createElement("div");
     errorDiv.style.cssText = `

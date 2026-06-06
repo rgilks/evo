@@ -186,27 +186,7 @@ main {
     0 0 22px rgba(var(--accent-rgb), 0.18);
 }
 
-/* ===== Seed + actions ===== */
-.toprow {
-  display: flex;
-  gap: 8px;
-}
-#seed-input {
-  flex: 1;
-  min-width: 0;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--border);
-  color: var(--text-strong);
-  font-family: var(--font-mono);
-  font-size: 13px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  outline: none;
-}
-#seed-input:focus {
-  border-color: rgba(var(--accent-rgb), 0.7);
-  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.18);
-}
+/* ===== Actions ===== */
 .btn {
   font-family: var(--font-mono);
   font-size: 11px;
@@ -236,32 +216,6 @@ main {
 .actions .act {
   flex: 1;
   text-align: center;
-}
-
-/* ===== Seed readout ===== */
-.seed-readout {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 8px 10px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-.seed-readout .k {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-.seed-readout .v {
-  font-family: var(--font-mono);
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--accent);
-  line-height: 1;
 }
 
 /* ===== Control groups ===== */
