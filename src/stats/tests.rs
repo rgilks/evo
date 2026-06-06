@@ -158,7 +158,7 @@ fn test_average_metrics_calculation() {
 
     // Averages should be reasonable
     assert!(metrics.average_energy <= 100.0);
-    assert!(metrics.average_speed <= 2.0);
+    assert!(metrics.average_speed <= 5.0);
     assert!(metrics.average_size <= 20.0);
 }
 

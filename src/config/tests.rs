@@ -8,7 +8,7 @@ fn test_default_config() {
     assert_eq!(config.population.max_population, 10000);
     assert_eq!(config.population.initial_entities, 2500);
     assert_eq!(config.population.spawn_radius_factor, 0.2);
-    assert_eq!(config.physics.max_velocity, 2.0);
+    assert_eq!(config.physics.max_velocity, 6.0);
     assert_eq!(config.physics.max_entity_radius, 20.0);
     assert_eq!(config.physics.min_entity_radius, 1.0);
     assert_eq!(config.physics.grid_cell_size, 25.0);

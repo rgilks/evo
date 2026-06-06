@@ -15,7 +15,7 @@ const DEFAULT_CONFIG = {
     spawn_radius_factor: 0.2,
   },
   physics: {
-    max_velocity: 2.0,
+    max_velocity: 6.0,
     max_entity_radius: 20.0,
     min_entity_radius: 1.0,
     grid_cell_size: 25.0,
@@ -84,7 +84,7 @@ class EvolutionApp {
     // Simulation ticks per second. The renderer runs at full refresh rate and
     // interpolates between ticks, so a low sim rate gives smooth, fluid, slow
     // motion (and far less birth/death flicker) rather than 60 jumps a second.
-    this.targetFPS = 15;
+    this.targetFPS = 30;
 
     // Camera state
     this.camera = {

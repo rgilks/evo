@@ -170,7 +170,7 @@ impl Default for SimulationConfig {
                 spawn_radius_factor: 0.2,
             },
             physics: PhysicsConfig {
-                max_velocity: 2.0,
+                max_velocity: 6.0,
                 max_entity_radius: 20.0,
                 min_entity_radius: 1.0,
                 grid_cell_size: 25.0,

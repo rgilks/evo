@@ -58,7 +58,7 @@ impl Genes {
 
         Self {
             movement: MovementGenes {
-                speed: rng.random_range(0.1..2.5),
+                speed: rng.random_range(0.4..5.0),
                 sense_radius: rng.random_range(5.0..150.0),
             },
             energy: EnergyGenes {
@@ -95,7 +95,7 @@ impl Genes {
         // Movement mutations
         if rng.random::<f32>() < self.reproduction.mutation_rate {
             new_genes.movement.speed =
-                (new_genes.movement.speed + rng.random_range(-0.15..0.15)).clamp(0.05, 3.0);
+                (new_genes.movement.speed + rng.random_range(-0.3..0.3)).clamp(0.1, 6.5);
         }
         if rng.random::<f32>() < self.reproduction.mutation_rate {
             new_genes.movement.sense_radius =
@@ -225,7 +225,7 @@ impl Genes {
         let mut total_weights = 0.0;
 
         // Movement genes similarity
-        let speed_diff = (self.movement.speed - other.movement.speed).abs() / 2.5; // Normalize by max speed
+        let speed_diff = (self.movement.speed - other.movement.speed).abs() / 6.5; // Normalize by max speed
         let sense_diff = (self.movement.sense_radius - other.movement.sense_radius).abs() / 180.0; // Normalize by max sense radius
         total_difference += speed_diff * 0.3 + sense_diff * 0.2;
         total_weights += 0.5;

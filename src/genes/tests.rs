@@ -8,7 +8,7 @@ fn test_genes_new_random() {
     let genes = Genes::new_random(&mut rng);
 
     // Test movement genes
-    assert!(genes.movement.speed >= 0.1 && genes.movement.speed <= 2.5);
+    assert!(genes.movement.speed >= 0.4 && genes.movement.speed <= 5.0);
     assert!(genes.movement.sense_radius >= 5.0 && genes.movement.sense_radius <= 150.0);
 
     // Test energy genes
@@ -33,7 +33,7 @@ fn test_genes_mutation() {
     let mutated_genes = original_genes.mutate(&mut rng);
 
     // Test that genes are within valid ranges after mutation
-    assert!(mutated_genes.movement.speed >= 0.05 && mutated_genes.movement.speed <= 3.0);
+    assert!(mutated_genes.movement.speed >= 0.1 && mutated_genes.movement.speed <= 6.5);
     assert!(
         mutated_genes.movement.sense_radius >= 2.0 && mutated_genes.movement.sense_radius <= 180.0
     );
