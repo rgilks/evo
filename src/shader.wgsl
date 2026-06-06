@@ -23,6 +23,7 @@ struct VertexOutput {
     @builtin(position) position: vec4<f32>,
     @location(0) color: vec3<f32>,
     @location(1) uv: vec2<f32>,
+    @location(2) motion_shape: vec4<f32>,
 }
 
 // Quad vertices (generated in shader)
@@ -39,6 +40,7 @@ const QUAD_VERTICES: array<vec2<f32>, 6> = array<vec2<f32>, 6>(
 fn vs_main(
     instance: InstanceInput,
     @builtin(vertex_index) vertex_index: u32,
+    @builtin(instance_index) instance_index: u32,
 ) -> VertexOutput {
     var out: VertexOutput;
 
@@ -62,40 +64,63 @@ fn vs_main(
     let screen_y = (world_to_screen_y + uniforms.camera_y) * uniforms.camera_zoom;
     let screen_pos = vec2<f32>(screen_x, screen_y);
 
-    // Render creatures as visible glowing discs: clamp on-screen size to a tight
-    // band so the smallest still reads as a dot and the largest never becomes a
-    // giant blob.
-    let screen_radius = clamp(radius / world_size * 2.0, 0.005, 0.011) * uniforms.camera_zoom;
+    // Render creatures as soft bodies: keep them visible but avoid oversized
+    // bright discs that blow out dense clusters.
+    let screen_radius = clamp(radius / world_size * 2.0, 0.0055, 0.012) * uniforms.camera_zoom;
 
-    // Expand quad by radius with glow extension. A wide extension gives the soft
-    // halo room to fall off, so each creature throws a lush glow into the bloom.
-    let glow_extension = screen_radius * 1.5;
+    // Keep a modest halo margin; the organism body now carries the read instead
+    // of a wide glow cloud.
+    let glow_extension = screen_radius * 0.75;
     let quad_size = screen_radius + glow_extension;
+
+    let motion = curr_pos - prev_pos;
+    let motion_len = length(motion);
+    var motion_dir = vec2<f32>(1.0, 0.0);
+    if (motion_len > 0.001) {
+        motion_dir = vec2<f32>(motion.x, -motion.y) / motion_len;
+    }
+    let seed = fract(sin(f32(instance_index) * 12.9898 + radius * 37.719) * 43758.5453);
 
     out.position = vec4<f32>(screen_pos + quad_pos * quad_size, 0.0, 1.0);
     out.color = instance.radius_color.yzw;
     out.uv = quad_pos;  // -1 to 1 range
+    out.motion_shape = vec4<f32>(motion_dir, clamp(motion_len * 0.4, 0.0, 1.0), seed);
 
     return out;
 }
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    // Distance from center (uv is -1 to 1)
-    let dist = length(in.uv);
+    let dir = in.motion_shape.xy;
+    let tangent = vec2<f32>(-dir.y, dir.x);
+    let speed = in.motion_shape.z;
+    let seed = in.motion_shape.w;
 
-    // Additive glow: a tight bright core plus a soft wide halo. Additive blending
-    // sums these into the HDR scene target, so overlapping creatures build cores
-    // that exceed 1.0 and feed the bloom pass.
-    let glow = max(0.0, 1.0 - dist);
-    let halo = glow * glow;
-    let core = pow(glow, 5.0);
-    // Core gain is kept moderate so that, with motion trails accumulating in the
-    // HDR scene, dense overlapping clusters stay vividly coloured instead of
-    // clipping to white. The wide halo carries the soft glow + comet tails.
-    let rgb = in.color * (halo * 1.0 + core * 2.3);
+    // Stretch gently along the motion vector and add a low-frequency edge wobble
+    // so organisms read as soft amoebas instead of perfect glowing discs.
+    let along = dot(in.uv, dir) / (1.0 + speed * 0.18);
+    let across = dot(in.uv, tangent) * (1.0 + speed * 0.08);
+    let shaped_uv = vec2<f32>(along, across);
+    let angle = atan2(shaped_uv.y, shaped_uv.x);
+    let wobble =
+        sin(angle * 3.0 + seed * 6.28318) * 0.08 +
+        sin(angle * 5.0 - seed * 9.1) * 0.045;
+    let dist = length(shaped_uv) / max(0.76, 1.0 + wobble);
 
-    return vec4<f32>(rgb, halo);
+    let body = smoothstep(1.02, 0.62, dist);
+    let soft_edge = smoothstep(1.08, 0.86, dist);
+    let inner = smoothstep(0.76, 0.16, dist);
+    let halo = pow(max(0.0, 1.0 - dist), 2.4);
+
+    let nucleus_offset = vec2<f32>(cos(seed * 6.28318), sin(seed * 6.28318)) * 0.18;
+    let nucleus = smoothstep(0.26, 0.0, length(shaped_uv - nucleus_offset));
+
+    let cytoplasm = in.color * (body * 0.34 + inner * 0.18 + halo * 0.14);
+    let membrane = mix(in.color, vec3<f32>(0.82, 0.92, 1.0), 0.32) * soft_edge * 0.12;
+    let nucleus_rgb = mix(in.color, vec3<f32>(0.18, 0.22, 0.28), 0.45) * nucleus * 0.16;
+    let rgb = cytoplasm + membrane + nucleus_rgb;
+
+    return vec4<f32>(rgb, body * 0.72);
 }
 
 // ---------------------------------------------------------------------------

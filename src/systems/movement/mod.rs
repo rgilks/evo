@@ -241,15 +241,20 @@ impl MovementSystem {
         config: &SimulationConfig,
         rng: &mut FastRng,
     ) {
-        // Grazers move slowly and steadily
-        let grazing_speed = genes.speed() * 0.6;
+        // Grazers drift slowly and steadily, steering instead of snapping to a
+        // new random heading every tick.
+        let grazing_speed = genes.speed() * 0.45;
 
         // Add some gentle random movement
         let angle = rng.random_range(0.0..std::f32::consts::TAU);
         let speed_variation = rng.random_range(0.8..1.2);
 
-        new_velocity.x = angle.cos() * grazing_speed * speed_variation;
-        new_velocity.y = angle.sin() * grazing_speed * speed_variation;
+        self.steer_velocity(
+            new_velocity,
+            angle.cos() * grazing_speed * speed_variation,
+            angle.sin() * grazing_speed * speed_variation,
+            0.12,
+        );
 
         self.cap_velocity(new_velocity, config);
     }
@@ -316,8 +321,12 @@ impl MovementSystem {
         let dy = target_y - pos.y;
         let distance = (dx * dx + dy * dy).sqrt();
         if distance > 0.0 {
-            new_velocity.x = (dx / distance) * genes.speed();
-            new_velocity.y = (dy / distance) * genes.speed();
+            self.steer_velocity(
+                new_velocity,
+                (dx / distance) * genes.speed(),
+                (dy / distance) * genes.speed(),
+                0.35,
+            );
         }
     }
 
@@ -328,15 +337,26 @@ impl MovementSystem {
         config: &SimulationConfig,
         rng: &mut FastRng,
     ) {
-        let speed_variation = rng.random_range(0.8..1.2);
+        let speed_variation = rng.random_range(0.7..1.05);
         let speed = genes.speed() * speed_variation;
 
         // Generate random direction using uniform distribution in a circle
         let (dx, dy) = self.generate_random_direction(rng);
-        new_velocity.x = dx * speed;
-        new_velocity.y = dy * speed;
+        self.steer_velocity(new_velocity, dx * speed, dy * speed, 0.1);
 
         self.cap_velocity(new_velocity, config);
+    }
+
+    fn steer_velocity(
+        &self,
+        velocity: &mut Velocity,
+        target_x: f32,
+        target_y: f32,
+        responsiveness: f32,
+    ) {
+        let keep = 1.0 - responsiveness;
+        velocity.x = velocity.x * keep + target_x * responsiveness;
+        velocity.y = velocity.y * keep + target_y * responsiveness;
     }
 
     fn generate_random_direction(&self, rng: &mut FastRng) -> (f32, f32) {

@@ -57,7 +57,6 @@ const CONFIG_JSON = JSON.stringify(DEFAULT_CONFIG);
 // Ecosystem + motion sliders, each mapping one DOM slider to one SimParam.
 // Adding a slider is a one-line entry here plus the markup in index.html.
 const SLIDERS = [
-  { id: "max-velocity", valueId: "velocity-value", param: SimParam.MaxVelocity, decimals: 1 },
   { id: "edge-repulsion", valueId: "pressure-value", param: SimParam.EdgeRepulsion, decimals: 2 },
   { id: "death-chance", valueId: "death-value", param: SimParam.DeathChance, decimals: 2 },
   { id: "repro-threshold", valueId: "repro-value", param: SimParam.ReproThreshold, decimals: 2 },
@@ -403,16 +402,7 @@ class EvolutionApp {
   }
 
   updateStats() {
-    if (this.simulation) {
-      const stats = this.simulation.get_stats();
-      if (stats) {
-        document.getElementById("population").textContent =
-          stats.total_entities || 0;
-        document.getElementById("step-count").textContent =
-          this.simulation.get_step() || 0;
-        document.getElementById("fps").textContent = this.fps;
-      }
-    }
+    this.updateSeedDisplay();
   }
 
   showError(message) {

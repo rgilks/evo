@@ -30,7 +30,7 @@
             title="Show controls (drag to move)"
           >
             <span id="controls-icon" aria-hidden="true">⚙</span>
-            <span id="controls-label">Evolution</span>
+            <span id="controls-label">Evo</span>
           </button>
 
           <div id="controls-body">
@@ -46,12 +46,10 @@
               <button id="bloom" class="btn act" type="button" title="Spawn a burst of new life">Bloom</button>
             </div>
 
-            <!-- Stats -->
-            <div class="stats">
-              <div class="stat"><span class="k">Population</span><span class="v" id="population">0</span></div>
-              <div class="stat"><span class="k">Step</span><span class="v" id="step-count">0</span></div>
-              <div class="stat"><span class="k">FPS</span><span class="v" id="fps">0</span></div>
-              <div class="stat"><span class="k">Seed</span><span class="v" id="seed-display">—</span></div>
+            <!-- Seed readout -->
+            <div class="seed-readout">
+              <span class="k">Seed</span>
+              <span class="v" id="seed-display">—</span>
             </div>
 
             <!-- Ecosystem controls -->
@@ -80,12 +78,8 @@
             </div>
 
             <!-- Motion & physics controls (collapsible) -->
-            <details class="group" open>
+            <details class="group">
               <summary>Motion &amp; Physics</summary>
-              <div class="ctrl">
-                <div class="row"><label for="max-velocity">Speed</label><span class="val" id="velocity-value">2.0</span></div>
-                <input type="range" id="max-velocity" min="0.1" max="10" step="0.1" value="2.0" />
-              </div>
               <div class="ctrl">
                 <div class="row"><label for="sim-speed">Tempo</label><span class="val" id="sim-speed-value">15</span></div>
                 <input type="range" id="sim-speed" min="4" max="60" step="1" value="15" />
