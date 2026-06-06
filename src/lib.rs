@@ -156,7 +156,6 @@ impl WebSimulation {
         let config: config::SimulationConfig = serde_json::from_str(config_json)
             .map_err(|e| JsValue::from_str(&format!("Config parse error: {}", e)))?;
 
-        web_sys::console::log_1(&JsValue::from_str(&format!("Simulation seed: {seed}")));
         let simulation = simulation::Simulation::new_with_config_seeded(world_size, config, seed);
 
         Ok(WebSimulation {

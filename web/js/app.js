@@ -115,7 +115,7 @@ class EvolutionApp {
       // Initialize thread pool
       await initThreadPool(navigator.hardwareConcurrency);
 
-      // Get the canvas and build the simulation (sizing + seed in one place).
+      // Get the canvas and build the simulation.
       this.canvas = document.getElementById("simulation-canvas");
       this.createSimulation();
 
