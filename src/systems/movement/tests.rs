@@ -1,5 +1,5 @@
 use super::*;
-use crate::components::{Color, Energy, Position, Size, Velocity};
+use crate::components::{Color, Energy, MovementType, Position, Size, Velocity};
 use crate::genes::Genes;
 use crate::simulation::food::{FoodField, FoodFieldConfig};
 use crate::simulation::FastRng;
@@ -107,6 +107,52 @@ fn test_movement_system_boundary_center() {
     // Velocity should have drift compensation applied
     assert_eq!(velocity.x, 5.0);
     assert_eq!(velocity.y, 5.0);
+}
+
+#[test]
+fn test_edge_repulsion_moves_organism_inward_same_tick() {
+    let system = MovementSystem;
+    let config = SimulationConfig::default();
+    let mut rng = FastRng::seed_from_u64(1);
+    let mut genes = Genes::new_random(&mut rng);
+    genes.movement.speed = 0.0;
+    genes.behavior.movement_style.style = MovementType::Random;
+
+    let pos = Position { x: 48.0, y: 0.0 };
+    let mut new_pos = pos.clone();
+    let mut new_velocity = Velocity { x: 2.0, y: 0.0 };
+    let mut new_energy = 100.0;
+    let cache = NeighborCache::new();
+    let nearby_entities = [];
+    let food_field = empty_food();
+
+    system.update_movement(MovementUpdateParams {
+        genes: &genes,
+        size: &Size { radius: 2.0 },
+        new_pos: &mut new_pos,
+        new_velocity: &mut new_velocity,
+        new_energy: &mut new_energy,
+        pos: &pos,
+        nearby_entities: &nearby_entities,
+        cache: &cache,
+        particle_matrix: &TEST_MATRIX,
+        food_field: &food_field,
+        config: &config,
+        world_size: 100.0,
+        rng: &mut rng,
+    });
+
+    assert!(
+        new_pos.x < pos.x,
+        "edge repulsion should move inward in the same tick, got x {} from {}",
+        new_pos.x,
+        pos.x
+    );
+    assert!(
+        new_velocity.x < 0.0,
+        "edge repulsion should turn outward velocity inward, got {}",
+        new_velocity.x
+    );
 }
 
 #[test]

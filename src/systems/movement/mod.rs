@@ -224,12 +224,14 @@ impl MovementSystem {
         new_velocity.x *= config.physics.particle_friction;
         new_velocity.y *= config.physics.particle_friction;
 
+        self.apply_edge_repulsion(pos, new_velocity, config, world_size);
+
         // Cap the final accumulated velocity so the additive forces (targets,
-        // flocking, particle-life) cannot drive entities past `max_velocity`.
+        // flocking, particle-life, edge repulsion) cannot drive entities past
+        // `max_velocity`.
         self.cap_velocity(new_velocity, config);
 
         self.update_position(new_pos, new_velocity);
-        self.apply_edge_repulsion(new_pos, new_velocity, config, world_size);
         self.validate_position(new_pos);
         self.apply_movement_cost(new_velocity, new_energy, genes, config);
     }
