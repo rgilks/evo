@@ -329,14 +329,19 @@ fn effect_fs(in: EffectVertexOutput) -> @location(0) vec4<f32> {
     let fade = pow(1.0 - life, 1.5);
     let intensity = ring * fade;
 
-    // Colour by kind: hot gold flash, green seed-burst, red cull ripple.
-    var col = vec3<f32>(1.0, 0.85, 0.5);
+    // Colour and intensity by kind. Predation flashes fire on every kill, so they
+    // are kept small and subtle (a gentle spark); bloom bursts and cull
+    // shockwaves are deliberate user/world events, so they stay bold.
+    var col = vec3<f32>(1.0, 0.85, 0.5); // predation: warm gold
+    var bright = 0.8;
     if (in.kind > 1.5) {
-        col = vec3<f32>(1.0, 0.4, 0.45);
+        col = vec3<f32>(1.0, 0.4, 0.45); // cull: alarm red
+        bright = 1.7;
     } else if (in.kind > 0.5) {
-        col = vec3<f32>(0.5, 1.0, 0.6);
+        col = vec3<f32>(0.5, 1.0, 0.6); // bloom/seed: life green
+        bright = 1.5;
     }
 
-    let rgb = col * intensity * 1.7;
+    let rgb = col * intensity * bright;
     return vec4<f32>(rgb, intensity);
 }

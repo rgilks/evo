@@ -657,8 +657,8 @@ impl Simulation {
         let mut pred_seen = 0u32;
         for update in &updates {
             if update.eaten_entity.is_some() && update.energy.current > 0.0 {
-                if pred_seen.is_multiple_of(3) {
-                    self.add_effect(update.pos.x, update.pos.y, self.world_size * 0.022, 12, 0.0);
+                if pred_seen.is_multiple_of(4) {
+                    self.add_effect(update.pos.x, update.pos.y, self.world_size * 0.012, 10, 0.0);
                 }
                 pred_seen += 1;
             }
