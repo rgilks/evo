@@ -121,6 +121,16 @@
             </div>
           </div>
         </div>
+
+        <!-- Live HUD: population readout + a sparkline of recent population so
+             the boom/bust waves are legible and slider effects are visible. -->
+        <div id="hud" aria-hidden="true">
+          <div class="hud-head">
+            <span class="hud-num" id="hud-pop">—</span>
+            <span class="hud-label">organisms</span>
+          </div>
+          <canvas id="hud-spark" width="220" height="44"></canvas>
+        </div>
       </main>
     </div>
 
