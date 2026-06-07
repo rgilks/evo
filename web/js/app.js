@@ -102,11 +102,6 @@ class EvolutionApp {
     // applyVisualParams(). Defaults match the renderer's built-in cinematic look.
     this.visual = { glow: 0.72, trails: 0.93, brightness: 1.2, size: 1.0 };
 
-    // Live HUD: a ring buffer of recent population, sampled on a timer and drawn
-    // as a sparkline so the boom/bust waves (and slider effects) are visible.
-    this.popHistory = [];
-    this.lastHudTime = 0;
-
     // Camera state. The default zoom fills the frame with the settled swarm so
     // the view isn't mostly empty void. `target` is where the camera eases to:
     // programmatic moves (frame/reset) animate toward it, while manual pan/zoom
@@ -424,67 +419,6 @@ class EvolutionApp {
     this.renderer.set_visual_params(v.glow, v.trails, v.brightness, v.size);
   }
 
-  // Sample the population into the ring buffer (~3×/sec) and redraw the HUD.
-  updateHud(currentTime) {
-    if (currentTime - this.lastHudTime < 350) return;
-    this.lastHudTime = currentTime;
-
-    if (!this.hud) {
-      const spark = document.getElementById("hud-spark");
-      const dpr = window.devicePixelRatio || 1;
-      // Render at device resolution for a crisp sparkline, draw in CSS pixels.
-      spark.width = 220 * dpr;
-      spark.height = 44 * dpr;
-      const ctx = spark.getContext("2d");
-      ctx.scale(dpr, dpr);
-      this.hud = { pop: document.getElementById("hud-pop"), ctx };
-    }
-
-    const pop = this.entityCount || 0;
-    this.popHistory.push(pop);
-    if (this.popHistory.length > 160) this.popHistory.shift();
-    this.hud.pop.textContent = pop.toLocaleString();
-    this.drawSparkline();
-  }
-
-  // Filled-area sparkline of recent population, auto-scaled so the waves always
-  // fill the height.
-  drawSparkline() {
-    const ctx = this.hud.ctx;
-    const W = 220;
-    const H = 44;
-    ctx.clearRect(0, 0, W, H);
-    const h = this.popHistory;
-    if (h.length < 2) return;
-
-    const max = Math.max(1, ...h);
-    const n = h.length;
-    const x = (i) => (i / (n - 1)) * W;
-    const y = (v) => H - 3 - (v / max) * (H - 6);
-
-    // Glowing area under the curve.
-    ctx.beginPath();
-    ctx.moveTo(x(0), H);
-    for (let i = 0; i < n; i++) ctx.lineTo(x(i), y(h[i]));
-    ctx.lineTo(x(n - 1), H);
-    ctx.closePath();
-    const grad = ctx.createLinearGradient(0, 0, 0, H);
-    grad.addColorStop(0, "rgba(122, 162, 247, 0.5)");
-    grad.addColorStop(1, "rgba(122, 162, 247, 0.02)");
-    ctx.fillStyle = grad;
-    ctx.fill();
-
-    // The curve itself.
-    ctx.beginPath();
-    for (let i = 0; i < n; i++) {
-      if (i === 0) ctx.moveTo(x(i), y(h[i]));
-      else ctx.lineTo(x(i), y(h[i]));
-    }
-    ctx.strokeStyle = "rgba(180, 206, 255, 0.95)";
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-  }
-
   startRenderLoop() {
     const animate = (currentTime) => {
       // Update simulation at target FPS
@@ -498,7 +432,6 @@ class EvolutionApp {
       // render.
       this.updateCamera();
       this.render();
-      this.updateHud(currentTime);
 
       this.animationId = requestAnimationFrame(animate);
     };
