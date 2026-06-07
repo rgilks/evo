@@ -367,7 +367,9 @@ fn test_simulation_apply_updates() {
 
 /// Mean (cur_x, cur_y) over the entity render tuples — shared by the drift and
 /// clustering assertions below.
-fn centroid(entities: &[(f32, f32, f32, f32, f32, f32, f32, f32, f32, f32)]) -> (f32, f32) {
+fn centroid(
+    entities: &[(f32, f32, f32, f32, f32, f32, f32, f32, f32, f32, f32, f32)],
+) -> (f32, f32) {
     let n = entities.len().max(1) as f32;
     let (sx, sy) = entities
         .iter()
@@ -441,9 +443,9 @@ fn test_entity_data_format() {
     let sim = Simulation::new(100.0);
     let entities = sim.get_entities();
 
-    // Each entity has 10 components: prev_x, prev_y, cur_x, cur_y, radius, r, g, b,
-    // health, style_id.
-    for (_px, _py, cx, cy, radius, r, g, b, health, style) in &entities {
+    // Each entity has 12 components: prev_x, prev_y, cur_x, cur_y, radius, r, g, b,
+    // health, style_id, speed_norm, sense_norm.
+    for (_px, _py, cx, cy, radius, r, g, b, health, style, speed, sense) in &entities {
         // Position should be within world bounds
         assert!(*cx >= -50.0 && *cx <= 50.0, "cx={} out of bounds", cx);
         assert!(*cy >= -50.0 && *cy <= 50.0, "cy={} out of bounds", cy);
@@ -467,6 +469,16 @@ fn test_entity_data_format() {
             "style={} out of range",
             style
         );
+        assert!(
+            *speed >= 0.0 && *speed <= 1.0,
+            "speed={} out of range",
+            speed
+        );
+        assert!(
+            *sense >= 0.0 && *sense <= 1.0,
+            "sense={} out of range",
+            sense
+        );
     }
 }
 
@@ -478,8 +490,8 @@ fn test_entity_buffer_conversion() {
     let entities = sim.get_entities();
 
     // Convert to flat buffer (same as update_entity_buffer)
-    let mut buffer: Vec<f32> = Vec::with_capacity(entities.len() * 10);
-    for (px, py, cx, cy, radius, r, g, b, health, style) in entities.iter() {
+    let mut buffer: Vec<f32> = Vec::with_capacity(entities.len() * 12);
+    for (px, py, cx, cy, radius, r, g, b, health, style, speed, sense) in entities.iter() {
         buffer.push(*px);
         buffer.push(*py);
         buffer.push(*cx);
@@ -490,18 +502,22 @@ fn test_entity_buffer_conversion() {
         buffer.push(*b);
         buffer.push(*health);
         buffer.push(*style);
+        buffer.push(*speed);
+        buffer.push(*sense);
     }
 
-    // Buffer length should be 10 * entity count
-    assert_eq!(buffer.len(), entities.len() * 10);
+    // Buffer length should be 12 * entity count
+    assert_eq!(buffer.len(), entities.len() * 12);
 
     // Entity count calculation should match
-    let entity_count = buffer.len() / 10;
+    let entity_count = buffer.len() / 12;
     assert_eq!(entity_count, entities.len());
 
     // Verify data integrity by reading back
-    for (i, (px, py, cx, cy, radius, r, g, b, health, style)) in entities.iter().enumerate() {
-        let base = i * 10;
+    for (i, (px, py, cx, cy, radius, r, g, b, health, style, speed, sense)) in
+        entities.iter().enumerate()
+    {
+        let base = i * 12;
         assert_eq!(buffer[base], *px);
         assert_eq!(buffer[base + 1], *py);
         assert_eq!(buffer[base + 2], *cx);
@@ -512,6 +528,8 @@ fn test_entity_buffer_conversion() {
         assert_eq!(buffer[base + 7], *b);
         assert_eq!(buffer[base + 8], *health);
         assert_eq!(buffer[base + 9], *style);
+        assert_eq!(buffer[base + 10], *speed);
+        assert_eq!(buffer[base + 11], *sense);
     }
 }
 

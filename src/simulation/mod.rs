@@ -666,11 +666,17 @@ impl Simulation {
     }
 
     /// Per-entity render data:
-    /// `(prev_x, prev_y, x, y, radius, r, g, b, health, style_id)`.
+    /// `(prev_x, prev_y, x, y, radius, r, g, b, health, style_id, speed_norm, sense_norm)`.
     /// `health` is the energy fraction (0..1) — the renderer dims the starving
     /// and brightens the thriving. `style_id` is the movement type (0..4) so the
-    /// renderer can mark predators.
-    pub fn get_entities(&self) -> Vec<(f32, f32, f32, f32, f32, f32, f32, f32, f32, f32)> {
+    /// renderer can give each behaviour its own body-plan. `speed_norm` and
+    /// `sense_norm` are the speed and sense-radius genes normalised to 0..1, so
+    /// the shader can shape morphology (elongation, sensory halo) by genotype —
+    /// making evolution of body plans visible.
+    #[allow(clippy::type_complexity)]
+    pub fn get_entities(
+        &self,
+    ) -> Vec<(f32, f32, f32, f32, f32, f32, f32, f32, f32, f32, f32, f32)> {
         self.world
             .query::<(Entity, &Position, &Size, &Color, &Energy, &Genes)>()
             .iter()
@@ -683,6 +689,10 @@ impl Simulation {
                     0.0
                 };
                 let style_id = movement_style_id(&genes.behavior.movement_style.style);
+                // Normalise to the gene ranges declared in genes/mod.rs (speed
+                // 0.1..6.5, sense 2..180) so the shader gets stable 0..1 traits.
+                let speed_norm = ((genes.speed() - 0.1) / 6.4).clamp(0.0, 1.0);
+                let sense_norm = ((genes.sense_radius() - 2.0) / 178.0).clamp(0.0, 1.0);
                 (
                     prev_pos.x,
                     prev_pos.y,
@@ -694,6 +704,8 @@ impl Simulation {
                     color.b,
                     health,
                     style_id,
+                    speed_norm,
+                    sense_norm,
                 )
             })
             .collect()

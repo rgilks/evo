@@ -19,7 +19,7 @@ var<uniform> uniforms: SimulationUniforms;
 struct InstanceInput {
     @location(0) prev_curr_pos: vec4<f32>, // xy = prev_pos, zw = curr_pos
     @location(1) radius_color: vec4<f32>, // x = radius, yzw = color (rgb)
-    @location(2) state: vec2<f32>, // x = health (0..1), y = movement-style id (0..4)
+    @location(2) state: vec4<f32>, // x=health(0..1), y=style id(0..4), z=speed gene(0..1), w=sense gene(0..1)
 }
 
 struct VertexOutput {
@@ -27,7 +27,7 @@ struct VertexOutput {
     @location(0) color: vec3<f32>,
     @location(1) uv: vec2<f32>,
     @location(2) motion_shape: vec4<f32>,
-    @location(3) state: vec2<f32>, // x = health, y = movement-style id
+    @location(3) state: vec4<f32>, // x=health, y=style id, z=speed gene, w=sense gene
 }
 
 // Quad vertices (generated in shader)
@@ -102,38 +102,73 @@ fn vs_main(
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let dir = in.motion_shape.xy;
     let tangent = vec2<f32>(-dir.y, dir.x);
-    let speed = in.motion_shape.z;
+    let motion = in.motion_shape.z;          // 0..1 movement speed this frame
     let seed = in.motion_shape.w;
     let health = clamp(in.state.x, 0.0, 1.0);
     let style = in.state.y;
+    let speed_gene = clamp(in.state.z, 0.0, 1.0);
+    let sense_gene = clamp(in.state.w, 0.0, 1.0);
 
-    // Stretch gently along the motion vector and add a low-frequency edge wobble
-    // so organisms read as soft amoebas instead of perfect glowing discs.
-    let along = dot(in.uv, dir) / (1.0 + speed * 0.18);
-    let across = dot(in.uv, tangent) * (1.0 + speed * 0.08);
-    let shaped_uv = vec2<f32>(along, across);
-    let angle = atan2(shaped_uv.y, shaped_uv.x);
+    // Body axes: along the motion vector, and across it.
+    let along = dot(in.uv, dir);
+    let across = dot(in.uv, tangent);
+
+    // Streamlining: a fast genotype (and fast motion) narrows the body into a
+    // dart; a slow one stays round. Width only ever shrinks, so the silhouette
+    // stays inside the quad. This makes the speed gene visible as form.
+    let streamline = clamp(speed_gene * 0.75 + motion * 0.25, 0.0, 1.0);
+    var width = mix(1.0, 0.55, streamline);
+
+    // Archetype by movement style — each behaviour gets its own body plan, so
+    // speciation reads as visibly different creatures, not just colours:
+    //   grazer = round & soft, predator = sharp dart, solitary = spiky star,
+    //   flocker = streamlined, random = neutral.
+    var spike_freq = 4.0;
+    var spike_amp = 0.07;
+    if (style > 3.5) {            // Grazing
+        width = mix(width, 1.0, 0.6);
+        spike_amp = 0.03;
+    } else if (style > 2.5) {     // Predatory
+        width = width * 0.82;
+        spike_freq = 3.0;
+        spike_amp = 0.05;
+    } else if (style > 1.5) {     // Solitary
+        spike_freq = 7.0;
+        spike_amp = 0.20;
+    } else if (style > 0.5) {     // Flocking
+        width = width * 0.9;
+        spike_freq = 5.0;
+        spike_amp = 0.06;
+    }
+
+    // Teardrop: taper toward the front so a moving creature leads with a head.
+    let taper = 1.0 - 0.35 * smoothstep(0.0, 0.9, along) * streamline;
+    let eff_width = max(width * taper, 0.22);
+    let shaped = vec2<f32>(along, across / eff_width);
+
+    let angle = atan2(shaped.y, shaped.x);
     let wobble =
-        sin(angle * 3.0 + seed * 6.28318) * 0.08 +
-        sin(angle * 5.0 - seed * 9.1) * 0.045;
-    let dist = length(shaped_uv) / max(0.76, 1.0 + wobble);
+        sin(angle * spike_freq + seed * 6.28318) * spike_amp +
+        sin(angle * (spike_freq + 2.0) - seed * 9.1) * spike_amp * 0.5;
+    // Start spiky shapes from a smaller base so their points fit the quad.
+    let base = 0.92 - spike_amp;
+    let dist = length(shaped) / max(0.6, base + wobble);
 
     let body = smoothstep(1.04, 0.60, dist);
     let soft_edge = smoothstep(1.10, 0.84, dist);
     let inner = smoothstep(0.74, 0.12, dist);
-    // Wider, softer halo than before so a healthy cell bleeds a glow the bloom
-    // pass turns into bioluminescence.
-    let halo = pow(max(0.0, 1.0 - dist), 2.3);
+    // Bioluminescent halo, widened for far-sighted (high-sense) genotypes so a
+    // keen perceiver wears a visible aura — the sense gene made visible.
+    let halo = pow(max(0.0, 1.0 - dist), 2.3) * (0.65 + sense_gene * 0.8);
 
     let nucleus_offset = vec2<f32>(cos(seed * 6.28318), sin(seed * 6.28318)) * 0.18;
-    let nucleus = smoothstep(0.26, 0.0, length(shaped_uv - nucleus_offset));
+    let nucleus = smoothstep(0.26, 0.0, length(shaped - nucleus_offset));
     let highlight_offset = vec2<f32>(-0.22, -0.28) + nucleus_offset * 0.28;
-    let highlight = smoothstep(0.32, 0.0, length(shaped_uv - highlight_offset));
+    let highlight = smoothstep(0.32, 0.0, length(shaped - highlight_offset));
 
     // Vitality drives luminance: a thriving cell glows brightly (and blooms), a
     // starving one dims to a faint ember. Newborns spawn at low energy and
-    // brighten as they feed; the dying fade toward dark — so birth and death
-    // read as changes in light with no extra per-creature bookkeeping.
+    // brighten as they feed; the dying fade toward dark.
     let vitality = 0.34 + health * 1.02;
     // Predators (style id 3) carry a hotter, tighter nucleus — a hungry glint.
     let is_pred = step(2.5, style) * step(style, 3.5);
@@ -146,8 +181,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let highlight_rgb = vec3<f32>(1.0, 0.96, 0.84) * highlight * 0.26;
     let rgb = cytoplasm + membrane + nucleus_rgb + highlight_rgb;
 
-    // Fade the whole organism with vitality so the dying dissolve into the dark
-    // instead of popping out of existence.
+    // Fade the whole organism with vitality so the dying dissolve into the dark.
     let alpha = body * (0.45 + health * 0.5);
 
     return vec4<f32>(rgb, alpha);

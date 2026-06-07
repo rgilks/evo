@@ -15,8 +15,8 @@ mod web;
 pub use wasm_bindgen_rayon::init_thread_pool;
 
 /// Floats packed per entity in the render buffer:
-/// prev_x, prev_y, x, y, radius, r, g, b, health, style_id.
-const FLOATS_PER_ENTITY: usize = 10;
+/// prev_x, prev_y, x, y, radius, r, g, b, health, style_id, speed_norm, sense_norm.
+const FLOATS_PER_ENTITY: usize = 12;
 
 /// Floats packed per food patch in the render buffer: x, y, radius, intensity_fraction.
 const FLOATS_PER_PATCH: usize = 4;
@@ -68,7 +68,7 @@ impl WebSimulation {
         let entity_tuples = self.simulation.get_entities();
         self.entity_buffer.clear();
 
-        for (px, py, cx, cy, radius, r, g, b, health, style) in entity_tuples {
+        for (px, py, cx, cy, radius, r, g, b, health, style, speed, sense) in entity_tuples {
             self.entity_buffer.push(px);
             self.entity_buffer.push(py);
             self.entity_buffer.push(cx);
@@ -79,6 +79,8 @@ impl WebSimulation {
             self.entity_buffer.push(b);
             self.entity_buffer.push(health);
             self.entity_buffer.push(style);
+            self.entity_buffer.push(speed);
+            self.entity_buffer.push(sense);
         }
 
         self.entity_buffer.as_ptr()
@@ -204,7 +206,7 @@ impl WebSimulation {
         Ok(WebSimulation {
             simulation,
             seed,
-            entity_buffer: Vec::with_capacity(100000), // 10000 entities * 10 floats
+            entity_buffer: Vec::with_capacity(120000), // 10000 entities * 12 floats
             food_buffer: Vec::with_capacity(64),       // a handful of patches * 4 floats
             effect_buffer: Vec::with_capacity(2400),   // up to ~400 effects * 6 floats
         })

@@ -148,7 +148,7 @@ fn test_reproduction_system_drift() {
             let mut total_x = 0.0;
             let mut total_y = 0.0;
 
-            for (_px, _py, cx, cy, _, _, _, _, _, _) in &entities {
+            for (_px, _py, cx, cy, _, _, _, _, _, _, _, _) in &entities {
                 total_x += cx;
                 total_y += cy;
             }

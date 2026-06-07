@@ -57,7 +57,7 @@ fn test_interaction_system_drift() {
             let mut total_x = 0.0;
             let mut total_y = 0.0;
 
-            for (_px, _py, cx, cy, _, _, _, _, _, _) in &entities {
+            for (_px, _py, cx, cy, _, _, _, _, _, _, _, _) in &entities {
                 total_x += cx;
                 total_y += cy;
             }
@@ -123,7 +123,7 @@ fn test_interaction_processing_order() {
             let mut total_x = 0.0;
             let mut total_y = 0.0;
 
-            for (_px, _py, cx, cy, _, _, _, _, _, _) in &entities {
+            for (_px, _py, cx, cy, _, _, _, _, _, _, _, _) in &entities {
                 total_x += cx;
                 total_y += cy;
             }
@@ -140,7 +140,7 @@ fn test_interaction_processing_order() {
             );
 
             // Store positions for analysis
-            for (_px, _py, cx, cy, _, _, _, _, _, _) in &entities {
+            for (_px, _py, cx, cy, _, _, _, _, _, _, _, _) in &entities {
                 eaten_positions.push((*cx, *cy));
             }
         }
@@ -214,7 +214,7 @@ fn test_interaction_order_bias() {
 
     // Get initial positions
     let initial_entities = simulation.get_entities();
-    for (_px, _py, cx, cy, _, _, _, _, _, _) in &initial_entities {
+    for (_px, _py, cx, cy, _, _, _, _, _, _, _, _) in &initial_entities {
         initial_positions.push((*cx, *cy));
     }
 
@@ -225,7 +225,7 @@ fn test_interaction_order_bias() {
         if step == 19 {
             // After 20 steps
             let final_entities = simulation.get_entities();
-            for (_px, _py, cx, cy, _, _, _, _, _, _) in &final_entities {
+            for (_px, _py, cx, cy, _, _, _, _, _, _, _, _) in &final_entities {
                 survivor_positions.push((*cx, *cy));
             }
         }
