@@ -8,7 +8,7 @@ A beautiful and performant evolution simulation written in Rust with WebGPU-acce
 
 ## Controls
 
-- **Click** the canvas to seed a burst of life at the cursor; **drag** to pan, **scroll** to zoom, **F** to frame the swarm, **R** to reset, **H** to toggle the control panel (**Esc** hides it).
+- **Click** the canvas to drop a patch of food at the cursor (creatures swarm and graze it down); **drag** to pan, **scroll** to zoom, **F** to frame the swarm, **R** to reset, **H** to toggle the control panel (**Esc** hides it).
 - The **⚙ panel** tunes the ecosystem (food, breeding, mortality, predators, metabolism), motion & physics, and **Visuals** — Glow, Trails, Size, Brightness (instant, cosmetic) plus a **Colour** lens to recolour the swarm by speed / health / behaviour. **Reset / Cull / Bloom** act immediately.
 
 ## Quick Start

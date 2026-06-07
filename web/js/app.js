@@ -282,8 +282,8 @@ class EvolutionApp {
       this.cameraTarget.zoom = this.camera.zoom; // manual zoom: no tween lag
     });
 
-    // Left button: a click (no drag) seeds a burst of life at the cursor; a drag
-    // pans. The down position + a small movement threshold tell them apart.
+    // Left button: a click (no drag) drops food at the cursor; a drag pans.
+    // The down position + a small movement threshold tell them apart.
     this.canvas.addEventListener("mousedown", (e) => {
       if (e.button === 0) {
         this.camera.isPanning = true;
@@ -320,7 +320,7 @@ class EvolutionApp {
     window.addEventListener("mouseup", (e) => {
       if (e.button === 0 && this.camera.isPanning) {
         this.camera.isPanning = false;
-        if (!this.camera.moved) this.spawnAtScreen(e.clientX, e.clientY);
+        if (!this.camera.moved) this.dropFoodAtScreen(e.clientX, e.clientY);
       }
     });
   }
@@ -412,9 +412,9 @@ class EvolutionApp {
     this.cameraTarget.y = f[1] / half;
   }
 
-  // Seed a burst of life at a screen position (a canvas click). Inverts the
+  // Drop a patch of food at a screen position (a canvas click). Inverts the
   // shader's world→screen transform (NDC ÷ zoom − camera) × half-world.
-  spawnAtScreen(clientX, clientY) {
+  dropFoodAtScreen(clientX, clientY) {
     if (!this.simulation) return;
     const rect = this.canvas.getBoundingClientRect();
     const ndcX = ((clientX - rect.left) / rect.width) * 2 - 1;
@@ -423,8 +423,8 @@ class EvolutionApp {
     const z = this.camera.zoom;
     const worldX = (ndcX / z - this.camera.x) * half;
     const worldY = (this.camera.y - ndcY / z) * half;
-    this.simulation.bloom_at(worldX, worldY, 100);
-    this.lastRenderedStep = -1; // force a repack so the burst shows at once
+    this.simulation.drop_food(worldX, worldY);
+    this.lastRenderedStep = -1; // force a repack so the drop shows at once
   }
 
   // Push the cosmetic visual params (Glow / Trails / Brightness / Size) to the

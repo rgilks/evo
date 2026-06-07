@@ -266,8 +266,10 @@ fn food_vs(
     let screen_y = (world_to_screen_y + uniforms.camera_y) * uniforms.camera_zoom;
     let screen_pos = vec2<f32>(screen_x, screen_y);
 
-    // Patches are large soft fields; map the world radius straight to screen.
-    let screen_radius = radius / world_size * 2.0 * uniforms.camera_zoom;
+    // Shrink the rendered radius as a patch is grazed down (data.w = intensity
+    // fraction), so consumed food visibly shrinks rather than only dimming.
+    let screen_radius =
+        radius / world_size * 2.0 * uniforms.camera_zoom * (0.4 + 0.6 * instance.data.w);
 
     out.position = vec4<f32>(screen_pos + quad_pos * screen_radius, 0.0, 1.0);
     out.uv = quad_pos;
@@ -299,9 +301,11 @@ fn food_fs(in: FoodVertexOutput) -> @location(0) vec4<f32> {
     let spent = vec3<f32>(0.05, 0.20, 0.24);
     let tint = mix(spent, lush, intensity);
 
-    // Brightness tracks richness; a full patch's core pushes past the bloom
-    // threshold so it reads as a luminous feeding ground.
-    let field = soft * 0.45 + core * 1.05 * intensity;
+    // Scale the WHOLE field by intensity (not just the core) so a grazed patch
+    // fades overall — you can watch food being eaten and dropped food vanish. A
+    // full patch's core still pushes past the bloom threshold (a luminous
+    // feeding ground); a depleted one cools and dims to almost nothing.
+    let field = (soft * 0.5 + core * 1.05) * intensity;
     let rgb = tint * field;
 
     return vec4<f32>(rgb, soft);

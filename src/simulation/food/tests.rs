@@ -63,6 +63,25 @@ fn grazing_reduces_local_intensity() {
 }
 
 #[test]
+fn dropped_food_is_eaten_and_removed() {
+    let mut field = FoodField::new(5, 846.0, test_cfg());
+    let n0 = field.patches().len();
+    field.drop_food(100.0, 100.0);
+    assert_eq!(field.patches().len(), n0 + 1, "drop adds a transient patch");
+    // Transient food has no graze floor and no regrowth, so heavy grazing eats
+    // it to nothing and the next update removes it.
+    for _ in 0..60 {
+        field.graze(100.0, 100.0, 100.0);
+    }
+    field.update(5, 1);
+    assert_eq!(
+        field.patches().len(),
+        n0,
+        "fully grazed dropped food is removed"
+    );
+}
+
+#[test]
 fn update_is_deterministic_for_same_seed() {
     let snapshot = |seed: u64| {
         let mut field = FoodField::new(seed, 846.0, test_cfg());

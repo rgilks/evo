@@ -194,6 +194,12 @@ impl WebSimulation {
     pub fn bloom_at(&mut self, x: f32, y: f32, count: u32) {
         self.simulation.bloom_at(x, y, count);
     }
+
+    /// Drop a patch of food at world `(x, y)` — the user clicking to feed the
+    /// world; creatures swarm it and graze it down until it disappears.
+    pub fn drop_food(&mut self, x: f32, y: f32) {
+        self.simulation.drop_food(x, y);
+    }
 }
 
 impl WebSimulation {

@@ -317,6 +317,14 @@ impl Simulation {
         self.add_effect(x, y, self.world_size * 0.08, 26, 1.0);
     }
 
+    /// Drop a patch of food at world `(x, y)` — the user clicking to feed the
+    /// world. Creatures migrate to it and graze it down until it disappears.
+    pub fn drop_food(&mut self, x: f32, y: f32) {
+        self.food_field.drop_food(x, y);
+        // A soft green nourishment ring as a drop cue.
+        self.add_effect(x, y, self.world_size * 0.05, 18, 1.0);
+    }
+
     /// Queue a transient visual effect (cosmetic ring/flash). Dropped silently
     /// once the active set hits `EFFECT_CAP`.
     fn add_effect(&mut self, x: f32, y: f32, base_radius: f32, max_age: u32, kind: f32) {

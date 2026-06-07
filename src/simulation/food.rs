@@ -40,6 +40,9 @@ pub struct FoodPatch {
     pub capacity: f32,
     /// Per-patch drift heading (radians); slowly re-rolled so patches wander.
     heading: f32,
+    /// User-dropped food: doesn't drift or regrow, has no graze floor, and is
+    /// removed once eaten — so a dropped blob is visibly consumed and disappears.
+    transient: bool,
 }
 
 /// The whole food field: a uniform base plus a fixed-size set of patches, with
@@ -95,6 +98,7 @@ impl FoodField {
                     intensity: cfg.patch_peak,
                     capacity: cfg.patch_peak,
                     heading: rng.random_range(0.0..std::f32::consts::TAU),
+                    transient: false,
                 }
             })
             .collect();
@@ -114,6 +118,10 @@ impl FoodField {
     pub fn update(&mut self, seed: u64, step: u32) {
         let bound = self.half_world * 0.82;
         for (i, p) in self.patches.iter_mut().enumerate() {
+            // Dropped food doesn't drift or regrow — it only gets eaten.
+            if p.transient {
+                continue;
+            }
             // Gentle wandering: nudge the heading a little each tick, then step.
             let mut hrng =
                 FastRng::seed_from_u64(mix_seed(seed ^ FOOD_SALT, i as u64, step as u64));
@@ -138,6 +146,9 @@ impl FoodField {
             // faster, so a big-world crowd can't strip patches to nothing forever.
             p.intensity = (p.intensity + p.capacity * self.cfg.regen_rate).min(p.capacity);
         }
+        // Remove grazed-out dropped food so consumed blobs disappear.
+        self.patches
+            .retain(|p| !p.transient || p.intensity > p.capacity * 0.04);
     }
 
     /// Total production a creature at `(x, y)` grazes this tick: the uniform base
@@ -193,10 +204,40 @@ impl FoodField {
             let r2 = p.radius * p.radius;
             if d2 < r2 {
                 let t = 1.0 - d2 / r2;
-                let floor = p.capacity * self.cfg.graze_floor;
+                // Dropped food has no floor, so it can be eaten to nothing.
+                let floor = if p.transient {
+                    0.0
+                } else {
+                    p.capacity * self.cfg.graze_floor
+                };
                 p.intensity = (p.intensity - amount * self.cfg.graze_rate * t * t).max(floor);
             }
         }
+    }
+
+    /// Drop a modest, rich, transient food blob at `(x, y)` — the user clicking
+    /// to feed the world. It doesn't drift or regrow, so creatures swarm it,
+    /// graze it down, and it visibly disappears. Capped so drops can't pile up.
+    pub fn drop_food(&mut self, x: f32, y: f32) {
+        const MAX_DROPPED: usize = 16;
+        if self.patches.iter().filter(|p| p.transient).count() >= MAX_DROPPED {
+            if let Some(i) = self.patches.iter().position(|p| p.transient) {
+                self.patches.remove(i);
+            }
+        }
+        // Smaller than an ambient patch ("not a big block") but rich enough to be
+        // worth swarming.
+        let cap = self.cfg.patch_peak * 2.0;
+        let b = self.half_world;
+        self.patches.push(FoodPatch {
+            x: x.clamp(-b, b),
+            y: y.clamp(-b, b),
+            radius: self.cfg.patch_radius * 0.5,
+            intensity: cap,
+            capacity: cap,
+            heading: 0.0,
+            transient: true,
+        });
     }
 
     pub fn patches(&self) -> &[FoodPatch] {
