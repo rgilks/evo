@@ -168,6 +168,7 @@ struct FoodVertexOutput {
     @builtin(position) position: vec4<f32>,
     @location(0) uv: vec2<f32>,
     @location(1) intensity: f32,
+    @location(2) seed: f32,
 }
 
 @vertex
@@ -194,22 +195,37 @@ fn food_vs(
     out.position = vec4<f32>(screen_pos + quad_pos * screen_radius, 0.0, 1.0);
     out.uv = quad_pos;
     out.intensity = instance.data.w;
+    // A per-patch seed (from its world position) so each field wobbles its own
+    // way instead of every patch being an identical disc.
+    out.seed = fract(sin(dot(world_pos, vec2<f32>(12.9898, 78.233))) * 43758.5453);
     return out;
 }
 
 @fragment
 fn food_fs(in: FoodVertexOutput) -> @location(0) vec4<f32> {
-    let dist = length(in.uv);
-    // Smooth radial falloff (squared) so the patch is a soft blob with no hard rim.
-    let glow = max(0.0, 1.0 - dist);
-    let soft = glow * glow;
+    let intensity = in.intensity; // 0..1 fraction of the patch's capacity
+    let angle = atan2(in.uv.y, in.uv.x);
+    // Low-frequency organic wobble so the field reads as a living nutrient bloom
+    // (algae/coral) rather than a perfect circle. Unique per patch via `seed`.
+    let wobble =
+        sin(angle * 3.0 + in.seed * 6.28318) * 0.06 +
+        sin(angle * 5.0 - in.seed * 11.0) * 0.035;
+    let dist = length(in.uv) / (1.0 + wobble);
 
-    // Calm teal/green nourishment colour, kept dim so it reads as ambient food
-    // and never competes with the creatures or the bloom. Scaled by the patch's
-    // current intensity so a depleted patch visibly fades.
-    let teal = vec3<f32>(0.075, 0.42, 0.33);
-    let brightness = 0.68;
-    let rgb = teal * soft * brightness * in.intensity;
+    let glow = max(0.0, 1.0 - dist);
+    let soft = glow * glow;       // broad soft halo
+    let core = pow(glow, 4.0);    // tight inner core that blooms when rich
+
+    // Lush patches glow warm green-gold; grazed-out ones cool to a faint teal, so
+    // a glance tells you which fields are feeding the swarm and which are spent.
+    let lush = vec3<f32>(0.24, 0.86, 0.42);
+    let spent = vec3<f32>(0.05, 0.20, 0.24);
+    let tint = mix(spent, lush, intensity);
+
+    // Brightness tracks richness; a full patch's core pushes past the bloom
+    // threshold so it reads as a luminous feeding ground.
+    let field = soft * 0.45 + core * 1.05 * intensity;
+    let rgb = tint * field;
 
     return vec4<f32>(rgb, soft);
 }
