@@ -8,7 +8,7 @@
 
 | Layer | Choice | Notes |
 |-------|--------|-------|
-| Language | Rust (edition 2021) | ~5,400 lines across `src/` (about 3,150 excluding tests) |
+| Language | Rust (edition 2021) | Archetypal-ECS core; a few thousand lines across `src/` |
 | ECS | `hecs` 0.11 | Lightweight archetypal ECS; systems are hand-orchestrated (no scheduler) |
 | Parallelism | `rayon` | Parallel per-entity processing over ECS queries |
 | Rendering | `wgpu` 29 (WebGPU) | Instanced quads → HDR scene + motion trails → bloom + ambient composite |
@@ -59,13 +59,13 @@ The simulation is built from a small set of recurring patterns. Naming them once
 
 **Grouped configuration.** `SimulationConfig` is a struct of domain sub-structs (`population`, `physics`, `energy`, `reproduction` — `config/mod.rs`), serde-(de)serializable, with a `Default`. It is threaded read-only as `&config` to every system, and individual fields are tunable live through `WebSimulation::update_param` via a typed `SimParam` enum. `Genes` mirrors this shape with one sub-struct per trait domain.
 
-**Deterministic, seeded simulation.** All randomness derives from a single `u64` seed through a counter-based per-entity RNG (`mix_seed(seed, entity_id, tick)` → a fast SplitMix64 `FastRng`). Each entity's stream depends only on the seed, its id, and the tick — not on thread scheduling — and neighbour selection (nearest-N) and structural mutation (sorted by id) are order-independent, so the same seed reproduces a run bit-for-bit. The native/test path uses a fixed default seed; the browser seeds from the wall clock and logs it for shareable, replayable runs.
+**Deterministic, seeded simulation.** All randomness derives from a single `u64` seed through a counter-based per-entity RNG (`mix_seed(seed, entity_id, tick)` → a fast SplitMix64 `FastRng`). Each entity's stream depends only on the seed, its id, and the tick — not on thread scheduling — and neighbour selection (nearest-N) and structural mutation (sorted by id) are order-independent, so the same seed reproduces a run bit-for-bit. The frontend runs a single fixed curated seed, so every visitor sees the same world. (The WASM API also exposes a wall-clock `new()` constructor and `get_seed`, currently unused by the UI.)
 
 **Phenotype from genotype (derived data).** Visible and effective traits are computed from genes, never stored independently: `Color` via `Genes::get_color()` (HSV→RGB), edibility via `can_eat()`, prey choice via `get_predation_preference()`, plus flat accessor shims (`speed()`, `sense_radius()`, …) over the nested gene structs. Genes are the single source of truth; phenotype is a pure function of them.
 
 **FFI boundary facade.** `WebSimulation` and `WebGpuRenderer` (`lib.rs`, `web/webgpu.rs`) are the only `#[wasm_bindgen]` types. They own all JS-facing marshalling and delegate to an FFI-free core (`Simulation` returns plain Rust tuples). The boundary is the one place `Result<_, JsValue>` and raw pointers appear.
 
-**Zero-copy render buffer.** Instead of per-creature draw calls, entities are packed into one flat `[f32]` (8 floats each) exposed to JS by raw pointer; the renderer reads it as instance data for a single instanced draw, and the shader does interpolation and the camera transform on the GPU (see Rendering Pipeline).
+**Zero-copy render buffer.** Instead of per-creature draw calls, entities are packed into one flat `[f32]` (12 floats each) exposed to JS by raw pointer; the renderer reads it as instance data for a single instanced draw, and the shader does interpolation and the camera transform on the GPU (see Rendering Pipeline).
 
 **Snapshot for interpolation.** Each tick snapshots positions into `previous_positions` (keyed by entity) before moving entities, so the renderer can interpolate between the last two sim states — decoupling visual smoothness from tick rate. Because entities are updated in place, their ids are stable across ticks, so the snapshot matches the live entities and the interpolation is active.
 

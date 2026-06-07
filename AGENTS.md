@@ -45,7 +45,7 @@ CARGO_UNSTABLE_BUILD_STD=std,panic_abort cargo check --target wasm32-unknown-unk
 
 ## Code Map
 
-- WASM entry + JS bindings: `src/lib.rs` (`WebSimulation`: `new` / `with_seed`, `get_seed`, `update`, `update_entity_buffer`, `entity_count`, `get_stats`, `update_param`).
+- WASM entry + JS bindings: `src/lib.rs` — `WebSimulation` (`new`/`with_seed`, `update`, the `update_*_buffer`/`*_count` trio for entities/food/effects, `get_stats`, `get_world_size`, `get_view_focus`, `get_step`, `update_param`, and the `cull`/`bloom`/`bloom_at` user actions) and the `WebGpuRenderer` facade in `src/web/webgpu.rs` (`create`, `render`, `resize`, `set_visual_params`, `set_color_mode`).
 - Tick orchestrator: `src/simulation/mod.rs`.
 - Components: `src/components.rs`.
 - Genes (generation, mutation, similarity, predation preference): `src/genes/mod.rs`.
@@ -53,7 +53,7 @@ CARGO_UNSTABLE_BUILD_STD=std,panic_abort cargo check --target wasm32-unknown-unk
 - Neighbour lookups: `src/spatial_grid.rs` (HashMap spatial hash), with a per-tick `NeighborCache` snapshot in `src/systems/mod.rs`.
 - Config / tunable parameters: `src/config/mod.rs`.
 - Stats serialized to JS: `src/stats/mod.rs`.
-- Renderer + shaders: `src/web/webgpu.rs`, `src/shader.wgsl`.
+- Renderer + shaders: `src/web/webgpu.rs` + `src/web/postprocess.rs` (bloom/post-process), `src/shader.wgsl` + `src/post.wgsl`.
 - Frontend: `web/index.html`, `web/js/app.js`.
 
 ## Tests

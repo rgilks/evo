@@ -2,17 +2,11 @@
 
 Forward-looking work, roughly ordered by what unblocks or de-risks the most. Present tense; this is intent, not history.
 
-## P1 — Dependency modernization
+## Known constraint — nightly toolchain pin for WASM threads
 
-The toolchain is pinned to `nightly-2026-05-01` (rustc 1.97). atomics + `-Z build-std` are nightly-only (still true in 2026 — unavoidable, not debt), so a nightly pin is required.
+The toolchain is pinned to `nightly-2026-05-01` (rustc 1.97). atomics + `-Z build-std` are nightly-only (still true in 2026 — unavoidable, not debt), so a nightly pin is required. (The dep stack — `hecs` 0.11, `rand` 0.9, `wgpu` 29, `wasm-bindgen` 0.2.122, no `indexmap` pin — is current; see `Cargo.toml`.)
 
-**WASM threads on a current nightly require the full link-arg set in `.cargo/config.toml`.** On modern nightlies lld no longer auto-exports the TLS-init symbols, and wasm-bindgen-rayon needs an imported *shared* memory. The wasm target therefore builds with `target-feature=+atomics,+bulk-memory` plus link args `--shared-memory --max-memory=1073741824 --import-memory` and explicit `--export=` of `__heap_base`, `__wasm_init_tls`, `__tls_size`, `__tls_align`, `__tls_base` — mirroring wasm-bindgen's own threading reference build. Without the `--export=__wasm_init_tls` family, `wasm-bindgen` fails with `failed to find __wasm_init_tls`; without `--import-memory`/`--shared-memory`, `initThreadPool` fails at load (`DataCloneError: #<Memory> could not be cloned`). The CI workflow's pinned nightly must stay in sync with `rust-toolchain.toml`: the workflow installs rustfmt/clippy/wasm components for its own pinned value, so a mismatch fails the build.
-
-Remaining dep bumps, scouted but not yet done — each is independent and should be landed and browser-verified on its own:
-
-- Drop the `indexmap = "=2.2.6"` exact-pin (the current nightly accepts current indexmap; it's only a transitive of wgpu/naga).
-- `hecs` 0.9 → 0.11: query iterators now yield `Q::Item` instead of `(Entity, Q::Item)`, and `Entity` implements `Query` — add `Entity` to the queries that need the id and flatten the bindings. Also `rand` 0.8 → 0.9 (touches `src/simulation/rng.rs`'s `FastRng: RngCore`/`SeedableRng` and the systems).
-- `wgpu` 24 → 29: mechanical churn in **both** `src/web/webgpu.rs` and `src/web/postprocess.rs` (the bloom post-process) — by-value `InstanceDescriptor` (no `Default`), `request_adapter` returns `Result`, `request_device` takes one arg, `bind_group_layouts: &[Option<&_>]` + `immediate_size`, `multiview` → `multiview_mask`, `get_current_texture` returns the `CurrentSurfaceTexture` enum, and `RenderPassColorAttachment.depth_slice`. wgpu 29 forces `wasm-bindgen` 0.2.122 (the current 0.2.100 + 0.2.122's threading transform both still look up `__wasm_init_tls`, so the link-arg set above already covers it).
+**WASM threads on this nightly require the full link-arg set in `.cargo/config.toml`.** lld no longer auto-exports the TLS-init symbols, and wasm-bindgen-rayon needs an imported *shared* memory. The wasm target therefore builds with `target-feature=+atomics,+bulk-memory` plus link args `--shared-memory --max-memory=1073741824 --import-memory` and explicit `--export=` of `__heap_base`, `__wasm_init_tls`, `__tls_size`, `__tls_align`, `__tls_base` — mirroring wasm-bindgen's own threading reference build. Without the `--export=__wasm_init_tls` family, `wasm-bindgen` fails with `failed to find __wasm_init_tls`; without `--import-memory`/`--shared-memory`, `initThreadPool` fails at load (`DataCloneError: #<Memory> could not be cloned`). The CI workflow's pinned nightly must stay in sync with `rust-toolchain.toml`: the workflow installs rustfmt/clippy/wasm components for its own pinned value, so a mismatch fails the build.
 
 ## P2 — Performance: dense spatial grid (SoA)
 
@@ -26,7 +20,7 @@ The crate is `cdylib`-only, so there's no native way to profile or benchmark. Ad
 
 ## P2 — GPU compute for scale (100K–1M entities)
 
-Reaching 100K–1M is a **separate GPU-compute engine**, not an optimization of the current one: ping-pong storage buffers, a counting-sort spatial grid + prefix sum on the GPU, force/movement compute shaders, and indirect draw. CPU + rayon cannot reach that scale. This sim's per-entity logic (predation, energy transfer, births/deaths = structural mutation needing GPU compaction) makes the port heavier than a plain particle-life sim. Revisit only after the toolchain bump, and only if the scale is genuinely wanted.
+Reaching 100K–1M is a **separate GPU-compute engine**, not an optimization of the current one: ping-pong storage buffers, a counting-sort spatial grid + prefix sum on the GPU, force/movement compute shaders, and indirect draw. CPU + rayon cannot reach that scale. This sim's per-entity logic (predation, energy transfer, births/deaths = structural mutation needing GPU compaction) makes the port heavier than a plain particle-life sim. Revisit only if the scale is genuinely wanted.
 
 ## P2 — Build robustness
 
@@ -44,9 +38,7 @@ The public URL is the custom domain `https://evo.tre.systems` (in the README). T
 ## P3 — Code cleanups (from the architecture review)
 
 - **Split `systems/movement/mod.rs`** (~390 lines, over the 200-line guideline). Extract the neighbour-accumulation loop and the flocking/solitary force helpers from `update_movement`. Pure refactor — preserve arithmetic order so seed-determinism is unchanged. (`simulation/mod.rs` already had its seeding helpers pulled into `simulation/rng.rs`.)
-- **Trim unused stats.** `SimulationStats::from_world` computes `entity_counts`, per-colour classification, several averages, and `world_center_drift` on every `get_stats()`, but the UI consumes only `total_entities`. Either surface them in the UI or trim the struct (crosses the WASM boundary, so update `lib.rs`/JS/tests together).
-- **Faster hot-loop RNG.** The per-entity-per-tick RNG is `StdRng` (ChaCha, cryptographic-grade). A small fast PRNG (the `splitmix64` finaliser already in `mix_seed`, or wyrand/pcg) would cut hot-loop cost and shrink the `rand`/`getrandom` footprint, keeping determinism. Deferred deliberately: it changes every seed's output (the algorithm is unchanged, but each seed maps to a different run), so the curated default seed and any shared seeds need re-curating — a poor trade for a marginal speedup on a visual piece, and best done as its own visually-verified pass.
-
+- **Trim unused stats.** `SimulationStats::from_world` computes `entity_counts`, per-colour classification, several averages, and `world_center_drift` on every `get_stats()`, but the UI consumes none of it (the population HUD that briefly used `total_entities` was removed). Either surface them in the UI or trim the struct (crosses the WASM boundary, so update `lib.rs`/JS/tests together).
 ## P3 — Frontend
 
 - **Split the remaining event wiring.** Sliders are now table-driven (the `SLIDERS` table → `setupSliders()`), but `setupEventListeners` still inlines the panel-drag, keyboard, and camera wiring; extract those into focused methods too.

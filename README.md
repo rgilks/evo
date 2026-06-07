@@ -2,14 +2,14 @@
 
 A beautiful and performant evolution simulation written in Rust with WebGPU-accelerated graphics and WebAssembly, running entirely in the browser.
 
-**Live:** [evo.tre.systems](https://evo.tre.systems) — needs a WebGPU-capable browser (Chrome / Edge / Brave 113+). It starts from a curated default seed; clear the seed box for a random run, or enter a seed to reproduce or share one (the seed is shown in the UI and logged to the console).
+**Live:** [evo.tre.systems](https://evo.tre.systems) — needs a WebGPU-capable browser (Chrome / Edge / Brave 113+). It runs a single curated, deterministic world: thousands of gene-carrying creatures evolving, speciating, and hunting in real time.
 
 ![Evolution Simulation Screenshot](screenshot.png)
 
 ## Controls
 
-- **Click** the canvas to seed a burst of life at the cursor; **drag** to pan, **scroll** to zoom, **F** to frame the swarm, **R** to reset, **H** / **Esc** to toggle the panel.
-- The **⚙ panel** tunes the ecosystem (food, breeding, mortality, predators, metabolism), motion & physics, and **Visuals** — Glow, Trails, Size, Brightness, which are instant and purely cosmetic. **Reset / Cull / Bloom** act immediately.
+- **Click** the canvas to seed a burst of life at the cursor; **drag** to pan, **scroll** to zoom, **F** to frame the swarm, **R** to reset, **H** to toggle the control panel (**Esc** hides it).
+- The **⚙ panel** tunes the ecosystem (food, breeding, mortality, predators, metabolism), motion & physics, and **Visuals** — Glow, Trails, Size, Brightness (instant, cosmetic) plus a **Colour** lens to recolour the swarm by speed / health / behaviour. **Reset / Cull / Bloom** act immediately.
 
 ## Quick Start
 
