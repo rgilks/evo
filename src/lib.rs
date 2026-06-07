@@ -160,19 +160,29 @@ impl WebSimulation {
 
     pub fn update_param(&mut self, param: SimParam, value: f32) {
         // Mutate the single config the Simulation owns — no duplicate, no clone.
-        let config = self.simulation.config_mut();
-        match param {
-            SimParam::MaxVelocity => config.physics.max_velocity = value,
-            SimParam::EdgeRepulsion => config.physics.edge_repulsion_strength = value,
-            SimParam::DeathChance => config.reproduction.death_chance_factor = value,
-            SimParam::ReproThreshold => config.reproduction.reproduction_energy_threshold = value,
-            SimParam::EnergyCost => config.energy.size_energy_cost_factor = value,
-            SimParam::BounceFactor => config.physics.velocity_bounce_factor = value,
-            SimParam::ParticleForce => config.physics.particle_force_scale = value,
-            SimParam::ParticleFriction => config.physics.particle_friction = value,
-            SimParam::Food => config.energy.ambient_energy_gain = value,
-            SimParam::Predation => config.physics.interaction_radius_offset = value,
+        {
+            let config = self.simulation.config_mut();
+            match param {
+                SimParam::MaxVelocity => config.physics.max_velocity = value,
+                SimParam::EdgeRepulsion => config.physics.edge_repulsion_strength = value,
+                SimParam::DeathChance => config.reproduction.death_chance_factor = value,
+                SimParam::ReproThreshold => {
+                    config.reproduction.reproduction_energy_threshold = value
+                }
+                SimParam::EnergyCost => config.energy.size_energy_cost_factor = value,
+                SimParam::BounceFactor => config.physics.velocity_bounce_factor = value,
+                SimParam::ParticleForce => config.physics.particle_force_scale = value,
+                SimParam::ParticleFriction => config.physics.particle_friction = value,
+                SimParam::Food => config.energy.ambient_energy_gain = value,
+                SimParam::Predation => config.physics.interaction_radius_offset = value,
+                SimParam::FoodRegrow => config.food.regen_rate = value,
+                SimParam::FoodGraze => config.food.graze_rate = value,
+                SimParam::FoodFloor => config.food.graze_floor = value,
+            }
         }
+        // The food field caches a derived copy of the dynamics params, so push the
+        // current values through after any change (cheap — only three are copied).
+        self.simulation.set_food_dynamics();
     }
 
     pub fn get_step(&self) -> u32 {
@@ -245,4 +255,9 @@ pub enum SimParam {
     ParticleFriction,
     Food,
     Predation,
+    /// Food-field dynamics (the panel's Food group): how fast patches regrow,
+    /// how fast grazing depletes them, and the lowest fraction grazing leaves.
+    FoodRegrow,
+    FoodGraze,
+    FoodFloor,
 }

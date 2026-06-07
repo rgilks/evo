@@ -99,6 +99,23 @@
               </div>
             </div>
 
+            <!-- Food field: how patches regrow, deplete, and persist (collapsible) -->
+            <details class="group">
+              <summary title="How the food field behaves over time">Food field</summary>
+              <div class="ctrl">
+                <div class="row"><label for="food-regrow" title="How fast food patches grow back">Regrow</label><span class="val" id="food-regrow-value">0.015</span></div>
+                <input type="range" id="food-regrow" min="0" max="0.05" step="0.002" value="0.015" />
+              </div>
+              <div class="ctrl">
+                <div class="row"><label for="food-graze" title="How fast creatures eat food down">Graze</label><span class="val" id="food-graze-value">0.030</span></div>
+                <input type="range" id="food-graze" min="0" max="0.08" step="0.005" value="0.03" />
+              </div>
+              <div class="ctrl">
+                <div class="row"><label for="food-floor" title="How much food grazing always leaves behind (persistence)">Floor</label><span class="val" id="food-floor-value">0.05</span></div>
+                <input type="range" id="food-floor" min="0" max="0.5" step="0.02" value="0.05" />
+              </div>
+            </details>
+
             <!-- Motion & physics controls (collapsible) -->
             <details class="group">
               <summary>Motion &amp; Physics</summary>

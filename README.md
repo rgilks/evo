@@ -9,7 +9,7 @@ A beautiful and performant evolution simulation written in Rust with WebGPU-acce
 ## Controls
 
 - **Click** the canvas to drop a patch of food at the cursor (creatures swarm and graze it down); **drag** to pan, **scroll** to zoom, **F** to frame the swarm, **R** to reset, **H** to toggle the control panel (**Esc** hides it).
-- The **⚙ panel** tunes the ecosystem (food, breeding, mortality, predators, metabolism), motion & physics, and **Visuals** — Glow, Trails, Size, Brightness (instant, cosmetic) plus a **Colour** lens to recolour the swarm by speed / health / behaviour. **Reset / Cull / Bloom** act immediately.
+- The **⚙ panel** tunes the ecosystem (food, breeding, mortality, predators, metabolism), the **Food field** (how fast patches regrow, how fast they are grazed down, and the floor grazing leaves behind), motion & physics, and **Visuals** — Glow, Trails, Size, Brightness (instant, cosmetic) plus a **Colour** lens to recolour the swarm by speed / health / behaviour. **Reset / Cull / Bloom** act immediately.
 - **Sound** is on by default (it begins on your first interaction, which browsers require) — a fully-synthesised soundscape driven by the live simulation: the chord is the on-screen palette, brightness tracks the swarm's health, the body tracks its size, and dropping food chimes a note pitched and panned to where you clicked. Toggle with **M** or the ♪ button; volume with **↑ / ↓**.
 
 ## Quick Start

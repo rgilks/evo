@@ -231,6 +231,15 @@ impl FoodField {
         });
     }
 
+    /// Live-update the dynamic tuning (the UI food sliders): regrow rate, graze
+    /// rate, and graze floor. The structural fields (patch count/radius/peak/base)
+    /// are fixed at construction.
+    pub fn set_dynamics(&mut self, regen_rate: f32, graze_rate: f32, graze_floor: f32) {
+        self.cfg.regen_rate = regen_rate.max(0.0);
+        self.cfg.graze_rate = graze_rate.max(0.0);
+        self.cfg.graze_floor = graze_floor.clamp(0.0, 1.0);
+    }
+
     pub fn patches(&self) -> &[FoodPatch] {
         &self.patches
     }

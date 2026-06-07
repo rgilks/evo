@@ -80,6 +80,9 @@ const SLIDERS = [
   { id: "particle-friction", valueId: "pfriction-value", param: SimParam.ParticleFriction, decimals: 2 },
   { id: "ambient-energy", valueId: "food-value", param: SimParam.Food, decimals: 2 },
   { id: "predation-reach", valueId: "predation-value", param: SimParam.Predation, decimals: 0 },
+  { id: "food-regrow", valueId: "food-regrow-value", param: SimParam.FoodRegrow, decimals: 3 },
+  { id: "food-graze", valueId: "food-graze-value", param: SimParam.FoodGraze, decimals: 3 },
+  { id: "food-floor", valueId: "food-floor-value", param: SimParam.FoodFloor, decimals: 2 },
 ];
 
 // Visual sliders — purely cosmetic, applied instantly via renderer.set_visual_params

@@ -325,6 +325,17 @@ impl Simulation {
         self.add_effect(x, y, self.world_size * 0.05, 18, 1.0);
     }
 
+    /// Push the live food dynamics (regrow / graze / floor) from the config into
+    /// the food field, whose tuning is a derived copy made at construction. Called
+    /// after the UI changes any food parameter so the change takes effect at once.
+    pub fn set_food_dynamics(&mut self) {
+        self.food_field.set_dynamics(
+            self.config.food.regen_rate,
+            self.config.food.graze_rate,
+            self.config.food.graze_floor,
+        );
+    }
+
     /// Queue a transient visual effect (cosmetic ring/flash). Dropped silently
     /// once the active set hits `EFFECT_CAP`.
     fn add_effect(&mut self, x: f32, y: f32, base_radius: f32, max_age: u32, kind: f32) {
