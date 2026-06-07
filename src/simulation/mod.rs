@@ -652,13 +652,16 @@ impl Simulation {
             self.world.spawn(bundle);
         }
 
-        // Record a few predation flashes at the kill sites — subsampled so a
-        // churning food web sparkles rather than strobes. Purely cosmetic.
+        // A faint, occasional spark at a few kill sites — strided so they spread
+        // out and hard-capped per tick, so even a churning food web shimmers
+        // quietly instead of strobing yellow. Purely cosmetic.
         let mut pred_seen = 0u32;
+        let mut pred_flashes = 0u32;
         for update in &updates {
             if update.eaten_entity.is_some() && update.energy.current > 0.0 {
-                if pred_seen.is_multiple_of(4) {
-                    self.add_effect(update.pos.x, update.pos.y, self.world_size * 0.012, 10, 0.0);
+                if pred_seen.is_multiple_of(5) && pred_flashes < 3 {
+                    self.add_effect(update.pos.x, update.pos.y, self.world_size * 0.008, 12, 0.0);
+                    pred_flashes += 1;
                 }
                 pred_seen += 1;
             }

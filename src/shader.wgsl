@@ -375,7 +375,7 @@ fn effect_fs(in: EffectVertexOutput) -> @location(0) vec4<f32> {
     // are kept small and subtle (a gentle spark); bloom bursts and cull
     // shockwaves are deliberate user/world events, so they stay bold.
     var col = vec3<f32>(1.0, 0.85, 0.5); // predation: warm gold
-    var bright = 0.8;
+    var bright = 0.45;
     if (in.kind > 1.5) {
         col = vec3<f32>(1.0, 0.4, 0.45); // cull: alarm red
         bright = 1.7;
