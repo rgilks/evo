@@ -23,6 +23,26 @@ use rng::{
     generate_particle_matrix, mix_seed, BLOOM_SALT, CULL_SALT, DEFAULT_SEED, OFFSPRING_SALT,
 };
 
+/// Max simultaneous visual effects. Effects are short-lived, so the live set
+/// stays well under this; new ones past the cap are dropped (purely cosmetic).
+const EFFECT_CAP: usize = 400;
+
+/// A transient visual flourish (predation flash, bloom burst, cull shockwave) —
+/// an expanding glowing ring the renderer draws. Pure cosmetic side-data derived
+/// from events that already happen deterministically; never read back into the
+/// simulation, so it can't affect determinism.
+#[derive(Clone)]
+struct Effect {
+    x: f32,
+    y: f32,
+    /// Final ring radius in world units.
+    base_radius: f32,
+    age: u32,
+    max_age: u32,
+    /// 0 = predation flash, 1 = bloom/seed burst, 2 = cull shockwave.
+    kind: f32,
+}
+
 /// Stable numeric id for a movement style, packed into the render buffer so the
 /// shader can vary a creature's look by behaviour (e.g. mark predators).
 fn movement_style_id(style: &MovementType) -> f32 {
@@ -70,6 +90,9 @@ pub struct Simulation {
     /// the engine of the boom/bust waves. Updated once per tick in the serial
     /// phase; read immutably by the parallel compute.
     crowding_pressure: f32,
+    /// Transient visual effects (flashes/rings) drawn by the renderer. Cosmetic
+    /// side-data only; aged each tick and never read back into the sim.
+    effects: Vec<Effect>,
 
     // System instances
     movement_system: MovementSystem,
@@ -127,6 +150,7 @@ impl Simulation {
             particle_matrix: generate_particle_matrix(seed),
             food_field,
             crowding_pressure,
+            effects: Vec::new(),
             movement_system: MovementSystem,
             interaction_system: InteractionSystem,
             energy_system: EnergySystem,
@@ -218,6 +242,8 @@ impl Simulation {
         for entity in doomed {
             let _ = self.world.despawn(entity);
         }
+        // A cool shockwave ripple radiating from the centre.
+        self.add_effect(0.0, 0.0, self.world_size * 0.6, 45, 2.0);
     }
 
     /// Instantly spawn a burst of `count` fresh random creatures near the centre
@@ -250,6 +276,8 @@ impl Simulation {
                 self.config.physics.min_entity_radius,
             ));
         }
+        // A bright burst of life at the centre.
+        self.add_effect(0.0, 0.0, self.world_size * 0.14, 30, 1.0);
     }
 
     /// Spawn a tight burst of `count` fresh creatures around world `(x, y)` — the
@@ -285,6 +313,32 @@ impl Simulation {
                 self.config.physics.min_entity_radius,
             ));
         }
+        // A seed-of-life burst at the cursor, even if the cap left no room.
+        self.add_effect(x, y, self.world_size * 0.08, 26, 1.0);
+    }
+
+    /// Queue a transient visual effect (cosmetic ring/flash). Dropped silently
+    /// once the active set hits `EFFECT_CAP`.
+    fn add_effect(&mut self, x: f32, y: f32, base_radius: f32, max_age: u32, kind: f32) {
+        if self.effects.len() >= EFFECT_CAP {
+            return;
+        }
+        self.effects.push(Effect {
+            x,
+            y,
+            base_radius,
+            age: 0,
+            max_age,
+            kind,
+        });
+    }
+
+    /// Advance every effect by one tick and drop the expired ones.
+    fn age_effects(&mut self) {
+        for e in &mut self.effects {
+            e.age += 1;
+        }
+        self.effects.retain(|e| e.age < e.max_age);
     }
 
     pub fn update(&mut self) {
@@ -330,6 +384,7 @@ impl Simulation {
         self.rebuild_spatial_grid();
         let updates = self.process_entities_parallel();
         self.apply_entity_updates(updates);
+        self.age_effects();
     }
 
     /// The initial population density (used to seed the crowding pressure).
@@ -596,6 +651,18 @@ impl Simulation {
         for bundle in offspring {
             self.world.spawn(bundle);
         }
+
+        // Record a few predation flashes at the kill sites — subsampled so a
+        // churning food web sparkles rather than strobes. Purely cosmetic.
+        let mut pred_seen = 0u32;
+        for update in &updates {
+            if update.eaten_entity.is_some() && update.energy.current > 0.0 {
+                if pred_seen.is_multiple_of(3) {
+                    self.add_effect(update.pos.x, update.pos.y, self.world_size * 0.022, 12, 0.0);
+                }
+                pred_seen += 1;
+            }
+        }
     }
 
     /// Per-entity render data:
@@ -646,6 +713,24 @@ impl Simulation {
                     0.0
                 };
                 (p.x, p.y, p.radius, frac)
+            })
+            .collect()
+    }
+
+    /// Render data for the transient visual effects:
+    /// `(x, y, base_radius, life, life_step, kind)` per effect, where `life` is
+    /// `age/max_age` (0..1) and `life_step` is `1/max_age` so the renderer can
+    /// interpolate the ring animation smoothly between ticks.
+    pub fn get_effects(&self) -> Vec<(f32, f32, f32, f32, f32, f32)> {
+        self.effects
+            .iter()
+            .map(|e| {
+                let (life, step) = if e.max_age > 0 {
+                    (e.age as f32 / e.max_age as f32, 1.0 / e.max_age as f32)
+                } else {
+                    (1.0, 0.0)
+                };
+                (e.x, e.y, e.base_radius, life, step, e.kind)
             })
             .collect()
     }

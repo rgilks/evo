@@ -21,6 +21,16 @@ struct FoodInstance {
     data: [f32; 4],
 }
 
+/// Instance data for each transient visual effect (24 bytes). Layout matches the
+/// packed `update_effect_buffer` output: `a` = (x, y, base_radius, life), `b` =
+/// (life_step, kind).
+#[repr(C)]
+#[derive(Copy, Clone, Debug, Pod, Zeroable)]
+struct EffectInstance {
+    a: [f32; 4],
+    b: [f32; 2],
+}
+
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable)]
 struct SimulationUniforms {
@@ -42,14 +52,18 @@ pub struct WebGpuRenderer {
     config: wgpu::SurfaceConfiguration,
     render_pipeline: wgpu::RenderPipeline,
     food_pipeline: wgpu::RenderPipeline,
+    effect_pipeline: wgpu::RenderPipeline,
     instance_buffer: wgpu::Buffer,
     food_buffer: wgpu::Buffer,
+    effect_buffer: wgpu::Buffer,
     uniform_buffer: wgpu::Buffer,
     bind_group: wgpu::BindGroup,
     num_instances: u32,
     instance_capacity: u32,
     num_food: u32,
     food_capacity: u32,
+    num_effects: u32,
+    effect_capacity: u32,
     postprocess: PostProcess,
     /// Global creature-size multiplier ("Size" slider), written into the sim
     /// uniforms each frame. Post params (glow/trails/brightness) live in
@@ -303,6 +317,73 @@ impl WebGpuRenderer {
             cache: None,
         });
 
+        // Effect pipeline: expanding rings/flashes drawn additively into the HDR
+        // scene after the creatures. Shares the sim uniforms (world/camera/interp)
+        // and has its own instance layout (vec4 + vec2) and shader entries.
+        let effect_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Effect Pipeline"),
+            layout: Some(&render_pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: Some("effect_vs"),
+                buffers: &[wgpu::VertexBufferLayout {
+                    array_stride: std::mem::size_of::<EffectInstance>() as wgpu::BufferAddress,
+                    step_mode: wgpu::VertexStepMode::Instance,
+                    attributes: &[
+                        wgpu::VertexAttribute {
+                            offset: 0,
+                            shader_location: 0,
+                            format: wgpu::VertexFormat::Float32x4,
+                        },
+                        wgpu::VertexAttribute {
+                            offset: 16,
+                            shader_location: 1,
+                            format: wgpu::VertexFormat::Float32x2,
+                        },
+                    ],
+                }],
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: Some("effect_fs"),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: HDR_FORMAT,
+                    blend: Some(wgpu::BlendState {
+                        color: wgpu::BlendComponent {
+                            src_factor: wgpu::BlendFactor::One,
+                            dst_factor: wgpu::BlendFactor::One,
+                            operation: wgpu::BlendOperation::Add,
+                        },
+                        alpha: wgpu::BlendComponent {
+                            src_factor: wgpu::BlendFactor::One,
+                            dst_factor: wgpu::BlendFactor::One,
+                            operation: wgpu::BlendOperation::Add,
+                        },
+                    }),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: None,
+                polygon_mode: wgpu::PolygonMode::Fill,
+                unclipped_depth: false,
+                conservative: false,
+            },
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState {
+                count: 1,
+                mask: !0,
+                alpha_to_coverage_enabled: false,
+            },
+            multiview_mask: None,
+            cache: None,
+        });
+
         // Create instance buffer, pre-allocated for an initial capacity (grown on demand).
         const INITIAL_INSTANCE_CAPACITY: usize = 20000;
         let initial_instances = vec![
@@ -331,6 +412,21 @@ impl WebGpuRenderer {
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
         });
 
+        // Transient effects are short-lived; a modest fixed capacity is plenty
+        // (the sim caps them too). Grown on demand if ever exceeded.
+        const INITIAL_EFFECT_CAPACITY: usize = 512;
+        let effect_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Effect Buffer"),
+            contents: bytemuck::cast_slice(&vec![
+                EffectInstance {
+                    a: [0.0; 4],
+                    b: [0.0; 2]
+                };
+                INITIAL_EFFECT_CAPACITY
+            ]),
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+        });
+
         let postprocess = PostProcess::new(&device, surface_format, (width, height));
 
         Ok(WebGpuRenderer {
@@ -340,14 +436,18 @@ impl WebGpuRenderer {
             config,
             render_pipeline,
             food_pipeline,
+            effect_pipeline,
             instance_buffer,
             food_buffer,
+            effect_buffer,
             uniform_buffer,
             bind_group,
             num_instances: 0,
             instance_capacity: INITIAL_INSTANCE_CAPACITY as u32,
             num_food: 0,
             food_capacity: INITIAL_FOOD_CAPACITY as u32,
+            num_effects: 0,
+            effect_capacity: INITIAL_EFFECT_CAPACITY as u32,
             postprocess,
             creature_scale: 1.0,
         })
@@ -378,6 +478,8 @@ impl WebGpuRenderer {
         entity_count: u32,
         food_ptr: *const f32,
         food_count: u32,
+        effect_ptr: *const f32,
+        effect_count: u32,
         world_size: f32,
         interpolation_factor: f32,
         camera_zoom: f32,
@@ -445,6 +547,29 @@ impl WebGpuRenderer {
                 .write_buffer(&self.food_buffer, 0, bytemuck::cast_slice(food_instances));
         }
 
+        // Upload effect instances (short-lived, small layout). Grow if ever needed.
+        self.num_effects = effect_count;
+        if effect_count > 0 {
+            if effect_count > self.effect_capacity {
+                let new_capacity = effect_count.next_power_of_two();
+                self.effect_buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+                    label: Some("Effect Buffer"),
+                    size: new_capacity as u64 * std::mem::size_of::<EffectInstance>() as u64,
+                    usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                    mapped_at_creation: false,
+                });
+                self.effect_capacity = new_capacity;
+            }
+            let effect_data =
+                unsafe { std::slice::from_raw_parts(effect_ptr, (effect_count * 6) as usize) };
+            let effect_instances: &[EffectInstance] = bytemuck::cast_slice(effect_data);
+            self.queue.write_buffer(
+                &self.effect_buffer,
+                0,
+                bytemuck::cast_slice(effect_instances),
+            );
+        }
+
         // Render
         let output = match self.surface.get_current_texture() {
             wgpu::CurrentSurfaceTexture::Success(t)
@@ -500,6 +625,14 @@ impl WebGpuRenderer {
             render_pass.set_bind_group(0, &self.bind_group, &[]);
             render_pass.set_vertex_buffer(0, self.instance_buffer.slice(..));
             render_pass.draw(0..6, 0..self.num_instances);
+
+            // Effects last, so flashes and shockwaves read on top of the creatures.
+            if self.num_effects > 0 {
+                render_pass.set_pipeline(&self.effect_pipeline);
+                render_pass.set_bind_group(0, &self.bind_group, &[]);
+                render_pass.set_vertex_buffer(0, self.effect_buffer.slice(..));
+                render_pass.draw(0..6, 0..self.num_effects);
+            }
         }
 
         // Bloom: bright-pass → blur → tonemapped composite into the swapchain.

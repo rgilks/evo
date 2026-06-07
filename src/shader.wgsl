@@ -230,3 +230,79 @@ fn food_fs(in: FoodVertexOutput) -> @location(0) vec4<f32> {
 
     return vec4<f32>(rgb, soft);
 }
+
+// ---------------------------------------------------------------------------
+// Transient effects: expanding glowing rings for predation flashes (kind 0),
+// bloom/seed bursts (kind 1), and cull shockwaves (kind 2). Drawn additively
+// into the HDR scene AFTER the creatures so they read as flashes on top. The
+// ring animation is interpolated between sim ticks via the shared
+// interpolation_factor, so it stays smooth even though effects age at the
+// (slower) tick rate.
+// ---------------------------------------------------------------------------
+
+struct EffectInstance {
+    // x = world x, y = world y, z = base radius (world), w = life (age/max_age, 0..1)
+    @location(0) a: vec4<f32>,
+    // x = life_step (1/max_age), y = kind (0..2)
+    @location(1) b: vec2<f32>,
+}
+
+struct EffectVertexOutput {
+    @builtin(position) position: vec4<f32>,
+    @location(0) uv: vec2<f32>,
+    @location(1) life: f32,
+    @location(2) kind: f32,
+}
+
+@vertex
+fn effect_vs(
+    instance: EffectInstance,
+    @builtin(vertex_index) vertex_index: u32,
+) -> EffectVertexOutput {
+    var out: EffectVertexOutput;
+
+    let quad_pos = QUAD_VERTICES[vertex_index];
+    let world_pos = instance.a.xy;
+    let base_radius = instance.a.z;
+    // Interpolate life between ticks for a smooth 60fps expansion.
+    let life = clamp(instance.a.w + uniforms.interpolation_factor * instance.b.x, 0.0, 1.0);
+    let world_size = uniforms.world_size;
+
+    let world_to_screen_x = (world_pos.x + world_size / 2.0) / world_size * 2.0 - 1.0;
+    let world_to_screen_y = -((world_pos.y + world_size / 2.0) / world_size * 2.0 - 1.0);
+    let screen_x = (world_to_screen_x + uniforms.camera_x) * uniforms.camera_zoom;
+    let screen_y = (world_to_screen_y + uniforms.camera_y) * uniforms.camera_zoom;
+    let screen_pos = vec2<f32>(screen_x, screen_y);
+
+    let screen_radius = base_radius / world_size * 2.0 * uniforms.camera_zoom;
+
+    out.position = vec4<f32>(screen_pos + quad_pos * screen_radius, 0.0, 1.0);
+    out.uv = quad_pos;
+    out.life = life;
+    out.kind = instance.b.y;
+    return out;
+}
+
+@fragment
+fn effect_fs(in: EffectVertexOutput) -> @location(0) vec4<f32> {
+    let d = length(in.uv);
+    let life = in.life;
+    // A ring expanding from centre to rim over its life, widening as it goes.
+    let r = life;
+    let thickness = 0.10 + 0.12 * life;
+    let ring = exp(-pow((d - r) / thickness, 2.0));
+    // Dissolve as it reaches the rim.
+    let fade = pow(1.0 - life, 1.5);
+    let intensity = ring * fade;
+
+    // Colour by kind: hot gold flash, green seed-burst, red cull ripple.
+    var col = vec3<f32>(1.0, 0.85, 0.5);
+    if (in.kind > 1.5) {
+        col = vec3<f32>(1.0, 0.4, 0.45);
+    } else if (in.kind > 0.5) {
+        col = vec3<f32>(0.5, 1.0, 0.6);
+    }
+
+    let rgb = col * intensity * 1.7;
+    return vec4<f32>(rgb, intensity);
+}

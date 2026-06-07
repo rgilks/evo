@@ -21,12 +21,17 @@ const FLOATS_PER_ENTITY: usize = 10;
 /// Floats packed per food patch in the render buffer: x, y, radius, intensity_fraction.
 const FLOATS_PER_PATCH: usize = 4;
 
+/// Floats packed per visual effect in the render buffer:
+/// x, y, base_radius, life, life_step, kind.
+const FLOATS_PER_EFFECT: usize = 6;
+
 #[wasm_bindgen]
 pub struct WebSimulation {
     simulation: simulation::Simulation,
     seed: u64,
     entity_buffer: Vec<f32>, // Reusable buffer for entity data
     food_buffer: Vec<f32>,   // Reusable buffer for food-patch render data
+    effect_buffer: Vec<f32>, // Reusable buffer for transient visual effects
 }
 
 #[wasm_bindgen]
@@ -101,6 +106,27 @@ impl WebSimulation {
     /// Number of food patches in the last buffered frame (from `update_food_buffer`).
     pub fn food_count(&self) -> u32 {
         (self.food_buffer.len() / FLOATS_PER_PATCH) as u32
+    }
+
+    /// Update the effect buffer and return a pointer for the WebGPU renderer.
+    /// Layout per effect: x, y, base_radius, life, life_step, kind (6 floats).
+    pub fn update_effect_buffer(&mut self) -> *const f32 {
+        let effects = self.simulation.get_effects();
+        self.effect_buffer.clear();
+        for (x, y, radius, life, life_step, kind) in effects {
+            self.effect_buffer.push(x);
+            self.effect_buffer.push(y);
+            self.effect_buffer.push(radius);
+            self.effect_buffer.push(life);
+            self.effect_buffer.push(life_step);
+            self.effect_buffer.push(kind);
+        }
+        self.effect_buffer.as_ptr()
+    }
+
+    /// Number of effects in the last buffered frame (from `update_effect_buffer`).
+    pub fn effect_count(&self) -> u32 {
+        (self.effect_buffer.len() / FLOATS_PER_EFFECT) as u32
     }
 
     pub fn get_stats(&self) -> JsValue {
@@ -180,6 +206,7 @@ impl WebSimulation {
             seed,
             entity_buffer: Vec::with_capacity(100000), // 10000 entities * 10 floats
             food_buffer: Vec::with_capacity(64),       // a handful of patches * 4 floats
+            effect_buffer: Vec::with_capacity(2400),   // up to ~400 effects * 6 floats
         })
     }
 }
