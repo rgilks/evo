@@ -52,14 +52,17 @@ main {
 /* ===== Glass control panel ===== */
 #controls {
   position: fixed;
-  top: 16px;
-  left: 16px;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
   z-index: 100;
   width: 320px;
   max-width: 92vw;
   max-height: calc(100vh - 32px);
   display: flex;
-  flex-direction: column;
+  /* Reversed so the ⚙ handle stays pinned at the bottom and the panel blooms
+     upward from it (a bottom-sheet feel); JS drag switches off the centring. */
+  flex-direction: column-reverse;
   background: var(--glass);
   border: 1px solid var(--border);
   border-radius: 16px;
@@ -144,46 +147,27 @@ main {
   display: none;
 }
 #controls.collapsed #controls-toggle {
-  position: relative;
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   padding: 0;
   display: grid;
   place-items: center;
   border-radius: 999px;
-  background:
-    radial-gradient(circle at 35% 22%, rgba(255, 255, 255, 0.24), transparent 24px),
-    linear-gradient(145deg, rgba(28, 35, 68, 0.72), rgba(8, 11, 24, 0.54));
-  border: 1px solid rgba(255, 255, 255, 0.24);
-  -webkit-backdrop-filter: blur(14px) saturate(150%);
-  backdrop-filter: blur(14px) saturate(150%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.24),
-    inset 0 -10px 18px rgba(0, 0, 0, 0.16),
-    0 10px 28px rgba(0, 0, 0, 0.44),
-    0 0 0 1px rgba(var(--accent-rgb), 0.08);
-}
-#controls.collapsed #controls-toggle::after {
-  content: "";
-  position: absolute;
-  inset: 3px;
-  border-radius: inherit;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  pointer-events: none;
+  background: var(--glass);
+  border: 1px solid var(--border);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  opacity: 0.7; /* discreet over the art; brightens on hover */
 }
 #controls.collapsed #controls-icon {
   width: 18px;
   height: 18px;
   color: #dce6ff;
-  text-shadow: 0 0 12px rgba(var(--accent-rgb), 0.72);
 }
 #controls.collapsed #controls-toggle:hover {
-  border-color: rgba(255, 255, 255, 0.36);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.3),
-    inset 0 -10px 18px rgba(0, 0, 0, 0.12),
-    0 12px 32px rgba(0, 0, 0, 0.46),
-    0 0 22px rgba(var(--accent-rgb), 0.18);
+  opacity: 1;
+  border-color: rgba(255, 255, 255, 0.28);
 }
 
 /* ===== Actions ===== */

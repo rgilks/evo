@@ -174,6 +174,9 @@ class EvolutionApp {
       panel.style.left = left + "px";
       panel.style.top = top + "px";
       panel.style.right = "auto";
+      // Dragging switches off the centred bottom default (CSS left/bottom/transform).
+      panel.style.bottom = "auto";
+      panel.style.transform = "none";
     };
     const clampIntoView = () => {
       if (!panel.style.left) return;
@@ -184,7 +187,7 @@ class EvolutionApp {
       );
     };
     try {
-      const saved = JSON.parse(localStorage.getItem("evo-panel-pos") || "null");
+      const saved = JSON.parse(localStorage.getItem("evo-panel-pos-v2") || "null");
       if (saved && Number.isFinite(saved.left) && Number.isFinite(saved.top)) {
         moveTo(saved.left, saved.top);
         clampIntoView();
@@ -219,7 +222,7 @@ class EvolutionApp {
       if (moved) {
         try {
           localStorage.setItem(
-            "evo-panel-pos",
+            "evo-panel-pos-v2",
             JSON.stringify({
               left: parseFloat(panel.style.left),
               top: parseFloat(panel.style.top),
