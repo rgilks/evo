@@ -200,6 +200,12 @@ impl WebSimulation {
     pub fn drop_food(&mut self, x: f32, y: f32) {
         self.simulation.drop_food(x, y);
     }
+
+    /// Feature vector for the generative audio (returned to JS as a
+    /// Float32Array): `[population, avg_health, hue_bin0 .. hue_bin5]`.
+    pub fn audio_features(&self) -> Vec<f32> {
+        self.simulation.audio_features()
+    }
 }
 
 impl WebSimulation {

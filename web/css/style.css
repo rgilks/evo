@@ -193,6 +193,12 @@ main {
 .btn:active {
   transform: translateY(0);
 }
+/* Toggle buttons (e.g. Sound) show an on state. */
+.btn.active {
+  background: rgba(var(--accent-rgb), 0.45);
+  border-color: rgba(var(--accent-rgb), 0.85);
+  color: var(--text-strong);
+}
 .actions {
   display: flex;
   gap: 8px;

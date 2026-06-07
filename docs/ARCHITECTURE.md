@@ -98,6 +98,10 @@ The CPU never builds vertex geometry per entity. Instead:
 6. After the creatures, an **effects** pass (`update_effect_buffer()` → 6 floats each, `effect_vs`/`effect_fs`) draws transient expanding rings additively: hot-gold predation flashes, green bloom/seed bursts, and a red cull shockwave. The ring animation is interpolated between sim ticks for smoothness.
 7. A bloom post-process ([src/web/postprocess.rs](../src/web/postprocess.rs), `post.wgsl`) turns the HDR scene into the final frame: a **bright-pass** isolates the glowing regions, a **separable Gaussian blur** at quarter resolution widens them, and a **tonemapped composite** adds the bloom back over an ambient nebula + vignette and maps it into the swapchain. A per-frame **trail fade** decays the scene before the creatures redraw, leaving glowing comet tails. The **Glow / Trails / Brightness / Size** sliders feed these stages live via `WebGpuRenderer::set_visual_params` (a group-3 post-params uniform plus the creature-size uniform). Each post pass draws one fullscreen triangle.
 
+## Audio
+
+Optional and off by default (browsers require a user gesture to start audio). When the **Sound** toggle is enabled, `web/js/app.js`'s `AudioEngine` builds a **fully-synthesised** Web Audio graph — no samples or external files: six detuned oscillator voices (one per hue sector) feeding a **procedurally-generated convolver reverb** and a feedback delay, into a brightness lowpass + compressor. Roughly seven times a second it reads `WebSimulation::audio_features()` — `[population, avg_health, hue-bin shares]`, one cheap pass over the world — and chases the parameters toward it with `setTargetAtTime`. So the chord is the on-screen palette, the filter brightness tracks health, and the drone's body tracks population: the soundscape *is* the ecosystem. Synthesis lives in JS (fast to tune by ear); the sim only exposes the feature vector.
+
 ## Threading & WASM
 
 In-browser multithreading needs `SharedArrayBuffer`, which browsers only expose in cross-origin-isolated contexts. That requires two response headers (set in `web/_headers`):

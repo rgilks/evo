@@ -78,6 +78,151 @@ const VISUAL_SLIDERS = [
   { id: "creature-size", valueId: "size-value", key: "size", decimals: 2 },
 ];
 
+// Generative, fully-synthesised soundscape driven by the simulation — no samples.
+// A six-voice drone whose chord is the on-screen hue palette (each hue sector =
+// one voice), with brightness from the population's health, body from its size,
+// through a procedurally-generated reverb and a slow feedback delay. Created
+// lazily on first enable, since browsers require a user gesture to start audio.
+class AudioEngine {
+  constructor() {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    this.ctx = new Ctx();
+    const ctx = this.ctx;
+
+    // Master: gain → lowpass (brightness) → gentle compressor → out.
+    this.master = ctx.createGain();
+    this.master.gain.value = 0.0; // ramped up by setEnabled
+    this.brightness = ctx.createBiquadFilter();
+    this.brightness.type = "lowpass";
+    this.brightness.frequency.value = 1000;
+    this.brightness.Q.value = 0.5;
+    const comp = ctx.createDynamicsCompressor();
+    comp.threshold.value = -20;
+    comp.knee.value = 18;
+    comp.ratio.value = 3;
+    comp.attack.value = 0.01;
+    comp.release.value = 0.3;
+    this.master.connect(this.brightness);
+    this.brightness.connect(comp);
+    comp.connect(ctx.destination);
+
+    // Procedural reverb: a generated decaying-noise impulse response (no files).
+    this.reverbSend = ctx.createGain();
+    const conv = ctx.createConvolver();
+    conv.buffer = this._impulse(3.0, 2.4);
+    const reverbWet = ctx.createGain();
+    reverbWet.gain.value = 0.5;
+    this.reverbSend.connect(conv);
+    conv.connect(reverbWet);
+    reverbWet.connect(this.master);
+
+    // Slow feedback delay, synthesised.
+    this.delaySend = ctx.createGain();
+    const delay = ctx.createDelay(2.0);
+    delay.delayTime.value = 0.5;
+    const fb = ctx.createGain();
+    fb.gain.value = 0.4;
+    const dtone = ctx.createBiquadFilter();
+    dtone.type = "lowpass";
+    dtone.frequency.value = 1700;
+    const delayWet = ctx.createGain();
+    delayWet.gain.value = 0.28;
+    this.delaySend.connect(delay);
+    delay.connect(dtone);
+    dtone.connect(fb);
+    fb.connect(delay);
+    dtone.connect(delayWet);
+    delayWet.connect(this.master);
+
+    // Sub drone for body (level follows population).
+    this.sub = ctx.createOscillator();
+    this.sub.type = "sine";
+    this.sub.frequency.value = 55;
+    this.subGain = ctx.createGain();
+    this.subGain.gain.value = 0.0;
+    this.sub.connect(this.subGain);
+    this.subGain.connect(this.master);
+    this.sub.start();
+
+    // Six hue voices on a calm sus chord (any subset stays consonant). Each is
+    // two slightly-detuned oscillators (warmth) → its gain → master + sends.
+    const scale = [110.0, 146.83, 164.81, 220.0, 246.94, 329.63]; // A2 D3 E3 A3 B3 E4
+    this.voiceGains = [];
+    for (let i = 0; i < scale.length; i++) {
+      const vg = ctx.createGain();
+      vg.gain.value = 0.0;
+      const o1 = ctx.createOscillator();
+      o1.type = "sine";
+      o1.frequency.value = scale[i];
+      o1.detune.value = -5;
+      const o2 = ctx.createOscillator();
+      o2.type = "triangle";
+      o2.frequency.value = scale[i];
+      o2.detune.value = 6;
+      o1.connect(vg);
+      o2.connect(vg);
+      vg.connect(this.master);
+      vg.connect(this.reverbSend);
+      vg.connect(this.delaySend);
+      o1.start();
+      o2.start();
+      this.voiceGains.push(vg);
+    }
+
+    // Slow breathing LFO on the master brightness, added on top of the
+    // health-driven cutoff for a living feel.
+    this.lfo = ctx.createOscillator();
+    this.lfo.frequency.value = 0.06;
+    const lfoGain = ctx.createGain();
+    lfoGain.gain.value = 280;
+    this.lfo.connect(lfoGain);
+    lfoGain.connect(this.brightness.frequency);
+    this.lfo.start();
+  }
+
+  // A decaying-noise impulse response for the convolver — synthesised, no files.
+  _impulse(seconds, decay) {
+    const sr = this.ctx.sampleRate;
+    const len = Math.floor(sr * seconds);
+    const buf = this.ctx.createBuffer(2, len, sr);
+    for (let ch = 0; ch < 2; ch++) {
+      const d = buf.getChannelData(ch);
+      for (let i = 0; i < len; i++) {
+        d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay);
+      }
+    }
+    return buf;
+  }
+
+  async setEnabled(on) {
+    if (on && this.ctx.state !== "running") {
+      try {
+        await this.ctx.resume();
+      } catch {}
+    }
+    const t = this.ctx.currentTime;
+    this.master.gain.cancelScheduledValues(t);
+    this.master.gain.setTargetAtTime(on ? 0.45 : 0.0, t, 0.4);
+  }
+
+  // features = [population, avgHealth, hueBin0 .. hueBin5] from audio_features().
+  update(features) {
+    if (!features || features.length < 8) return;
+    const t = this.ctx.currentTime;
+    const pop = features[0];
+    const health = Math.min(Math.max(features[1], 0), 1);
+    const popLevel = Math.min(pop / 600, 1);
+    // Health opens the filter; population scales how far it can open.
+    const cutoff = 320 + 2600 * health * (0.4 + 0.6 * popLevel);
+    this.brightness.frequency.setTargetAtTime(cutoff, t, 0.6);
+    this.subGain.gain.setTargetAtTime(0.16 * popLevel, t, 0.4);
+    for (let i = 0; i < this.voiceGains.length; i++) {
+      const share = features[2 + i] || 0;
+      this.voiceGains[i].gain.setTargetAtTime(0.1 * popLevel * Math.pow(share, 0.8), t, 0.4);
+    }
+  }
+}
+
 class EvolutionApp {
   constructor() {
     this.simulation = null;
@@ -103,6 +248,12 @@ class EvolutionApp {
     this.visual = { glow: 0.36, trails: 0.875, brightness: 0.8, size: 0.2 };
     // Trait lens: 0=lineage hue, 1=speed, 2=health, 3=behaviour.
     this.colorMode = 0;
+
+    // Generative audio (off until the user enables it — a gesture is required to
+    // start a Web Audio context). Created lazily on first enable.
+    this.audio = null;
+    this.audioEnabled = false;
+    this.lastAudioTime = 0;
 
     // Camera state. The default zoom fills the frame with the settled swarm so
     // the view isn't mostly empty void. `target` is where the camera eases to:
@@ -254,6 +405,26 @@ class EvolutionApp {
       this.simulation.bloom(500);
       this.lastRenderedStep = -1;
     });
+
+    // Sound toggle. The click is the user gesture that lets the Web Audio context
+    // start; the engine is built lazily on first enable.
+    const soundBtn = document.getElementById("sound");
+    if (soundBtn) {
+      soundBtn.addEventListener("click", async () => {
+        if (!this.audio) {
+          try {
+            this.audio = new AudioEngine();
+          } catch (e) {
+            console.error("Audio init failed:", e);
+            return;
+          }
+        }
+        this.audioEnabled = !this.audioEnabled;
+        await this.audio.setEnabled(this.audioEnabled);
+        soundBtn.textContent = this.audioEnabled ? "Sound: on" : "Sound: off";
+        soundBtn.classList.toggle("active", this.audioEnabled);
+      });
+    }
 
     // Parameter sliders (table-driven — see SLIDERS) plus the sim-speed control.
     this.setupSliders();
@@ -448,6 +619,12 @@ class EvolutionApp {
       // render.
       this.updateCamera();
       this.render();
+
+      // Drive the soundscape from the live sim features (~7x/sec; only when on).
+      if (this.audioEnabled && this.audio && currentTime - this.lastAudioTime > 150) {
+        this.lastAudioTime = currentTime;
+        this.audio.update(this.simulation.audio_features());
+      }
 
       this.animationId = requestAnimationFrame(animate);
     };

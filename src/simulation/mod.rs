@@ -786,6 +786,31 @@ impl Simulation {
         (cx, cy, radius)
     }
 
+    /// Compact feature vector for the generative audio, computed in one pass:
+    /// `[population, avg_health, hue_bin0 .. hue_bin5]` — the live population
+    /// count, the mean energy fraction (0..1), and the share of the population in
+    /// each of six hue sectors. The audio maps these to a drone whose chord is
+    /// the on-screen palette, its brightness the health, its body the population.
+    pub fn audio_features(&self) -> Vec<f32> {
+        let mut pop = 0.0f32;
+        let mut health_sum = 0.0f32;
+        let mut bins = [0.0f32; 6];
+        for (energy, genes) in self.world.query::<(&Energy, &Genes)>().iter() {
+            pop += 1.0;
+            if energy.max > 0.0 {
+                health_sum += (energy.current / energy.max).clamp(0.0, 1.0);
+            }
+            let bin = ((genes.appearance.hue * 6.0).floor() as usize).min(5);
+            bins[bin] += 1.0;
+        }
+        let inv = if pop > 0.0 { 1.0 / pop } else { 0.0 };
+        let mut out = Vec::with_capacity(8);
+        out.push(pop);
+        out.push(health_sum * inv);
+        out.extend(bins.iter().map(|b| b * inv));
+        out
+    }
+
     pub fn world(&self) -> &World {
         &self.world
     }
