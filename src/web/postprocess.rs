@@ -92,8 +92,8 @@ impl PostProcess {
 
         // Live post params, bound at group 3 so the fade and composite passes
         // share one value without colliding with the blur passes' group 0/1
-        // textures. Defaults match the JS visual defaults: glow 0.5, trails 0.92,
-        // exposure 0.75.
+        // textures. Defaults match the JS visual defaults: glow 0.36, trails
+        // 0.875, exposure 0.8.
         let post_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("Post Params Layout"),
             entries: &[wgpu::BindGroupLayoutEntry {
@@ -109,7 +109,7 @@ impl PostProcess {
         });
         let post_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Post Params Buffer"),
-            contents: bytemuck::cast_slice(&[[0.5f32, 0.92, 0.75, 0.0]]),
+            contents: bytemuck::cast_slice(&[[0.36f32, 0.875, 0.8, 0.0]]),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
         let post_bg = device.create_bind_group(&wgpu::BindGroupDescriptor {

@@ -20,29 +20,29 @@ const DEFAULT_CONFIG = {
     min_entity_radius: 1.0,
     grid_cell_size: 25.0,
     boundary_margin: 5.0,
-    interaction_radius_offset: 6.0,
+    interaction_radius_offset: 8.0,
     velocity_bounce_factor: 0.8,
     edge_repulsion_strength: 0.3,
     particle_force_scale: 0.15,
     particle_friction: 0.95,
   },
   energy: {
-    size_energy_cost_factor: 0.15,
+    size_energy_cost_factor: 0.36,
     movement_energy_cost: 0.1,
-    // Richer field lifts the carrying capacity so the boom/bust waves play out
-    // well above the safety floor (see Rust SimulationConfig::default).
-    ambient_energy_gain: 1.3,
+    // Curated live default — a leaner field than the Rust default's 1.3, tuned
+    // by eye for the look on the site (the browser passes its own config).
+    ambient_energy_gain: 0.35,
     predator_graze_fraction: 0.6,
     predator_upkeep: 0.0,
   },
   reproduction: {
-    reproduction_energy_threshold: 0.6,
+    reproduction_energy_threshold: 0.45,
     reproduction_energy_cost: 0.7,
     child_energy_factor: 0.4,
     child_spawn_radius: 15.0,
     population_density_factor: 0.8,
     min_reproduction_chance: 0.05,
-    death_chance_factor: 0.04,
+    death_chance_factor: 0.11,
     // Lagged-mortality boom/bust + its safety floor, and the speciation throttle.
     crowding_pressure_rate: 0.006,
     death_floor_density: 0.03,
@@ -100,7 +100,7 @@ class EvolutionApp {
 
     // Cosmetic visual params (the Visuals sliders), pushed to the renderer via
     // applyVisualParams(). Defaults match the renderer's built-in cinematic look.
-    this.visual = { glow: 0.5, trails: 0.92, brightness: 0.75, size: 0.4 };
+    this.visual = { glow: 0.36, trails: 0.875, brightness: 0.8, size: 0.2 };
     // Trait lens: 0=lineage hue, 1=speed, 2=health, 3=behaviour.
     this.colorMode = 0;
 
