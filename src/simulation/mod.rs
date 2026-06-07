@@ -252,6 +252,41 @@ impl Simulation {
         }
     }
 
+    /// Spawn a tight burst of `count` fresh creatures around world `(x, y)` — the
+    /// user clicking the canvas to seed life. Like [`bloom`](Self::bloom) but
+    /// centred on the cursor with a small spread, clamped to the world and the
+    /// population cap.
+    pub fn bloom_at(&mut self, x: f32, y: f32, count: u32) {
+        let cap = (self.config.population.max_population as f32
+            * self.config.population.entity_scale) as usize;
+        let room = cap.saturating_sub(self.world.len() as usize);
+        let n = (count as usize).min(room);
+        let spread = self.world_size * 0.045;
+        let half = self.world_size / 2.0;
+        for i in 0..n {
+            let mut rng = FastRng::seed_from_u64(mix_seed(
+                self.seed,
+                BLOOM_SALT ^ (i as u64).wrapping_mul(0x9E37_79B9),
+                self.step as u64,
+            ));
+            let angle = rng.random_range(0.0..std::f32::consts::TAU);
+            let distance = spread * rng.random::<f32>().sqrt();
+            let genes = Genes::new_random(&mut rng);
+            let energy = rng.random_range(15.0..75.0);
+            self.world.spawn(creature_bundle(
+                Position {
+                    x: (x + distance * angle.cos()).clamp(-half, half),
+                    y: (y + distance * angle.sin()).clamp(-half, half),
+                },
+                energy,
+                energy * 1.3,
+                genes,
+                self.config.physics.max_entity_radius,
+                self.config.physics.min_entity_radius,
+            ));
+        }
+    }
+
     pub fn update(&mut self) {
         self.step += 1;
         self.update_simulation();

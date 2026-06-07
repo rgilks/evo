@@ -280,17 +280,27 @@ class EvolutionApp {
       this.cameraTarget.zoom = this.camera.zoom; // manual zoom: no tween lag
     });
 
+    // Left button: a click (no drag) seeds a burst of life at the cursor; a drag
+    // pans. The down position + a small movement threshold tell them apart.
     this.canvas.addEventListener("mousedown", (e) => {
       if (e.button === 0) {
-        // Left click to pan
         this.camera.isPanning = true;
         this.camera.lastMouseX = e.clientX;
         this.camera.lastMouseY = e.clientY;
+        this.camera.downX = e.clientX;
+        this.camera.downY = e.clientY;
+        this.camera.moved = false;
       }
     });
 
     window.addEventListener("mousemove", (e) => {
       if (this.camera.isPanning) {
+        if (
+          !this.camera.moved &&
+          Math.hypot(e.clientX - this.camera.downX, e.clientY - this.camera.downY) > 4
+        ) {
+          this.camera.moved = true;
+        }
         const dx = (e.clientX - this.camera.lastMouseX) / (this.canvas.width / 2);
         const dy = (e.clientY - this.camera.lastMouseY) / (this.canvas.height / 2);
 
@@ -306,8 +316,9 @@ class EvolutionApp {
     });
 
     window.addEventListener("mouseup", (e) => {
-      if (e.button === 0) {
+      if (e.button === 0 && this.camera.isPanning) {
         this.camera.isPanning = false;
+        if (!this.camera.moved) this.spawnAtScreen(e.clientX, e.clientY);
       }
     });
   }
@@ -386,6 +397,21 @@ class EvolutionApp {
     this.cameraTarget.zoom = Math.min(Math.max((0.78 * half) / r, 0.3), 8.0);
     this.cameraTarget.x = -f[0] / half;
     this.cameraTarget.y = f[1] / half;
+  }
+
+  // Seed a burst of life at a screen position (a canvas click). Inverts the
+  // shader's world→screen transform (NDC ÷ zoom − camera) × half-world.
+  spawnAtScreen(clientX, clientY) {
+    if (!this.simulation) return;
+    const rect = this.canvas.getBoundingClientRect();
+    const ndcX = ((clientX - rect.left) / rect.width) * 2 - 1;
+    const ndcY = 1 - ((clientY - rect.top) / rect.height) * 2;
+    const half = this.simulation.get_world_size() / 2;
+    const z = this.camera.zoom;
+    const worldX = (ndcX / z - this.camera.x) * half;
+    const worldY = (this.camera.y - ndcY / z) * half;
+    this.simulation.bloom_at(worldX, worldY, 100);
+    this.lastRenderedStep = -1; // force a repack so the burst shows at once
   }
 
   // Push the cosmetic visual params (Glow / Trails / Brightness / Size) to the

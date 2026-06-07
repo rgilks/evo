@@ -160,6 +160,12 @@ impl WebSimulation {
     pub fn bloom(&mut self, count: u32) {
         self.simulation.bloom(count);
     }
+
+    /// Spawn a burst of new creatures at world `(x, y)` — the user clicking the
+    /// canvas to seed life at the cursor.
+    pub fn bloom_at(&mut self, x: f32, y: f32, count: u32) {
+        self.simulation.bloom_at(x, y, count);
+    }
 }
 
 impl WebSimulation {

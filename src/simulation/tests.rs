@@ -214,6 +214,27 @@ fn test_simulation_get_entities() {
 }
 
 #[test]
+fn test_bloom_at_spawns_a_cluster_at_the_point() {
+    let mut sim = Simulation::new(1000.0);
+    let before = sim.world().len();
+    // A point far from the origin-centred initial spawn (radius ~200), so the
+    // only creatures near it afterwards are from the burst.
+    let (tx, ty) = (400.0f32, 400.0f32);
+    sim.bloom_at(tx, ty, 60);
+    assert_eq!(sim.world().len() - before, 60, "bloom_at adds the count");
+
+    let near = sim
+        .get_entities()
+        .iter()
+        .filter(|e| ((e.2 - tx).powi(2) + (e.3 - ty).powi(2)).sqrt() < 100.0)
+        .count();
+    assert!(
+        near >= 55,
+        "bloom_at should cluster the burst at the click point; only {near} near it"
+    );
+}
+
+#[test]
 fn test_simulation_world_access() {
     let sim = Simulation::new(100.0);
     let world_ref = sim.world();
