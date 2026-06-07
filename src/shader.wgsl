@@ -13,10 +13,13 @@ struct SimulationUniforms {
 @group(0) @binding(0)
 var<uniform> uniforms: SimulationUniforms;
 
-// Instance data: prev_pos (xy), curr_pos (xy), radius, color (rgb)
+// Instance data: prev_pos (xy), curr_pos (xy), radius, color (rgb), and per-
+// creature state (health + movement-style id) so the look reflects what the
+// organism is *doing* and how it's faring.
 struct InstanceInput {
     @location(0) prev_curr_pos: vec4<f32>, // xy = prev_pos, zw = curr_pos
     @location(1) radius_color: vec4<f32>, // x = radius, yzw = color (rgb)
+    @location(2) state: vec2<f32>, // x = health (0..1), y = movement-style id (0..4)
 }
 
 struct VertexOutput {
@@ -24,6 +27,7 @@ struct VertexOutput {
     @location(0) color: vec3<f32>,
     @location(1) uv: vec2<f32>,
     @location(2) motion_shape: vec4<f32>,
+    @location(3) state: vec2<f32>, // x = health, y = movement-style id
 }
 
 // Quad vertices (generated in shader)
@@ -64,13 +68,16 @@ fn vs_main(
     let screen_y = (world_to_screen_y + uniforms.camera_y) * uniforms.camera_zoom;
     let screen_pos = vec2<f32>(screen_x, screen_y);
 
-    // Render creatures as soft bodies: keep them visible but avoid oversized
-    // bright discs that blow out dense clusters.
-    let screen_radius = clamp(radius / world_size * 2.0, 0.0055, 0.012) * uniforms.camera_zoom;
+    // Restore real size variation: a sqrt mapping spreads the [min,max] radius
+    // range across a visible on-screen span so a giant predator dwarfs a runt,
+    // while the clamp keeps dense clusters legible. Alpha-blended soft bodies
+    // (not additive) stop overlaps from blowing out.
+    let norm = radius / world_size * 2.0;
+    let screen_radius = clamp(0.0034 + sqrt(max(norm, 0.0)) * 0.16, 0.005, 0.03) * uniforms.camera_zoom;
 
-    // Keep a modest halo margin; the organism body now carries the read instead
-    // of a wide glow cloud.
-    let glow_extension = screen_radius * 0.75;
+    // A soft halo margin around the body; the bloom pass turns it into a
+    // bioluminescent bleed for healthy creatures.
+    let glow_extension = screen_radius * 0.9;
     let quad_size = screen_radius + glow_extension;
 
     let motion = curr_pos - prev_pos;
@@ -85,6 +92,7 @@ fn vs_main(
     out.color = instance.radius_color.yzw;
     out.uv = quad_pos;  // -1 to 1 range
     out.motion_shape = vec4<f32>(motion_dir, clamp(motion_len * 0.4, 0.0, 1.0), seed);
+    out.state = instance.state;
 
     return out;
 }
@@ -95,6 +103,8 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let tangent = vec2<f32>(-dir.y, dir.x);
     let speed = in.motion_shape.z;
     let seed = in.motion_shape.w;
+    let health = clamp(in.state.x, 0.0, 1.0);
+    let style = in.state.y;
 
     // Stretch gently along the motion vector and add a low-frequency edge wobble
     // so organisms read as soft amoebas instead of perfect glowing discs.
@@ -107,24 +117,39 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         sin(angle * 5.0 - seed * 9.1) * 0.045;
     let dist = length(shaped_uv) / max(0.76, 1.0 + wobble);
 
-    let body = smoothstep(1.04, 0.62, dist);
-    let soft_edge = smoothstep(1.08, 0.86, dist);
-    let inner = smoothstep(0.76, 0.16, dist);
-    let halo = pow(max(0.0, 1.0 - dist), 2.0);
+    let body = smoothstep(1.04, 0.60, dist);
+    let soft_edge = smoothstep(1.10, 0.84, dist);
+    let inner = smoothstep(0.74, 0.12, dist);
+    // Wider, softer halo than before so a healthy cell bleeds a glow the bloom
+    // pass turns into bioluminescence.
+    let halo = pow(max(0.0, 1.0 - dist), 2.3);
 
     let nucleus_offset = vec2<f32>(cos(seed * 6.28318), sin(seed * 6.28318)) * 0.18;
     let nucleus = smoothstep(0.26, 0.0, length(shaped_uv - nucleus_offset));
     let highlight_offset = vec2<f32>(-0.22, -0.28) + nucleus_offset * 0.28;
     let highlight = smoothstep(0.32, 0.0, length(shaped_uv - highlight_offset));
 
-    let vivid = pow(max(in.color, vec3<f32>(0.001)), vec3<f32>(0.82));
-    let cytoplasm = vivid * (body * 0.86 + inner * 0.46 + halo * 0.34);
+    // Vitality drives luminance: a thriving cell glows brightly (and blooms), a
+    // starving one dims to a faint ember. Newborns spawn at low energy and
+    // brighten as they feed; the dying fade toward dark — so birth and death
+    // read as changes in light with no extra per-creature bookkeeping.
+    let vitality = 0.34 + health * 1.02;
+    // Predators (style id 3) carry a hotter, tighter nucleus — a hungry glint.
+    let is_pred = step(2.5, style) * step(style, 3.5);
+
+    let vivid = pow(max(in.color, vec3<f32>(0.001)), vec3<f32>(0.80)) * vitality;
+    let cytoplasm = vivid * (body * 0.86 + inner * 0.50 + halo * 0.55);
     let membrane = mix(vivid, vec3<f32>(0.9, 0.98, 1.0), 0.40) * soft_edge * 0.42;
-    let nucleus_rgb = mix(vivid, vec3<f32>(0.12, 0.16, 0.22), 0.34) * nucleus * 0.28;
+    let nucleus_tint = mix(vec3<f32>(0.12, 0.16, 0.22), vec3<f32>(1.0, 0.86, 0.6), is_pred);
+    let nucleus_rgb = mix(vivid, nucleus_tint, 0.30) * nucleus * (0.28 + is_pred * 0.55);
     let highlight_rgb = vec3<f32>(1.0, 0.96, 0.84) * highlight * 0.26;
     let rgb = cytoplasm + membrane + nucleus_rgb + highlight_rgb;
 
-    return vec4<f32>(rgb, body * 0.9);
+    // Fade the whole organism with vitality so the dying dissolve into the dark
+    // instead of popping out of existence.
+    let alpha = body * (0.45 + health * 0.5);
+
+    return vec4<f32>(rgb, alpha);
 }
 
 // ---------------------------------------------------------------------------

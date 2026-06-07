@@ -1,6 +1,6 @@
 #![allow(clippy::type_complexity)]
 
-use crate::components::{Color, Energy, Position, Size, Velocity};
+use crate::components::{Color, Energy, MovementType, Position, Size, Velocity};
 use crate::config::SimulationConfig;
 use crate::genes::Genes;
 use crate::spatial_grid::SpatialGrid;
@@ -22,6 +22,18 @@ pub(crate) use rng::FastRng;
 use rng::{
     generate_particle_matrix, mix_seed, BLOOM_SALT, CULL_SALT, DEFAULT_SEED, OFFSPRING_SALT,
 };
+
+/// Stable numeric id for a movement style, packed into the render buffer so the
+/// shader can vary a creature's look by behaviour (e.g. mark predators).
+fn movement_style_id(style: &MovementType) -> f32 {
+    match style {
+        MovementType::Random => 0.0,
+        MovementType::Flocking => 1.0,
+        MovementType::Solitary => 2.0,
+        MovementType::Predatory => 3.0,
+        MovementType::Grazing => 4.0,
+    }
+}
 
 // Simulation state
 pub struct EntityUpdate {
@@ -551,13 +563,24 @@ impl Simulation {
         }
     }
 
-    pub fn get_entities(&self) -> Vec<(f32, f32, f32, f32, f32, f32, f32, f32)> {
+    /// Per-entity render data:
+    /// `(prev_x, prev_y, x, y, radius, r, g, b, health, style_id)`.
+    /// `health` is the energy fraction (0..1) — the renderer dims the starving
+    /// and brightens the thriving. `style_id` is the movement type (0..4) so the
+    /// renderer can mark predators.
+    pub fn get_entities(&self) -> Vec<(f32, f32, f32, f32, f32, f32, f32, f32, f32, f32)> {
         self.world
-            .query::<(Entity, &Position, &Size, &Color)>()
+            .query::<(Entity, &Position, &Size, &Color, &Energy, &Genes)>()
             .iter()
             .par_bridge()
-            .map(|(entity, pos, size, color)| {
+            .map(|(entity, pos, size, color, energy, genes)| {
                 let prev_pos = self.previous_positions.get(&entity).unwrap_or(pos);
+                let health = if energy.max > 0.0 {
+                    (energy.current / energy.max).clamp(0.0, 1.0)
+                } else {
+                    0.0
+                };
+                let style_id = movement_style_id(&genes.behavior.movement_style.style);
                 (
                     prev_pos.x,
                     prev_pos.y,
@@ -567,6 +590,8 @@ impl Simulation {
                     color.r,
                     color.g,
                     color.b,
+                    health,
+                    style_id,
                 )
             })
             .collect()

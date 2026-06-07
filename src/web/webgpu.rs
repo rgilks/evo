@@ -4,12 +4,13 @@ use wgpu::util::DeviceExt;
 
 use super::postprocess::{PostProcess, HDR_FORMAT};
 
-/// Instance data for each entity (32 bytes each)
+/// Instance data for each entity (40 bytes each)
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable)]
 struct Instance {
     prev_curr_pos: [f32; 4], // xy = prev_pos, zw = curr_pos
     radius_color: [f32; 4],  // x = radius, yzw = color (rgb)
+    state: [f32; 2],         // x = health (0..1), y = movement-style id (0..4)
 }
 
 /// Instance data for each food patch (16 bytes each): x, y, radius, intensity.
@@ -197,6 +198,11 @@ impl WebGpuRenderer {
                             shader_location: 1,
                             format: wgpu::VertexFormat::Float32x4, // radius_color
                         },
+                        wgpu::VertexAttribute {
+                            offset: 32,
+                            shader_location: 2,
+                            format: wgpu::VertexFormat::Float32x2, // state: health, style
+                        },
                     ],
                 }],
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
@@ -299,6 +305,7 @@ impl WebGpuRenderer {
             Instance {
                 prev_curr_pos: [0.0, 0.0, 0.0, 0.0],
                 radius_color: [0.0, 0.0, 0.0, 0.0],
+                state: [0.0, 0.0],
             };
             INITIAL_INSTANCE_CAPACITY
         ];
@@ -381,11 +388,11 @@ impl WebGpuRenderer {
         self.queue
             .write_buffer(&self.uniform_buffer, 0, bytemuck::cast_slice(&[uniforms]));
 
-        // The packed buffer's layout is identical to `Instance` (8 f32 =
-        // prev_curr_pos[4] + radius_color[4]), so reinterpret it directly —
-        // no per-frame copy into a Vec<Instance>.
+        // The packed buffer's layout is identical to `Instance` (10 f32 =
+        // prev_curr_pos[4] + radius_color[4] + state[2]), so reinterpret it
+        // directly — no per-frame copy into a Vec<Instance>.
         let entity_data =
-            unsafe { std::slice::from_raw_parts(entities_ptr, (entity_count * 8) as usize) };
+            unsafe { std::slice::from_raw_parts(entities_ptr, (entity_count * 10) as usize) };
         let instances: &[Instance] = bytemuck::cast_slice(entity_data);
 
         // Grow the instance buffer if the population outgrew its capacity.
