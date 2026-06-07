@@ -63,21 +63,28 @@ fn grazing_reduces_local_intensity() {
 }
 
 #[test]
-fn dropped_food_is_eaten_and_removed() {
+fn dropped_food_is_renewable() {
     let mut field = FoodField::new(5, 846.0, test_cfg());
     let n0 = field.patches().len();
     field.drop_food(100.0, 100.0);
-    assert_eq!(field.patches().len(), n0 + 1, "drop adds a transient patch");
-    // Transient food has no graze floor and no regrowth, so heavy grazing eats
-    // it to nothing and the next update removes it.
-    for _ in 0..60 {
+    assert_eq!(field.patches().len(), n0 + 1, "drop adds a patch");
+    // The dropped patch is the last one; grazing draws it down.
+    for _ in 0..40 {
         field.graze(100.0, 100.0, 100.0);
     }
-    field.update(5, 1);
-    assert_eq!(
-        field.patches().len(),
-        n0,
-        "fully grazed dropped food is removed"
+    let eaten = field.patches()[n0].intensity;
+    assert!(
+        eaten < field.patches()[n0].capacity,
+        "grazing depletes dropped food"
+    );
+    // Left alone it regrows and is never removed — self-sustaining like the field.
+    for _ in 0..300 {
+        field.update(5, 1);
+    }
+    assert_eq!(field.patches().len(), n0 + 1, "dropped food persists");
+    assert!(
+        field.patches()[n0].intensity > eaten,
+        "uneaten dropped food regrows"
     );
 }
 

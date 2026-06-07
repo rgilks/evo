@@ -48,6 +48,20 @@ const DEFAULT_CONFIG = {
     death_floor_density: 0.03,
     hue_crowding_factor: 1.2,
   },
+  food: {
+    // Tuned for a visibly self-sustaining field: patches regrow gently when
+    // uneaten and are drawn down fast when a crowd grazes them (stronger graze,
+    // slower regrow, lower floor than the Rust defaults). Browser-only — the
+    // Rust FoodConfig::default the tests rely on is untouched.
+    patch_count: 7,
+    patch_radius_frac: 0.11,
+    drift_speed: 0.0002,
+    regen_rate: 0.015,
+    graze_rate: 0.03,
+    seek_strength: 1.0,
+    patch_fraction: 0.35,
+    graze_floor: 0.05,
+  },
 };
 
 // Serialized once at module load — the config is constant, so init() and reset()
