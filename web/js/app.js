@@ -100,7 +100,7 @@ class EvolutionApp {
 
     // Cosmetic visual params (the Visuals sliders), pushed to the renderer via
     // applyVisualParams(). Defaults match the renderer's built-in cinematic look.
-    this.visual = { glow: 0.72, trails: 0.93, brightness: 1.2, size: 1.0 };
+    this.visual = { glow: 0.5, trails: 0.92, brightness: 0.75, size: 0.4 };
 
     // Camera state. The default zoom fills the frame with the settled swarm so
     // the view isn't mostly empty void. `target` is where the camera eases to:

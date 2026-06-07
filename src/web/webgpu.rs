@@ -147,7 +147,7 @@ impl WebGpuRenderer {
             camera_zoom: 1.0,
             camera_x: 0.0,
             camera_y: 0.0,
-            creature_scale: 1.0,
+            creature_scale: 0.4,
             padding2: 0.0,
             padding3: 0.0,
         };
@@ -449,7 +449,7 @@ impl WebGpuRenderer {
             num_effects: 0,
             effect_capacity: INITIAL_EFFECT_CAPACITY as u32,
             postprocess,
-            creature_scale: 1.0,
+            creature_scale: 0.4,
         })
     }
 
