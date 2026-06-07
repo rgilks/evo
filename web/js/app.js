@@ -102,6 +102,8 @@ class AudioEngine {
     const Ctx = window.AudioContext || window.webkitAudioContext;
     this.ctx = new Ctx();
     const ctx = this.ctx;
+    this.volume = 0.45; // the "on" master level (adjustable via ↑/↓)
+    this.enabled = false;
 
     // Master: gain → lowpass (brightness) → gentle compressor → out.
     this.master = ctx.createGain();
@@ -209,6 +211,7 @@ class AudioEngine {
   }
 
   async setEnabled(on) {
+    this.enabled = on;
     if (on && this.ctx.state !== "running") {
       try {
         await this.ctx.resume();
@@ -216,7 +219,16 @@ class AudioEngine {
     }
     const t = this.ctx.currentTime;
     this.master.gain.cancelScheduledValues(t);
-    this.master.gain.setTargetAtTime(on ? 0.45 : 0.0, t, 0.4);
+    this.master.gain.setTargetAtTime(on ? this.volume : 0.0, t, 0.4);
+  }
+
+  // Nudge the master volume (the "on" level) and apply it if currently audible.
+  adjustVolume(delta) {
+    this.volume = Math.min(Math.max(this.volume + delta, 0), 1);
+    if (this.enabled) {
+      this.master.gain.setTargetAtTime(this.volume, this.ctx.currentTime, 0.15);
+    }
+    return this.volume;
   }
 
   // features = [population, avgHealth, hueBin0 .. hueBin5] from audio_features().
@@ -424,20 +436,7 @@ class EvolutionApp {
     // start; the engine is built lazily on first enable.
     const soundBtn = document.getElementById("sound");
     if (soundBtn) {
-      soundBtn.addEventListener("click", async () => {
-        if (!this.audio) {
-          try {
-            this.audio = new AudioEngine();
-          } catch (e) {
-            console.error("Audio init failed:", e);
-            return;
-          }
-        }
-        this.audioEnabled = !this.audioEnabled;
-        await this.audio.setEnabled(this.audioEnabled);
-        soundBtn.textContent = this.audioEnabled ? "Sound: on" : "Sound: off";
-        soundBtn.classList.toggle("active", this.audioEnabled);
-      });
+      soundBtn.addEventListener("click", () => this.toggleSound());
     }
 
     // Parameter sliders (table-driven — see SLIDERS) plus the sim-speed control.
@@ -455,6 +454,14 @@ class EvolutionApp {
         this.reset();
       } else if (e.key === "f" || e.key === "F") {
         this.frame();
+      } else if (e.key === "m" || e.key === "M") {
+        this.toggleSound();
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        if (this.audio) this.audio.adjustVolume(0.05);
+      } else if (e.key === "ArrowDown") {
+        e.preventDefault();
+        if (this.audio) this.audio.adjustVolume(-0.05);
       }
     });
 
@@ -610,6 +617,27 @@ class EvolutionApp {
     const worldY = (this.camera.y - ndcY / z) * half;
     this.simulation.drop_food(worldX, worldY);
     this.lastRenderedStep = -1; // force a repack so the drop shows at once
+  }
+
+  // Toggle the generative soundscape (also bound to the M key). The first enable
+  // lazily builds the engine; the triggering click/keypress is the gesture that
+  // lets the audio context start.
+  async toggleSound() {
+    if (!this.audio) {
+      try {
+        this.audio = new AudioEngine();
+      } catch (e) {
+        console.error("Audio init failed:", e);
+        return;
+      }
+    }
+    this.audioEnabled = !this.audioEnabled;
+    await this.audio.setEnabled(this.audioEnabled);
+    const btn = document.getElementById("sound");
+    if (btn) {
+      btn.textContent = this.audioEnabled ? "Sound: on" : "Sound: off";
+      btn.classList.toggle("active", this.audioEnabled);
+    }
   }
 
   // Push the cosmetic visual params (Glow / Trails / Brightness / Size) to the
