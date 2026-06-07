@@ -3,14 +3,22 @@
 // (rgba16float) target; bloom is computed at reduced resolution and added back.
 
 const THRESHOLD: f32 = 0.42;   // brightness above which a pixel blooms
-const BLOOM_STRENGTH: f32 = 0.72;
-const EXPOSURE: f32 = 1.20;
 
-// Motion-trail feedback: each frame the HDR scene is multiplied by this factor
-// before new particles are drawn on top (see `fade` below + postprocess.rs).
-// Higher = longer-lived comet tails. Tuned against the particle/bloom gains so
-// overlapping trails glow without blowing out to solid white.
-const TRAIL_PERSISTENCE: f32 = 0.93;
+// Live, user-tunable post params. Bound at group 3 so the same value is shared by
+// the fade and composite passes without colliding with the texture/sampler
+// bindings the blur passes use at groups 0/1. Written from postprocess.rs; see
+// WebGpuRenderer::set_visual_params.
+//   bloom             — bloom add-back strength ("Glow" slider)
+//   trail_persistence — per-frame HDR scene retention ("Trails" slider): higher =
+//                       longer comet tails (the fade pass writes alpha = 1 - this)
+//   exposure          — tonemap exposure ("Brightness" slider)
+struct PostParams {
+    bloom: f32,
+    trail_persistence: f32,
+    exposure: f32,
+    _pad: f32,
+};
+@group(3) @binding(0) var<uniform> post: PostParams;
 
 // Ambient background depth. Instead of fading to flat #000, the composite adds a
 // faint deep-blue/violet radial glow so the void reads as atmospheric. Kept
@@ -80,7 +88,7 @@ fn gaussian(uv: vec2<f32>, dir: vec2<f32>) -> vec3<f32> {
 // the bloom pass then picks up. The colour is black, so only the alpha matters.
 @fragment
 fn fade() -> @location(0) vec4<f32> {
-    return vec4<f32>(0.0, 0.0, 0.0, 1.0 - TRAIL_PERSISTENCE);
+    return vec4<f32>(0.0, 0.0, 0.0, 1.0 - post.trail_persistence);
 }
 
 @fragment
@@ -106,8 +114,8 @@ fn composite(in: VsOut) -> @location(0) vec4<f32> {
     let dist = length(in.uv - vec2<f32>(0.5)) / length(vec2<f32>(0.5));
     let ambient = AMBIENT_COLOR * mix(AMBIENT_CENTER, AMBIENT_EDGE, dist * dist);
 
-    let hdr = scene + bloom * BLOOM_STRENGTH + ambient;
-    var mapped = vec3<f32>(1.0) - exp(-hdr * EXPOSURE);
+    let hdr = scene + bloom * post.bloom + ambient;
+    var mapped = vec3<f32>(1.0) - exp(-hdr * post.exposure);
 
     // Gentle vignette draws the eye to the living centre without hiding creatures
     // near the edges (corners keep ~75% brightness).

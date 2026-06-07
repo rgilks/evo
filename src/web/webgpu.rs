@@ -29,7 +29,7 @@ struct SimulationUniforms {
     camera_zoom: f32,
     camera_x: f32,
     camera_y: f32,
-    padding1: f32,
+    creature_scale: f32, // global creature-size multiplier ("Size" slider)
     padding2: f32,
     padding3: f32,
 }
@@ -51,6 +51,10 @@ pub struct WebGpuRenderer {
     num_food: u32,
     food_capacity: u32,
     postprocess: PostProcess,
+    /// Global creature-size multiplier ("Size" slider), written into the sim
+    /// uniforms each frame. Post params (glow/trails/brightness) live in
+    /// `postprocess`; see `set_visual_params`.
+    creature_scale: f32,
 }
 
 #[wasm_bindgen]
@@ -129,7 +133,7 @@ impl WebGpuRenderer {
             camera_zoom: 1.0,
             camera_x: 0.0,
             camera_y: 0.0,
-            padding1: 0.0,
+            creature_scale: 1.0,
             padding2: 0.0,
             padding3: 0.0,
         };
@@ -345,6 +349,7 @@ impl WebGpuRenderer {
             num_food: 0,
             food_capacity: INITIAL_FOOD_CAPACITY as u32,
             postprocess,
+            creature_scale: 1.0,
         })
     }
 
@@ -355,6 +360,15 @@ impl WebGpuRenderer {
             self.surface.configure(&self.device, &self.config);
             self.postprocess.resize(&self.device, (width, height));
         }
+    }
+
+    /// Live visual controls, applied immediately so the sliders feel responsive:
+    /// `glow` = bloom strength, `trails` = trail persistence, `brightness` =
+    /// tonemap exposure, `size` = global creature-size multiplier.
+    pub fn set_visual_params(&mut self, glow: f32, trails: f32, brightness: f32, size: f32) {
+        self.creature_scale = size;
+        self.postprocess
+            .set_params(&self.queue, glow, trails, brightness);
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -381,7 +395,7 @@ impl WebGpuRenderer {
             camera_zoom,
             camera_x,
             camera_y,
-            padding1: 0.0,
+            creature_scale: self.creature_scale,
             padding2: 0.0,
             padding3: 0.0,
         };

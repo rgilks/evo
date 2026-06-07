@@ -68,6 +68,16 @@ const SLIDERS = [
   { id: "predation-reach", valueId: "predation-value", param: SimParam.Predation, decimals: 0 },
 ];
 
+// Visual sliders — purely cosmetic, applied instantly via renderer.set_visual_params
+// so dragging one is immediately visible (the delight controls). `key` indexes the
+// app's `visual` state object.
+const VISUAL_SLIDERS = [
+  { id: "glow", valueId: "glow-value", key: "glow", decimals: 2 },
+  { id: "trails", valueId: "trails-value", key: "trails", decimals: 3 },
+  { id: "brightness", valueId: "brightness-value", key: "brightness", decimals: 2 },
+  { id: "creature-size", valueId: "size-value", key: "size", decimals: 2 },
+];
+
 class EvolutionApp {
   constructor() {
     this.simulation = null;
@@ -85,6 +95,10 @@ class EvolutionApp {
     // interpolates between ticks, so a low sim rate gives smooth, fluid, slow
     // motion (and far less birth/death flicker) rather than 60 jumps a second.
     this.targetFPS = 30;
+
+    // Cosmetic visual params (the Visuals sliders), pushed to the renderer via
+    // applyVisualParams(). Defaults match the renderer's built-in cinematic look.
+    this.visual = { glow: 0.72, trails: 0.93, brightness: 1.2, size: 1.0 };
 
     // Camera state. The default zoom fills the frame with the settled swarm so
     // the view isn't mostly empty void. `target` is where the camera eases to:
@@ -132,6 +146,7 @@ class EvolutionApp {
       console.log("WebGPU renderer initialized successfully!");
 
       this.setupEventListeners();
+      this.applyVisualParams(); // push the cinematic defaults into the renderer
       this.startRenderLoop();
     } catch (error) {
       console.error("Failed to initialize:", error);
@@ -305,6 +320,19 @@ class EvolutionApp {
       });
     }
 
+    // Visual sliders: update local state + the value label, then push to the
+    // renderer immediately so the effect is visible as you drag.
+    for (const s of VISUAL_SLIDERS) {
+      const el = document.getElementById(s.id);
+      if (!el) continue;
+      el.addEventListener("input", (e) => {
+        const value = parseFloat(e.target.value);
+        document.getElementById(s.valueId).textContent = value.toFixed(s.decimals);
+        this.visual[s.key] = value;
+        this.applyVisualParams();
+      });
+    }
+
     // Sim Speed sets the simulation tick rate (ticks/sec); the renderer keeps
     // interpolating at full refresh rate, so lower = slower, smoother motion.
     const simSpeedSlider = document.getElementById("sim-speed");
@@ -353,6 +381,14 @@ class EvolutionApp {
     this.cameraTarget.zoom = Math.min(Math.max((0.78 * half) / r, 0.3), 8.0);
     this.cameraTarget.x = -f[0] / half;
     this.cameraTarget.y = f[1] / half;
+  }
+
+  // Push the cosmetic visual params (Glow / Trails / Brightness / Size) to the
+  // renderer. Cheap, so it's fine to call on every slider input.
+  applyVisualParams() {
+    if (!this.renderer) return;
+    const v = this.visual;
+    this.renderer.set_visual_params(v.glow, v.trails, v.brightness, v.size);
   }
 
   startRenderLoop() {

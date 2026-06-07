@@ -5,7 +5,7 @@ struct SimulationUniforms {
     camera_zoom: f32,
     camera_x: f32,
     camera_y: f32,
-    padding1: f32,
+    creature_scale: f32, // global creature-size multiplier ("Size" slider)
     padding2: f32,
     padding3: f32,
 };
@@ -73,7 +73,8 @@ fn vs_main(
     // while the clamp keeps dense clusters legible. Alpha-blended soft bodies
     // (not additive) stop overlaps from blowing out.
     let norm = radius / world_size * 2.0;
-    let screen_radius = clamp(0.0034 + sqrt(max(norm, 0.0)) * 0.16, 0.005, 0.03) * uniforms.camera_zoom;
+    let screen_radius = clamp(0.0034 + sqrt(max(norm, 0.0)) * 0.16, 0.005, 0.03)
+        * uniforms.camera_zoom * uniforms.creature_scale;
 
     // A soft halo margin around the body; the bloom pass turns it into a
     // bioluminescent bleed for healthy creatures.

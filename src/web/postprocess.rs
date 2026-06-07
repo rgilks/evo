@@ -5,6 +5,8 @@
 //! separably at reduced resolution, and added back during a tonemapped composite
 //! into the swapchain. See `src/post.wgsl`.
 
+use wgpu::util::DeviceExt;
+
 /// Format of the offscreen scene and bloom targets. The particle render pipeline
 /// targets this format (not the surface format); only the composite writes the
 /// surface. `rgba16float` is a renderable, blendable, filterable WebGPU format.
@@ -33,6 +35,11 @@ pub struct PostProcess {
     blur_h_pipeline: wgpu::RenderPipeline,
     blur_v_pipeline: wgpu::RenderPipeline,
     composite_pipeline: wgpu::RenderPipeline,
+    /// Live post params `[bloom, trail_persistence, exposure, _pad]`, bound at
+    /// group 3 of the fade + composite passes. Updated by the Glow/Trails/
+    /// Brightness sliders via `set_params`.
+    post_buffer: wgpu::Buffer,
+    post_bg: wgpu::BindGroup,
     targets: Targets,
 }
 
@@ -83,14 +90,51 @@ impl PostProcess {
             }],
         });
 
+        // Live post params, bound at group 3 so the fade and composite passes
+        // share one value without colliding with the blur passes' group 0/1
+        // textures. Defaults match the cinematic look: glow 0.72, trails 0.93,
+        // exposure 1.2.
+        let post_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("Post Params Layout"),
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            }],
+        });
+        let post_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Post Params Buffer"),
+            contents: bytemuck::cast_slice(&[[0.72f32, 0.93, 1.2, 0.0]]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+        let post_bg = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Post Params BG"),
+            layout: &post_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: post_buffer.as_entire_binding(),
+            }],
+        });
+
         let blur_pl = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Post Blur Pipeline Layout"),
             bind_group_layouts: &[Some(&blur_layout)],
             immediate_size: 0,
         });
+        // Composite reads group 0 (scene), group 1 (bloom), group 3 (post params).
         let composite_pl = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Post Composite Pipeline Layout"),
-            bind_group_layouts: &[Some(&blur_layout), Some(&bloom_layout)],
+            bind_group_layouts: &[
+                Some(&blur_layout),
+                Some(&bloom_layout),
+                None,
+                Some(&post_layout),
+            ],
             immediate_size: 0,
         });
 
@@ -130,9 +174,10 @@ impl PostProcess {
         // Trail-fade pipeline: a fullscreen black quad with alpha blending that
         // decays the HDR scene each frame before particles are redrawn on top.
         // It samples nothing, so its layout is empty.
+        // Fade reads only the post params (group 3); groups 0–2 are unused.
         let fade_pl = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Post Fade Pipeline Layout"),
-            bind_group_layouts: &[],
+            bind_group_layouts: &[None, None, None, Some(&post_layout)],
             immediate_size: 0,
         });
         let fade_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -183,8 +228,25 @@ impl PostProcess {
             blur_h_pipeline,
             blur_v_pipeline,
             composite_pipeline,
+            post_buffer,
+            post_bg,
             targets,
         }
+    }
+
+    /// Update the live post params from the Glow/Trails/Brightness sliders.
+    pub fn set_params(
+        &self,
+        queue: &wgpu::Queue,
+        bloom: f32,
+        trail_persistence: f32,
+        exposure: f32,
+    ) {
+        queue.write_buffer(
+            &self.post_buffer,
+            0,
+            bytemuck::cast_slice(&[[bloom, trail_persistence, exposure, 0.0f32]]),
+        );
     }
 
     fn make_targets(
@@ -295,6 +357,7 @@ impl PostProcess {
             multiview_mask: None,
         });
         rp.set_pipeline(&self.fade_pipeline);
+        rp.set_bind_group(3, &self.post_bg, &[]);
         rp.draw(0..3, 0..1);
     }
 
@@ -306,6 +369,7 @@ impl PostProcess {
             &self.bright_pipeline,
             &self.targets.scene_bg,
             None,
+            None,
             "Bloom Bright",
         );
         self.pass(
@@ -313,6 +377,7 @@ impl PostProcess {
             &self.targets.bloom_b_view,
             &self.blur_h_pipeline,
             &self.targets.bloom_a_bg,
+            None,
             None,
             "Bloom Blur H",
         );
@@ -322,6 +387,7 @@ impl PostProcess {
             &self.blur_v_pipeline,
             &self.targets.bloom_b_bg,
             None,
+            None,
             "Bloom Blur V",
         );
         self.pass(
@@ -330,6 +396,7 @@ impl PostProcess {
             &self.composite_pipeline,
             &self.targets.scene_bg,
             Some(&self.targets.bloom_a_tex_bg),
+            Some(&self.post_bg),
             "Composite",
         );
     }
@@ -341,6 +408,7 @@ impl PostProcess {
         pipeline: &wgpu::RenderPipeline,
         bind0: &wgpu::BindGroup,
         bind1: Option<&wgpu::BindGroup>,
+        post: Option<&wgpu::BindGroup>,
         label: &str,
     ) {
         let mut rp = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -363,6 +431,9 @@ impl PostProcess {
         rp.set_bind_group(0, bind0, &[]);
         if let Some(b1) = bind1 {
             rp.set_bind_group(1, b1, &[]);
+        }
+        if let Some(p) = post {
+            rp.set_bind_group(3, p, &[]);
         }
         rp.draw(0..3, 0..1);
     }
