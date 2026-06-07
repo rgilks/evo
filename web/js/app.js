@@ -101,6 +101,8 @@ class EvolutionApp {
     // Cosmetic visual params (the Visuals sliders), pushed to the renderer via
     // applyVisualParams(). Defaults match the renderer's built-in cinematic look.
     this.visual = { glow: 0.5, trails: 0.92, brightness: 0.75, size: 0.4 };
+    // Trait lens: 0=lineage hue, 1=speed, 2=health, 3=behaviour.
+    this.colorMode = 0;
 
     // Camera state. The default zoom fills the frame with the settled swarm so
     // the view isn't mostly empty void. `target` is where the camera eases to:
@@ -343,6 +345,17 @@ class EvolutionApp {
         document.getElementById(s.valueId).textContent = value.toFixed(s.decimals);
         this.visual[s.key] = value;
         this.applyVisualParams();
+      });
+    }
+
+    // Trait lens: cycle what creature colour represents.
+    const COLOR_MODES = ["Lineage", "Speed", "Health", "Behaviour"];
+    const colorBtn = document.getElementById("color-mode");
+    if (colorBtn) {
+      colorBtn.addEventListener("click", () => {
+        this.colorMode = (this.colorMode + 1) % COLOR_MODES.length;
+        colorBtn.textContent = "Colour: " + COLOR_MODES[this.colorMode];
+        if (this.renderer) this.renderer.set_color_mode(this.colorMode);
       });
     }
 

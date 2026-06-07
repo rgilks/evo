@@ -6,9 +6,38 @@ struct SimulationUniforms {
     camera_x: f32,
     camera_y: f32,
     creature_scale: f32, // global creature-size multiplier ("Size" slider)
-    padding2: f32,
+    color_mode: f32,     // trait lens: 0=lineage hue, 1=speed, 2=health, 3=behaviour
     padding3: f32,
 };
+
+// HSV→RGB for the trait-lens heatmaps.
+fn hsv2rgb(h: f32, s: f32, v: f32) -> vec3<f32> {
+    let hp = fract(h) * 6.0;
+    let c = v * s;
+    let x = c * (1.0 - abs((hp % 2.0) - 1.0));
+    var rgb = vec3<f32>(0.0, 0.0, 0.0);
+    if (hp < 1.0) { rgb = vec3<f32>(c, x, 0.0); }
+    else if (hp < 2.0) { rgb = vec3<f32>(x, c, 0.0); }
+    else if (hp < 3.0) { rgb = vec3<f32>(0.0, c, x); }
+    else if (hp < 4.0) { rgb = vec3<f32>(0.0, x, c); }
+    else if (hp < 5.0) { rgb = vec3<f32>(x, 0.0, c); }
+    else { rgb = vec3<f32>(c, 0.0, x); }
+    return rgb + vec3<f32>(v - c);
+}
+
+// Cold (blue) → hot (red) ramp for a trait in 0..1.
+fn heat(t: f32) -> vec3<f32> {
+    return hsv2rgb((1.0 - clamp(t, 0.0, 1.0)) * 0.66, 0.9, 1.0);
+}
+
+// Distinct colour per movement style for the "behaviour" lens.
+fn style_color(s: f32) -> vec3<f32> {
+    if (s > 3.5) { return vec3<f32>(0.30, 1.00, 0.45); } // grazing — green
+    if (s > 2.5) { return vec3<f32>(1.00, 0.32, 0.32); } // predatory — red
+    if (s > 1.5) { return vec3<f32>(0.72, 0.42, 1.00); } // solitary — purple
+    if (s > 0.5) { return vec3<f32>(0.34, 0.62, 1.00); } // flocking — blue
+    return vec3<f32>(0.78, 0.78, 0.82);                  // random — grey
+}
 
 @group(0) @binding(0)
 var<uniform> uniforms: SimulationUniforms;
@@ -89,8 +118,21 @@ fn vs_main(
     }
     let seed = fract(sin(f32(instance_index) * 12.9898 + radius * 37.719) * 43758.5453);
 
+    // Trait lens: recolour by a chosen trait so selection is visible at a glance.
+    // 0 = lineage hue (the genetic colour), 1 = speed gene, 2 = health, 3 = style.
+    let lineage = instance.radius_color.yzw;
+    let mode = uniforms.color_mode;
+    var disp = lineage;
+    if (mode > 2.5) {
+        disp = style_color(instance.state.y);
+    } else if (mode > 1.5) {
+        disp = heat(instance.state.x); // health
+    } else if (mode > 0.5) {
+        disp = heat(instance.state.z); // speed gene
+    }
+
     out.position = vec4<f32>(screen_pos + quad_pos * quad_size, 0.0, 1.0);
-    out.color = instance.radius_color.yzw;
+    out.color = disp;
     out.uv = quad_pos;  // -1 to 1 range
     out.motion_shape = vec4<f32>(motion_dir, clamp(motion_len * 0.4, 0.0, 1.0), seed);
     out.state = instance.state;

@@ -42,7 +42,7 @@ struct SimulationUniforms {
     camera_x: f32,
     camera_y: f32,
     creature_scale: f32, // global creature-size multiplier ("Size" slider)
-    padding2: f32,
+    color_mode: f32,     // trait lens: 0=lineage, 1=speed, 2=health, 3=behaviour
     padding3: f32,
 }
 
@@ -71,6 +71,9 @@ pub struct WebGpuRenderer {
     /// uniforms each frame. Post params (glow/trails/brightness) live in
     /// `postprocess`; see `set_visual_params`.
     creature_scale: f32,
+    /// Trait lens (0=lineage, 1=speed, 2=health, 3=behaviour) — recolours the
+    /// swarm by a chosen trait. See `set_color_mode`.
+    color_mode: f32,
 }
 
 #[wasm_bindgen]
@@ -150,7 +153,7 @@ impl WebGpuRenderer {
             camera_x: 0.0,
             camera_y: 0.0,
             creature_scale: 0.4,
-            padding2: 0.0,
+            color_mode: 0.0,
             padding3: 0.0,
         };
 
@@ -452,6 +455,7 @@ impl WebGpuRenderer {
             effect_capacity: INITIAL_EFFECT_CAPACITY as u32,
             postprocess,
             creature_scale: 0.4,
+            color_mode: 0.0,
         })
     }
 
@@ -471,6 +475,12 @@ impl WebGpuRenderer {
         self.creature_scale = size;
         self.postprocess
             .set_params(&self.queue, glow, trails, brightness);
+    }
+
+    /// Trait lens: recolour the swarm by `mode` (0=lineage hue, 1=speed,
+    /// 2=health, 3=behaviour). Applied next frame via the sim uniforms.
+    pub fn set_color_mode(&mut self, mode: u32) {
+        self.color_mode = mode as f32;
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -500,7 +510,7 @@ impl WebGpuRenderer {
             camera_x,
             camera_y,
             creature_scale: self.creature_scale,
-            padding2: 0.0,
+            color_mode: self.color_mode,
             padding3: 0.0,
         };
         self.queue
