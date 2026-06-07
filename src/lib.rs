@@ -122,6 +122,14 @@ impl WebSimulation {
         self.simulation.world_size()
     }
 
+    /// Centroid + focus radius of the live population as `[cx, cy, radius]` in
+    /// world units, so the UI can frame the swarm (returned to JS as a
+    /// Float32Array).
+    pub fn get_view_focus(&self) -> Vec<f32> {
+        let (cx, cy, r) = self.simulation.view_focus();
+        vec![cx, cy, r]
+    }
+
     pub fn update_param(&mut self, param: SimParam, value: f32) {
         // Mutate the single config the Simulation owns — no duplicate, no clone.
         let config = self.simulation.config_mut();

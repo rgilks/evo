@@ -615,6 +615,34 @@ impl Simulation {
             .collect()
     }
 
+    /// Centroid and a robust focus radius of the live population, in world units,
+    /// so the UI can frame the swarm. The radius is ~2.4× the RMS distance from
+    /// the centroid (a handful of stragglers can't blow it up), clamped to a sane
+    /// band of the world size.
+    pub fn view_focus(&self) -> (f32, f32, f32) {
+        let positions: Vec<(f32, f32)> = self
+            .world
+            .query::<&Position>()
+            .iter()
+            .map(|p| (p.x, p.y))
+            .collect();
+        let n = positions.len();
+        if n == 0 {
+            return (0.0, 0.0, self.world_size * 0.25);
+        }
+        let inv = 1.0 / n as f32;
+        let (sx, sy) = positions
+            .iter()
+            .fold((0.0f32, 0.0f32), |(ax, ay), &(x, y)| (ax + x, ay + y));
+        let (cx, cy) = (sx * inv, sy * inv);
+        let var = positions
+            .iter()
+            .fold(0.0f32, |a, &(x, y)| a + (x - cx).powi(2) + (y - cy).powi(2))
+            * inv;
+        let radius = (var.sqrt() * 2.4).clamp(self.world_size * 0.06, self.world_size * 0.5);
+        (cx, cy, radius)
+    }
+
     pub fn world(&self) -> &World {
         &self.world
     }

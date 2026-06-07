@@ -86,15 +86,19 @@ class EvolutionApp {
     // motion (and far less birth/death flicker) rather than 60 jumps a second.
     this.targetFPS = 30;
 
-    // Camera state
+    // Camera state. The default zoom fills the frame with the settled swarm so
+    // the view isn't mostly empty void. `target` is where the camera eases to:
+    // programmatic moves (frame/reset) animate toward it, while manual pan/zoom
+    // snap both `camera` and `target` together so they never fight the tween.
     this.camera = {
-      zoom: 1.0,
+      zoom: 1.5,
       x: 0.0,
       y: 0.0,
       isPanning: false,
       lastMouseX: 0,
       lastMouseY: 0,
     };
+    this.cameraTarget = { zoom: 1.5, x: 0.0, y: 0.0 };
 
     this.init();
   }
@@ -242,6 +246,8 @@ class EvolutionApp {
         setCollapsed(true);
       } else if (e.key === "r" || e.key === "R") {
         this.reset();
+      } else if (e.key === "f" || e.key === "F") {
+        this.frame();
       }
     });
 
@@ -250,8 +256,8 @@ class EvolutionApp {
       e.preventDefault();
       const zoomSpeed = 0.001;
       const factor = Math.exp(-e.deltaY * zoomSpeed);
-      this.camera.zoom *= factor;
-      this.camera.zoom = Math.min(Math.max(this.camera.zoom, 0.1), 10.0);
+      this.camera.zoom = Math.min(Math.max(this.camera.zoom * factor, 0.1), 10.0);
+      this.cameraTarget.zoom = this.camera.zoom; // manual zoom: no tween lag
     });
 
     this.canvas.addEventListener("mousedown", (e) => {
@@ -270,6 +276,9 @@ class EvolutionApp {
 
         this.camera.x += dx / this.camera.zoom;
         this.camera.y -= dy / this.camera.zoom;
+        // Manual pan is 1:1, so keep the tween target in lockstep.
+        this.cameraTarget.x = this.camera.x;
+        this.cameraTarget.y = this.camera.y;
 
         this.camera.lastMouseX = e.clientX;
         this.camera.lastMouseY = e.clientY;
@@ -318,6 +327,32 @@ class EvolutionApp {
 
   reset() {
     this.createSimulation();
+    // Ease back to the default framing as the new world spawns and grows.
+    this.cameraTarget = { zoom: 1.5, x: 0.0, y: 0.0 };
+  }
+
+  // Smoothly ease the live camera toward its target each frame. Manual pan/zoom
+  // keep target == camera, so this only animates programmatic moves (frame/reset).
+  updateCamera() {
+    const c = this.camera;
+    const t = this.cameraTarget;
+    const k = 0.1;
+    c.zoom += (t.zoom - c.zoom) * k;
+    c.x += (t.x - c.x) * k;
+    c.y += (t.y - c.y) * k;
+  }
+
+  // Frame the live swarm: centre on its centroid and zoom so it fills most of
+  // the view. Animated via the camera tween. Bound to the 'f' key.
+  frame() {
+    if (!this.simulation) return;
+    const f = this.simulation.get_view_focus(); // [cx, cy, radius] in world units
+    const half = this.simulation.get_world_size() / 2;
+    const r = Math.max(f[2], 1e-3);
+    // A world point at distance r maps to ndc r/half; fit it to ~78% of the view.
+    this.cameraTarget.zoom = Math.min(Math.max((0.78 * half) / r, 0.3), 8.0);
+    this.cameraTarget.x = -f[0] / half;
+    this.cameraTarget.y = f[1] / half;
   }
 
   startRenderLoop() {
@@ -329,7 +364,9 @@ class EvolutionApp {
         this.lastUpdateTime = currentTime;
       }
 
-      // Render
+      // Ease the camera toward its target (no-op when they already match), then
+      // render.
+      this.updateCamera();
       this.render();
 
       this.animationId = requestAnimationFrame(animate);
