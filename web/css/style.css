@@ -207,6 +207,25 @@ main {
   flex: 1;
   text-align: center;
 }
+/* Compact, subtle sound toggle that sits beside the action buttons. */
+.sound-btn {
+  flex: 0 0 auto;
+  padding: 8px 11px;
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.16);
+  opacity: 0.6;
+  font-size: 14px;
+  line-height: 1;
+}
+.sound-btn:hover {
+  opacity: 0.9;
+}
+.sound-btn.active {
+  opacity: 1;
+  background: rgba(var(--accent-rgb), 0.2);
+  border-color: rgba(var(--accent-rgb), 0.55);
+  color: var(--text-strong);
+}
 
 /* ===== Control groups ===== */
 .group {

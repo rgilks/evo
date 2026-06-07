@@ -247,6 +247,32 @@ class AudioEngine {
       this.voiceGains[i].gain.setTargetAtTime(0.1 * popLevel * Math.pow(share, 0.8), t, 0.4);
     }
   }
+
+  // A short bell when food is dropped: pitch rises toward the top of the screen
+  // and it pans with the horizontal position, so each drop sounds like its spot.
+  // nx, ny are 0..1 across the canvas (top-left origin).
+  ping(nx, ny) {
+    if (!this.enabled || this.ctx.state !== "running") return;
+    const ctx = this.ctx;
+    const t = ctx.currentTime;
+    const scale = [523.25, 587.33, 659.25, 783.99, 880.0, 1046.5]; // C5 D5 E5 G5 A5 C6
+    const idx = Math.min(scale.length - 1, Math.max(0, Math.floor((1 - ny) * scale.length)));
+    const osc = ctx.createOscillator();
+    osc.type = "triangle";
+    osc.frequency.value = scale[idx];
+    const g = ctx.createGain();
+    g.gain.value = 0.0001;
+    const pan = ctx.createStereoPanner();
+    pan.pan.value = Math.min(1, Math.max(-1, nx * 2 - 1));
+    osc.connect(g);
+    g.connect(pan);
+    pan.connect(this.master);
+    pan.connect(this.reverbSend);
+    g.gain.exponentialRampToValueAtTime(0.28, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0006, t + 0.9);
+    osc.start(t);
+    osc.stop(t + 1.0);
+  }
 }
 
 class EvolutionApp {
@@ -275,10 +301,11 @@ class EvolutionApp {
     // Trait lens: 0=lineage hue, 1=speed, 2=health, 3=behaviour.
     this.colorMode = 0;
 
-    // Generative audio (off until the user enables it — a gesture is required to
-    // start a Web Audio context). Created lazily on first enable.
+    // Generative audio: on by default, but browsers require a user gesture to
+    // start a Web Audio context, so the engine is built + resumed on the first
+    // interaction (see armAudioAutostart). Toggle with the Sound button or M.
     this.audio = null;
-    this.audioEnabled = false;
+    this.audioEnabled = true;
     this.lastAudioTime = 0;
 
     // Camera state. The default zoom fills the frame with the settled swarm so
@@ -328,6 +355,7 @@ class EvolutionApp {
 
       this.setupEventListeners();
       this.applyVisualParams(); // push the cinematic defaults into the renderer
+      this.armAudioAutostart(); // sound is on by default; starts on first gesture
       this.startRenderLoop();
     } catch (error) {
       console.error("Failed to initialize:", error);
@@ -616,6 +644,10 @@ class EvolutionApp {
     const worldX = (ndcX / z - this.camera.x) * half;
     const worldY = (this.camera.y - ndcY / z) * half;
     this.simulation.drop_food(worldX, worldY);
+    if (this.audio && this.audioEnabled) {
+      // A note that sounds like where you clicked (pitch by height, pan by side).
+      this.audio.ping((clientX - rect.left) / rect.width, (clientY - rect.top) / rect.height);
+    }
     this.lastRenderedStep = -1; // force a repack so the drop shows at once
   }
 
@@ -633,11 +665,35 @@ class EvolutionApp {
     }
     this.audioEnabled = !this.audioEnabled;
     await this.audio.setEnabled(this.audioEnabled);
+    this.syncSoundButton();
+  }
+
+  // Reflect the audio on/off state on the Sound button (highlighted = on).
+  syncSoundButton() {
     const btn = document.getElementById("sound");
-    if (btn) {
-      btn.textContent = this.audioEnabled ? "Sound: on" : "Sound: off";
-      btn.classList.toggle("active", this.audioEnabled);
-    }
+    if (btn) btn.classList.toggle("active", this.audioEnabled);
+  }
+
+  // Audio is on by default, but a Web Audio context can't start until a user
+  // gesture — so build + resume the engine on the first interaction.
+  armAudioAutostart() {
+    const start = () => {
+      window.removeEventListener("pointerdown", start);
+      window.removeEventListener("keydown", start);
+      if (!this.audioEnabled) return;
+      if (!this.audio) {
+        try {
+          this.audio = new AudioEngine();
+        } catch (e) {
+          console.error("Audio init failed:", e);
+          return;
+        }
+      }
+      this.audio.setEnabled(true);
+      this.syncSoundButton();
+    };
+    window.addEventListener("pointerdown", start);
+    window.addEventListener("keydown", start);
   }
 
   // Push the cosmetic visual params (Glow / Trails / Brightness / Size) to the
