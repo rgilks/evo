@@ -102,9 +102,13 @@ rm pkg/evo.js.bak web/pkg/evo.js.bak
 # Update cache-busting version in index.html
 echo "🔄 Updating cache busting version in index.html..."
 sed -i.bak "s/src=\"js\/app\.js?v=[0-9a-f]*\"/src=\"js\/app.js?v=$CACHE_VERSION\"/g" web/index.html
+sed -i.bak "s/src=\"js\/sentry-config\.js?v=[0-9a-z]*\"/src=\"js\/sentry-config.js?v=$CACHE_VERSION\"/g" web/index.html
+sed -i.bak "s/src=\"js\/sentry\.js?v=[0-9a-z]*\"/src=\"js\/sentry.js?v=$CACHE_VERSION\"/g" web/index.html
 # Cache-bust the stylesheet too — without a ?v= a stale style.css is served after a deploy.
 sed -i.bak "s|href=\"css/style.css?v=[0-9a-z]*\"|href=\"css/style.css?v=$CACHE_VERSION\"|g" web/index.html
 rm web/index.html.bak
+
+node scripts/write-sentry-config.mjs evo web/js/sentry-config.js "$CACHE_VERSION"
 
 # Verify the build
 echo "🔍 Verifying build..."
@@ -118,4 +122,4 @@ fi
 echo "🎉 Build complete! Run 'npm run dev' to start the server."
 echo "📁 Built files:"
 ls -la pkg/
-echo "🔢 Cache version: $CACHE_VERSION" 
+echo "🔢 Cache version: $CACHE_VERSION"
