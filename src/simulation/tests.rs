@@ -619,6 +619,72 @@ fn population_series(seed: u64, ticks: usize) -> Vec<usize> {
     pops
 }
 
+/// Population each tick under the **shipped browser config**
+/// ([`SimulationConfig::browser_default`]) — the balance the live site actually
+/// runs, distinct from the test [`Default`]. Guards the look-on-the-site tuning.
+fn browser_population_series(seed: u64, ticks: usize) -> Vec<usize> {
+    let mut sim =
+        Simulation::new_with_config_seeded(846.0, SimulationConfig::browser_default(), seed);
+    let mut pops = Vec::with_capacity(ticks);
+    for _ in 0..ticks {
+        sim.update();
+        pops.push(sim.world().len() as usize);
+    }
+    pops
+}
+
+#[test]
+fn test_browser_default_sustains_population() {
+    // REGRESSION GUARD. The shipped config once starved the world out — the
+    // population collapsed from ~1250 to a dozen survivors within the first
+    // in-browser minute, leaving nothing to watch. The site config now keeps a
+    // full, lively population. A short fast run is enough to catch a relapse into
+    // that starvation regime: the old tuning is already in double digits by here,
+    // while the shipped one sits in the hundreds-to-thousands.
+    let pops = browser_population_series(12345, 1500);
+    let settled = *pops[1000..].iter().min().unwrap();
+    let cap = {
+        let c = SimulationConfig::browser_default();
+        (c.population.max_population as f32 * c.population.entity_scale) as usize
+    };
+    assert!(
+        settled > 400,
+        "shipped browser config is starving out: settled to {settled} by tick 1500 \
+         (a die-off regression — the site should stay full of life)"
+    );
+    assert!(
+        settled < cap,
+        "shipped browser config pinned at the cap ({settled} >= {cap})"
+    );
+}
+
+#[test]
+#[ignore = "long-running browser-config soak; run before retuning the shipped balance"]
+fn test_browser_default_sustains_long_run() {
+    // SAFETY SOAK for the live site over a ~10-minute watch (18000 ticks at the
+    // browser's 30 ticks/s). Across several seeds the shipped population must stay
+    // strictly bounded after warm-up: never near a die-off, never pinned at the
+    // cap — so the screen stays full of swinging, boom/busting life the whole time.
+    let cap = {
+        let c = SimulationConfig::browser_default();
+        (c.population.max_population as f32 * c.population.entity_scale) as usize
+    };
+    for &seed in &[12345u64, 21, 999, 7] {
+        let pops = browser_population_series(seed, 18000);
+        let warm = &pops[1500..];
+        let lo = *warm.iter().min().unwrap();
+        let hi = *warm.iter().max().unwrap();
+        assert!(
+            lo > 300,
+            "seed {seed}: shipped population dipped to {lo} over a 10-min run — die-off risk"
+        );
+        assert!(
+            hi < cap,
+            "seed {seed}: shipped population reached {hi} (>= cap {cap}) — pinned/runaway"
+        );
+    }
+}
+
 /// Bucket the current population's hues into 12 sectors; return (number of
 /// sectors holding ≥4% of the population, dominant sector's share).
 fn hue_modes(sim: &Simulation) -> (usize, f32) {

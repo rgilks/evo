@@ -208,6 +208,42 @@ impl Default for SimulationConfig {
     }
 }
 
+impl SimulationConfig {
+    /// The curated config the web frontend ships. `web/js/app.js` passes an empty
+    /// config string to [`WebSimulation`], which selects this; the live panel then
+    /// tweaks individual parameters on top of it.
+    ///
+    /// It is deliberately *separate* from [`Default`]: `Default` is tuned for the
+    /// headless dynamics tests, whereas this is tuned for the **look on the site
+    /// over a long watch** — a full, lively population that swings in visible
+    /// boom/bust waves for ten-plus minutes without starving out or pinning at the
+    /// cap. The deltas below are the entire difference from `Default`; keep the
+    /// slider start values in `web/index.html` in sync with them. Guarded by
+    /// `test_browser_default_sustains_long_run` so the shipped balance can't
+    /// silently regress into a die-off again.
+    pub fn browser_default() -> Self {
+        let mut c = Self::default();
+        // Predators reach a touch further for prey, for a livelier food web.
+        c.physics.interaction_radius_offset = 8.0;
+        // Energy economy: a slightly leaner field and a higher size cost than the
+        // test default, so body size still has a real price, balanced to a healthy
+        // carrying capacity rather than the old starvation tuning.
+        c.energy.size_energy_cost_factor = 0.22;
+        c.energy.ambient_energy_gain = 1.1;
+        // Breed a little more eagerly and cull a little harder than the test
+        // default — together with the food dynamics below this sharpens the
+        // boom/bust swing while staying comfortably bounded.
+        c.reproduction.reproduction_energy_threshold = 0.45;
+        c.reproduction.death_chance_factor = 0.06;
+        // Patches regrow a touch slower and are grazed down faster and further than
+        // the test default, so a crowd visibly eats a patch out and must move on.
+        c.food.regen_rate = 0.04;
+        c.food.graze_rate = 0.025;
+        c.food.graze_floor = 0.12;
+        c
+    }
+}
+
 impl Default for FoodConfig {
     fn default() -> Self {
         // Production is split between a thin inexhaustible uniform base and a

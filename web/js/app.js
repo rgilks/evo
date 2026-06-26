@@ -6,67 +6,13 @@ import init, {
   SimParam,
 } from "../pkg/evo.js?v=bab2bc7";
 
-// Shared configuration object - matches the new Rust SimulationConfig structure
-const DEFAULT_CONFIG = {
-  population: {
-    entity_scale: 0.5,
-    max_population: 10000,
-    initial_entities: 2500,
-    spawn_radius_factor: 0.2,
-  },
-  physics: {
-    max_velocity: 6.0,
-    max_entity_radius: 20.0,
-    min_entity_radius: 1.0,
-    grid_cell_size: 25.0,
-    boundary_margin: 5.0,
-    interaction_radius_offset: 8.0,
-    velocity_bounce_factor: 0.8,
-    edge_repulsion_strength: 0.3,
-    particle_force_scale: 0.15,
-    particle_friction: 0.95,
-  },
-  energy: {
-    size_energy_cost_factor: 0.36,
-    movement_energy_cost: 0.1,
-    // Curated live default — a leaner field than the Rust default's 1.3, tuned
-    // by eye for the look on the site (the browser passes its own config).
-    ambient_energy_gain: 0.35,
-    predator_graze_fraction: 0.6,
-    predator_upkeep: 0.0,
-  },
-  reproduction: {
-    reproduction_energy_threshold: 0.45,
-    reproduction_energy_cost: 0.7,
-    child_energy_factor: 0.4,
-    child_spawn_radius: 15.0,
-    population_density_factor: 0.8,
-    min_reproduction_chance: 0.05,
-    death_chance_factor: 0.11,
-    // Lagged-mortality boom/bust + its safety floor, and the speciation throttle.
-    crowding_pressure_rate: 0.006,
-    death_floor_density: 0.03,
-    hue_crowding_factor: 1.2,
-  },
-  food: {
-    // Tuned for a visibly self-sustaining field: patches regrow gently when
-    // uneaten and are drawn down fast when a crowd grazes them (stronger graze,
-    // slower regrow, lower floor than the Rust defaults). Browser-only — the
-    // Rust FoodConfig::default the tests rely on is untouched.
-    patch_count: 7,
-    patch_radius_frac: 0.11,
-    drift_speed: 0.0002,
-    regen_rate: 0.015,
-    graze_rate: 0.03,
-    seek_strength: 1.0,
-    patch_fraction: 0.35,
-    graze_floor: 0.05,
-  },
-};
-
-// Serialized once at module load — the config is constant, so init() and reset()
-// reuse it instead of re-stringifying on every (re)construction.
-const CONFIG_JSON = JSON.stringify(DEFAULT_CONFIG);
+// The simulation's starting parameters live in Rust as the single source of
+// truth (`SimulationConfig::browser_default`), tested there so the shipped
+// balance can't silently regress into a die-off. Passing an empty config string
+// to the constructor selects it; the live panel then tweaks individual
+// parameters on top via update_param. The slider start values in index.html
+// mirror those defaults (display only — the sim uses the Rust values).
+const CONFIG_JSON = "";
 const DEFAULT_SEED = 12345;
 
 // Ecosystem + motion sliders, each mapping one DOM slider to one SimParam.

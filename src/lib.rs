@@ -220,8 +220,16 @@ impl WebSimulation {
 
 impl WebSimulation {
     fn build(world_size: f32, config_json: &str, seed: u64) -> Result<WebSimulation, JsValue> {
-        let config: config::SimulationConfig = serde_json::from_str(config_json)
-            .map_err(|e| JsValue::from_str(&format!("Config parse error: {}", e)))?;
+        // An empty config string selects the curated, tested browser default
+        // (`SimulationConfig::browser_default`) — the single source of truth for
+        // the shipped balance — so the frontend doesn't carry its own copy of the
+        // numbers. A non-empty string is still parsed as an explicit override.
+        let config: config::SimulationConfig = if config_json.trim().is_empty() {
+            config::SimulationConfig::browser_default()
+        } else {
+            serde_json::from_str(config_json)
+                .map_err(|e| JsValue::from_str(&format!("Config parse error: {}", e)))?
+        };
 
         let simulation = simulation::Simulation::new_with_config_seeded(world_size, config, seed);
 
