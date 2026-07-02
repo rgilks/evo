@@ -46,7 +46,7 @@ digraph SimulationTick {
   ];
 
   // ---- Entry ----
-  T0 [label=<<B>update()</B><BR/><FONT POINT-SIZE="15">step += 1, once per frame</FONT>>, fillcolor="#edf7ff:#ffffff", color="#2f80ed"];
+  T0 [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>update()</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="15">step += 1, once per frame</FONT></TD></TR></TABLE>>, fillcolor="#edf7ff:#ffffff", color="#2f80ed"];
 
   // ---- Read / prepare ----
   subgraph cluster_read {
@@ -60,8 +60,8 @@ digraph SimulationTick {
       labelloc=t, labeljust=l,
       color="#f2cf78", fillcolor="#fffaf0", style="rounded,filled", penwidth=1.8, margin=22
     ];
-    R1 [label=<<B>store_previous_positions</B><BR/><FONT POINT-SIZE="15">snapshot for interpolation</FONT>>, fillcolor="#fff4d1:#fffaf0", color="#d39a00"];
-    R2 [label=<<B>rebuild grid + neighbour cache</B><BR/><FONT POINT-SIZE="15">one serial pass: cell&#8594;entities + hot-field snapshot</FONT>>, fillcolor="#fff4d1:#fffaf0", color="#d39a00"];
+    R1 [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>store_previous_positions</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="15">snapshot for interpolation</FONT></TD></TR></TABLE>>, fillcolor="#fff4d1:#fffaf0", color="#d39a00"];
+    R2 [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>rebuild grid + neighbour cache</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="15">one serial pass: cell&#8594;entities + hot-field snapshot</FONT></TD></TR></TABLE>>, fillcolor="#fff4d1:#fffaf0", color="#d39a00"];
     R1 -> R2;
   }
 
@@ -77,10 +77,10 @@ digraph SimulationTick {
       labelloc=t, labeljust=l,
       color="#b8e5c8", fillcolor="#f4fbf6", style="rounded,filled", penwidth=1.8, margin=22
     ];
-    P1 [label=<<B>process_entities_parallel</B><BR/><FONT POINT-SIZE="15">par_bridge over the ECS query</FONT>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
-    P2 [label=<<B>EntityContext</B><BR/><FONT POINT-SIZE="15">per-entity working state</FONT>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
-    P3 [label=<<B>System pipeline</B><BR/><FONT POINT-SIZE="15">movement → interaction → energy → reproduction</FONT>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
-    P4 [label=<<B>EntityUpdate</B><BR/><FONT POINT-SIZE="15">pos · vel · energy · size · reproduce? · eaten?</FONT>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
+    P1 [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>process_entities_parallel</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="15">par_bridge over the ECS query</FONT></TD></TR></TABLE>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
+    P2 [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>EntityContext</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="15">per-entity working state</FONT></TD></TR></TABLE>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
+    P3 [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>System pipeline</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="15">movement → interaction → energy → reproduction</FONT></TD></TR></TABLE>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
+    P4 [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>EntityUpdate</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="15">pos · vel · energy · size · reproduce? · eaten?</FONT></TD></TR></TABLE>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
     P1 -> P2 -> P3 -> P4;
   }
 
@@ -98,24 +98,24 @@ digraph SimulationTick {
     ];
 
     DQ1 [label=<<B>energy &#8804; 0?</B>>, shape=diamond, style=filled, width=2.4, height=1.05, fillcolor="#ffffff", color="#1f2f46", penwidth=2.4];
-    ALIVE [label=<<B>update in place</B><BR/><FONT POINT-SIZE="15">query_mut: pos · vel · energy · size</FONT>>, fillcolor="#e6fffb:#ffffff", color="#0f766e"];
+    ALIVE [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>update in place</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="15">query_mut: pos · vel · energy · size</FONT></TD></TR></TABLE>>, fillcolor="#e6fffb:#ffffff", color="#0f766e"];
     DEAD [label=<<B>despawn (starved)</B>>, fillcolor="#e0e7ef:#ffffff", color="#5b6b80"];
-    EATEN [label=<<B>despawn eaten prey</B><BR/><FONT POINT-SIZE="15">collected from EntityUpdate.eaten</FONT>>, fillcolor="#e0e7ef:#ffffff", color="#5b6b80"];
-    OFF [label=<<B>spawn offspring</B><BR/><FONT POINT-SIZE="15">if reproduce, not eaten, under cap</FONT>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
+    EATEN [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>despawn eaten prey</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="15">collected from EntityUpdate.eaten</FONT></TD></TR></TABLE>>, fillcolor="#e0e7ef:#ffffff", color="#5b6b80"];
+    OFF [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>spawn offspring</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="15">if reproduce, not eaten, under cap</FONT></TD></TR></TABLE>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
   }
 
   // ---- Outcome ----
-  WORLD [label=<<B>World updated</B><BR/><FONT POINT-SIZE="15">renderer interpolates prev&#8594;cur for the frame</FONT>>, fillcolor="#d8f5de:#effcf2", color="#15803d", penwidth=3.0];
+  WORLD [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>World updated</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="15">renderer interpolates prev&#8594;cur for the frame</FONT></TD></TR></TABLE>>, fillcolor="#d8f5de:#effcf2", color="#15803d", penwidth=3.0];
 
   // ---- Edges ----
-  T0 -> R1 [lhead=cluster_read, label="tick"];
-  R2 -> P1 [ltail=cluster_read, lhead=cluster_compute, label="for each living entity"];
-  P4 -> DQ1 [ltail=cluster_compute, lhead=cluster_apply, label="apply each update"];
+  T0 -> R1 [lhead=cluster_read, label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#d7dee8" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#3d4a5c">tick</FONT></TD></TR></TABLE>>];
+  R2 -> P1 [ltail=cluster_read, lhead=cluster_compute, label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#d7dee8" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#3d4a5c">for each living entity</FONT></TD></TR></TABLE>>];
+  P4 -> DQ1 [ltail=cluster_compute, lhead=cluster_apply, label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#d7dee8" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#3d4a5c">apply each update</FONT></TD></TR></TABLE>>];
 
-  DQ1 -> DEAD [label="yes"];
-  DQ1 -> ALIVE [label="no: survivor"];
-  DQ1 -> OFF [label="reproduced", color="#6b7280", fontcolor="#6b7280", style=dashed, constraint=false];
-  P4 -> EATEN [label="prey eaten this tick", color="#6b7280", fontcolor="#6b7280", style=dashed];
+  DQ1 -> DEAD [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#d7dee8" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#3d4a5c">yes</FONT></TD></TR></TABLE>>];
+  DQ1 -> ALIVE [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#d7dee8" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#3d4a5c">no: survivor</FONT></TD></TR></TABLE>>];
+  DQ1 -> OFF [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#dfe3e9" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#6b7280">reproduced</FONT></TD></TR></TABLE>>, color="#6b7280", fontcolor="#6b7280", style=dashed, constraint=false];
+  P4 -> EATEN [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#dfe3e9" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#6b7280">prey eaten this tick</FONT></TD></TR></TABLE>>, color="#6b7280", fontcolor="#6b7280", style=dashed];
 
   ALIVE -> WORLD [ltail=cluster_apply];
   DEAD -> WORLD [color="#6b7280", fontcolor="#6b7280", style=dashed];

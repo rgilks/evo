@@ -57,7 +57,7 @@ digraph SystemOverview {
       labelloc=t, labeljust=l,
       color="#99d5cf", fillcolor="#f0fdfa", style="rounded,filled", penwidth=1.8, margin=22
     ];
-    H1 [label=<<B>Cloudflare Pages</B><BR/><FONT POINT-SIZE="15">static web/ + _headers (COOP/COEP)</FONT>>, fillcolor="#e6fffb:#ffffff", color="#0f766e"];
+    H1 [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>Cloudflare Pages</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="15">static web/ + _headers (COOP/COEP)</FONT></TD></TR></TABLE>>, fillcolor="#e6fffb:#ffffff", color="#0f766e"];
   }
 
   // ---- Browser ----
@@ -72,8 +72,8 @@ digraph SystemOverview {
       labelloc=t, labeljust=l,
       color="#b9d8ff", fillcolor="#f5faff", style="rounded,filled", penwidth=1.8, margin=22
     ];
-    B1 [label=<<B>app.js render loop</B><BR/><FONT POINT-SIZE="15">step sim at 60Hz, render every frame</FONT>>, fillcolor="#edf7ff:#ffffff", color="#2f80ed"];
-    B2 [label=<<B>UI controls</B><BR/><FONT POINT-SIZE="15">sliders → update_param(SimParam)</FONT>>, fillcolor="#edf7ff:#ffffff", color="#2f80ed"];
+    B1 [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>app.js render loop</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="15">step sim at 60Hz, render every frame</FONT></TD></TR></TABLE>>, fillcolor="#edf7ff:#ffffff", color="#2f80ed"];
+    B2 [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>UI controls</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="15">sliders → update_param(SimParam)</FONT></TD></TR></TABLE>>, fillcolor="#edf7ff:#ffffff", color="#2f80ed"];
     B1 -> B2 [style=invis];
   }
 
@@ -89,15 +89,15 @@ digraph SystemOverview {
       labelloc=t, labeljust=l,
       color="#b8e5c8", fillcolor="#f4fbf6", style="rounded,filled", penwidth=1.8, margin=22
     ];
-    C1 [label=<<B>WebSimulation</B><BR/><FONT POINT-SIZE="15">#[wasm_bindgen] facade</FONT>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
-    C2 [label=<<B>Simulation</B><BR/><FONT POINT-SIZE="15">per-tick orchestrator</FONT>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
-    C3 [label=<<B>hecs World</B><BR/><FONT POINT-SIZE="15">entities + plain-data components</FONT>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
-    C4 [label=<<B>Systems</B><BR/><FONT POINT-SIZE="15">movement · interaction · energy · reproduction</FONT>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
-    C5 [label=<<B>SpatialGrid + cache</B><BR/><FONT POINT-SIZE="15">HashMap cells · per-tick neighbour snapshot</FONT>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
+    C1 [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>WebSimulation</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="15">#[wasm_bindgen] facade</FONT></TD></TR></TABLE>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
+    C2 [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>Simulation</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="15">per-tick orchestrator</FONT></TD></TR></TABLE>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
+    C3 [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>hecs World</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="15">entities + plain-data components</FONT></TD></TR></TABLE>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
+    C4 [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>Systems</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="15">movement · interaction · energy · reproduction</FONT></TD></TR></TABLE>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
+    C5 [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>SpatialGrid + cache</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="15">HashMap cells · per-tick neighbour snapshot</FONT></TD></TR></TABLE>>, fillcolor="#eaf8ef:#ffffff", color="#22865a"];
   }
 
   // ---- Threads ----
-  TP [label=<<B>rayon thread pool</B><BR/><FONT POINT-SIZE="15">wasm-bindgen-rayon over SharedArrayBuffer</FONT>>, fillcolor="#fff4d1:#fffaf0", color="#d39a00"];
+  TP [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>rayon thread pool</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="15">wasm-bindgen-rayon over SharedArrayBuffer</FONT></TD></TR></TABLE>>, fillcolor="#fff4d1:#fffaf0", color="#d39a00"];
 
   // ---- GPU rendering ----
   subgraph cluster_gpu {
@@ -111,29 +111,29 @@ digraph SystemOverview {
       labelloc=t, labeljust=l,
       color="#d6c6ee", fillcolor="#fbf8ff", style="rounded,filled", penwidth=1.8, margin=22
     ];
-    G1 [label=<<B>WebGpuRenderer</B><BR/><FONT POINT-SIZE="15">instanced draw → HDR scene target (additive)</FONT>>, fillcolor="#f5f3ff:#ffffff", color="#7c3aed"];
-    G2 [label=<<B>shader.wgsl</B><BR/><FONT POINT-SIZE="15">interpolate prev→cur · camera · additive core+halo</FONT>>, fillcolor="#f5f3ff:#ffffff", color="#7c3aed"];
-    G3 [label=<<B>postprocess.rs · post.wgsl</B><BR/><FONT POINT-SIZE="15">bright-pass → Gaussian blur → tonemap composite</FONT>>, fillcolor="#f5f3ff:#ffffff", color="#7c3aed"];
-    G1 -> G2 [label="pipeline"];
-    G2 -> G3 [label="HDR scene"];
+    G1 [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>WebGpuRenderer</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="15">instanced draw → HDR scene target (additive)</FONT></TD></TR></TABLE>>, fillcolor="#f5f3ff:#ffffff", color="#7c3aed"];
+    G2 [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>shader.wgsl</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="15">interpolate prev→cur · camera · additive core+halo</FONT></TD></TR></TABLE>>, fillcolor="#f5f3ff:#ffffff", color="#7c3aed"];
+    G3 [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>postprocess.rs · post.wgsl</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="15">bright-pass → Gaussian blur → tonemap composite</FONT></TD></TR></TABLE>>, fillcolor="#f5f3ff:#ffffff", color="#7c3aed"];
+    G1 -> G2 [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#d7dee8" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#3d4a5c">pipeline</FONT></TD></TR></TABLE>>];
+    G2 -> G3 [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#d7dee8" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#3d4a5c">HDR scene</FONT></TD></TR></TABLE>>];
   }
 
   // ---- Output ----
-  CANVAS [label=<<B>&lt;canvas&gt;</B><BR/><FONT POINT-SIZE="15">on-screen frame</FONT>>, fillcolor="#d8f5de:#effcf2", color="#15803d", penwidth=3.0];
+  CANVAS [label=<<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0"><TR><TD><B>&lt;canvas&gt;</B></TD></TR><TR><TD CELLPADDING="4"><FONT POINT-SIZE="15">on-screen frame</FONT></TD></TR></TABLE>>, fillcolor="#d8f5de:#effcf2", color="#15803d", penwidth=3.0];
 
   // ---- Edges ----
-  H1 -> B1 [lhead=cluster_browser, label="serves SPA + WASM"];
+  H1 -> B1 [lhead=cluster_browser, label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#d7dee8" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#3d4a5c">serves SPA + WASM</FONT></TD></TR></TABLE>>];
 
-  B1 -> C1 [lhead=cluster_core, label="update() each tick"];
-  B2 -> C1 [label="update_param(SimParam)", color="#6b7280", fontcolor="#6b7280", style=dashed];
+  B1 -> C1 [lhead=cluster_core, label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#d7dee8" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#3d4a5c">update() each tick</FONT></TD></TR></TABLE>>];
+  B2 -> C1 [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#dfe3e9" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#6b7280">update_param(SimParam)</FONT></TD></TR></TABLE>>, color="#6b7280", fontcolor="#6b7280", style=dashed];
 
-  C1 -> C2 [label="delegates"];
-  C2 -> C4 [label="compute (read-only)"];
-  C2 -> C5 [label="neighbour query"];
-  C2 -> C3 [label="apply: in-place · spawn · despawn"];
-  C4 -> TP [label="par_bridge", color="#6b7280", fontcolor="#6b7280", style=dashed, constraint=false];
+  C1 -> C2 [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#d7dee8" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#3d4a5c">delegates</FONT></TD></TR></TABLE>>];
+  C2 -> C4 [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#d7dee8" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#3d4a5c">compute (read-only)</FONT></TD></TR></TABLE>>];
+  C2 -> C5 [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#d7dee8" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#3d4a5c">neighbour query</FONT></TD></TR></TABLE>>];
+  C2 -> C3 [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#d7dee8" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#3d4a5c">apply: in-place · spawn · despawn</FONT></TD></TR></TABLE>>];
+  C4 -> TP [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#dfe3e9" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#6b7280">par_bridge</FONT></TD></TR></TABLE>>, color="#6b7280", fontcolor="#6b7280", style=dashed, constraint=false];
 
-  B1 -> G1 [lhead=cluster_gpu, label="render(ptr, count, camera)"];
-  C1 -> G1 [label="update_entity_buffer() → *const f32", color="#6b7280", fontcolor="#6b7280", style=dashed];
-  G3 -> CANVAS [ltail=cluster_gpu, label="composite"];
+  B1 -> G1 [lhead=cluster_gpu, label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#d7dee8" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#3d4a5c">render(ptr, count, camera)</FONT></TD></TR></TABLE>>];
+  C1 -> G1 [label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#dfe3e9" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#6b7280">update_entity_buffer() → *const f32</FONT></TD></TR></TABLE>>, color="#6b7280", fontcolor="#6b7280", style=dashed];
+  G3 -> CANVAS [ltail=cluster_gpu, label=<<TABLE BORDER="1" CELLBORDER="0" STYLE="ROUNDED" COLOR="#d7dee8" BGCOLOR="#ffffff" CELLSPACING="0" CELLPADDING="4"><TR><TD><FONT POINT-SIZE="13" COLOR="#3d4a5c">composite</FONT></TD></TR></TABLE>>];
 }
