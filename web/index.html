@@ -181,5 +181,15 @@
     <script src="js/sentry-config.js?v=dev"></script>
     <script src="js/sentry.js?v=dev" defer></script>
     <script type="module" src="js/app.js?v=9b218cf"></script>
+    <!-- Cloudflare Web Analytics: anonymous visit counts, production origin only. -->
+    <script>
+      if (location.hostname.endsWith('tre.systems')) {
+        const beacon = document.createElement('script');
+        beacon.defer = true;
+        beacon.src = 'https://static.cloudflareinsights.com/beacon.min.js';
+        beacon.setAttribute('data-cf-beacon', '{"token": "893eaee1dc1d46109119d2b54cdf023e"}');
+        document.head.appendChild(beacon);
+      }
+    </script>
   </body>
 </html>
